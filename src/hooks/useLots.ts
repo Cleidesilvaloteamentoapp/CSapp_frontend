@@ -1,13 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi, clientApi } from '@/lib/api';
-import { Lot, LotFilters, CreateLotData, UpdateLotData, Development } from '@/types/lot';
+import { Lot, LotFilters, CreateLotData, UpdateLotData, Development, LotDocument } from '@/types/lot';
+import { ClientLot } from '@/types/client';
 import { toast } from 'sonner';
 
 export function useAdminLots(filters?: LotFilters) {
   return useQuery({
     queryKey: ['admin-lots', filters],
     queryFn: async () => {
-      const { data } = await adminApi.lots.list(filters);
+      const { data } = await adminApi.lots.list(filters as Record<string, unknown>);
       return data as Lot[];
     },
   });
@@ -18,20 +19,30 @@ export function useClientLots() {
     queryKey: ['client-lots'],
     queryFn: async () => {
       const { data } = await clientApi.lots.list();
-      return data as Lot[];
+      return data as ClientLot[];
     },
   });
 }
 
-export function useLot(id: string, isAdmin = false) {
+export function useLot(id: string) {
   return useQuery({
     queryKey: ['lot', id],
     queryFn: async () => {
-      const api = isAdmin ? adminApi : clientApi;
-      const { data } = await api.lots.get(id);
+      const { data } = await adminApi.lots.get(id);
       return data as Lot;
     },
     enabled: !!id,
+  });
+}
+
+export function useLotDocuments(lotId: string) {
+  return useQuery({
+    queryKey: ['lot-documents', lotId],
+    queryFn: async () => {
+      const { data } = await clientApi.lots.getDocuments(lotId);
+      return data as { lot_id: string; documents: LotDocument[] };
+    },
+    enabled: !!lotId,
   });
 }
 
@@ -68,23 +79,6 @@ export function useUpdateLot() {
     },
     onError: (error: { message?: string }) => {
       toast.error(error.message || 'Erro ao atualizar lote');
-    },
-  });
-}
-
-export function useDeleteLot() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (id: string) => {
-      await adminApi.lots.delete(id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-lots'] });
-      toast.success('Lote removido com sucesso!');
-    },
-    onError: (error: { message?: string }) => {
-      toast.error(error.message || 'Erro ao remover lote');
     },
   });
 }

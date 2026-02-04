@@ -1,23 +1,5 @@
-export interface Client {
-  id: string;
-  organization_id: string;
-  user_id?: string;
-  name: string;
-  email: string;
-  cpf: string;
-  rg?: string;
-  phone: string;
-  phone_secondary?: string;
-  birth_date?: string;
-  marital_status?: 'single' | 'married' | 'divorced' | 'widowed';
-  profession?: string;
-  address: Address;
-  status: 'active' | 'inactive' | 'pending';
-  notes?: string;
-  referred_by?: string;
-  created_at: string;
-  updated_at: string;
-}
+export type ClientStatus = 'active' | 'inactive' | 'defaulter';
+export type ClientLotStatus = 'active' | 'completed' | 'cancelled';
 
 export interface Address {
   street: string;
@@ -27,50 +9,88 @@ export interface Address {
   city: string;
   state: string;
   zip_code: string;
+  country?: string;
+}
+
+export interface Client {
+  id: string;
+  profile_id: string;
+  email: string;
+  full_name: string;
+  cpf_cnpj: string;
+  phone: string;
+  address: Address | null;
+  documents: string[];
+  status: ClientStatus;
+  asaas_customer_id?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CreateClientData {
-  name: string;
   email: string;
-  cpf: string;
-  rg?: string;
+  password: string;
+  full_name: string;
+  cpf_cnpj: string;
   phone: string;
-  phone_secondary?: string;
-  birth_date?: string;
-  marital_status?: 'single' | 'married' | 'divorced' | 'widowed';
-  profession?: string;
-  address: Address;
-  notes?: string;
-  referred_by?: string;
+  address?: Address;
 }
 
-export interface UpdateClientData extends Partial<CreateClientData> {
-  status?: 'active' | 'inactive' | 'pending';
+export interface UpdateClientData {
+  full_name?: string;
+  phone?: string;
+  status?: ClientStatus;
+  address?: Address;
 }
 
 export interface ClientFilters {
+  status?: ClientStatus;
   search?: string;
-  status?: 'active' | 'inactive' | 'pending';
   page?: number;
-  per_page?: number;
-  sort_by?: string;
-  sort_order?: 'asc' | 'desc';
+  page_size?: number;
+}
+
+export interface PaymentPlan {
+  total_installments: number;
+  installment_value: number;
+  first_due_date: string;
+  down_payment?: number;
 }
 
 export interface ClientLot {
   id: string;
   client_id: string;
+  client_name?: string;
   lot_id: string;
-  contract_number: string;
-  contract_date: string;
+  lot_number?: string;
+  development_name?: string;
+  purchase_date: string;
   total_value: number;
-  down_payment: number;
-  installments: number;
-  installment_value: number;
-  due_day: number;
-  status: 'active' | 'completed' | 'cancelled';
-  lot?: import('./lot').Lot;
-  client?: Client;
+  payment_plan: PaymentPlan;
+  status: ClientLotStatus;
   created_at: string;
-  updated_at: string;
+}
+
+export interface CreateClientLotData {
+  client_id: string;
+  lot_id: string;
+  purchase_date: string;
+  total_value: number;
+  payment_plan: PaymentPlan;
+}
+
+export interface Referral {
+  id: string;
+  referrer_client_id: string;
+  referred_name: string;
+  referred_phone: string;
+  referred_email?: string;
+  status: 'pending' | 'contacted' | 'converted' | 'lost';
+  created_at: string;
+}
+
+export interface CreateReferralData {
+  referred_name: string;
+  referred_phone: string;
+  referred_email?: string;
 }

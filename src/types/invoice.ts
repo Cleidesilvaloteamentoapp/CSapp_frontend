@@ -1,53 +1,32 @@
+export type InvoiceStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
+
 export interface Invoice {
   id: string;
-  organization_id: string;
   client_lot_id: string;
-  installment_number: number;
-  amount: number;
+  asaas_payment_id?: string;
   due_date: string;
-  paid_date?: string;
-  paid_amount?: number;
-  status: 'pending' | 'paid' | 'overdue' | 'cancelled';
+  amount: number;
+  status: InvoiceStatus;
+  installment_number: number;
   barcode?: string;
-  boleto_url?: string;
-  pix_code?: string;
-  notes?: string;
-  client_lot?: import('./client').ClientLot;
+  payment_url?: string;
+  paid_at?: string;
   created_at: string;
-  updated_at: string;
+  lot_number?: string;
+  development_name?: string;
 }
 
 export interface InvoiceFilters {
   client_lot_id?: string;
-  status?: 'pending' | 'paid' | 'overdue' | 'cancelled';
-  due_date_start?: string;
-  due_date_end?: string;
+  status?: InvoiceStatus;
   page?: number;
-  per_page?: number;
+  page_size?: number;
 }
 
-export interface PaymentRecord {
-  id: string;
-  invoice_id: string;
-  amount: number;
-  payment_date: string;
-  payment_method: 'boleto' | 'pix' | 'transfer' | 'cash' | 'card';
-  receipt_url?: string;
-  notes?: string;
-  created_at: string;
-}
-
-export interface FinancialSummary {
-  total_receivable: number;
-  total_received: number;
+export interface InvoiceListResponse {
+  items: Invoice[];
+  total: number;
+  total_pending: number;
+  total_paid: number;
   total_overdue: number;
-  pending_count: number;
-  paid_count: number;
-  overdue_count: number;
-  monthly_data: Array<{
-    month: string;
-    received: number;
-    pending: number;
-    overdue: number;
-  }>;
 }

@@ -2,7 +2,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { supabase } from './supabase';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
@@ -34,17 +34,25 @@ api.interceptors.response.use(
       }
     }
 
-    if (!navigator.onLine) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return Promise.reject({
         message: 'Você está offline. Verifique sua conexão.',
         isOffline: true,
       });
     }
 
-    const message =
-      (error.response?.data as { message?: string })?.message ||
-      error.message ||
-      'Erro ao processar requisição';
+    const responseData = error.response?.data as { detail?: string | Array<{ msg: string }> };
+    let message = 'Erro ao processar requisição';
+    
+    if (responseData?.detail) {
+      if (typeof responseData.detail === 'string') {
+        message = responseData.detail;
+      } else if (Array.isArray(responseData.detail)) {
+        message = responseData.detail.map(e => e.msg).join(', ');
+      }
+    } else if (error.message) {
+      message = error.message;
+    }
 
     return Promise.reject({
       message,
@@ -56,9 +64,19 @@ api.interceptors.response.use(
 
 export default api;
 
+export const authApi = {
+  login: (email: string, password: string) => 
+    api.post('/auth/login', { email, password }),
+  me: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout'),
+  refresh: (refreshToken: string) => 
+    api.post('/auth/refresh', { refresh_token: refreshToken }),
+};
+
 export const adminApi = {
   dashboard: {
     getStats: () => api.get('/admin/dashboard/stats'),
+    getFinancial: () => api.get('/admin/dashboard/financial'),
   },
   clients: {
     list: (params?: Record<string, unknown>) => api.get('/admin/clients', { params }),
@@ -67,37 +85,32 @@ export const adminApi = {
     update: (id: string, data: unknown) => api.put(`/admin/clients/${id}`, data),
     delete: (id: string) => api.delete(`/admin/clients/${id}`),
   },
+  developments: {
+    list: (params?: Record<string, unknown>) => api.get('/admin/developments', { params }),
+    get: (id: string) => api.get(`/admin/developments/${id}`),
+    create: (data: unknown) => api.post('/admin/developments', data),
+    update: (id: string, data: unknown) => api.put(`/admin/developments/${id}`, data),
+  },
   lots: {
     list: (params?: Record<string, unknown>) => api.get('/admin/lots', { params }),
     get: (id: string) => api.get(`/admin/lots/${id}`),
     create: (data: unknown) => api.post('/admin/lots', data),
     update: (id: string, data: unknown) => api.put(`/admin/lots/${id}`, data),
-    delete: (id: string) => api.delete(`/admin/lots/${id}`),
   },
-  invoices: {
-    list: (params?: Record<string, unknown>) => api.get('/admin/invoices', { params }),
-    get: (id: string) => api.get(`/admin/invoices/${id}`),
-    create: (data: unknown) => api.post('/admin/invoices', data),
-    update: (id: string, data: unknown) => api.put(`/admin/invoices/${id}`, data),
-    markAsPaid: (id: string, data: unknown) => api.post(`/admin/invoices/${id}/pay`, data),
-  },
-  serviceOrders: {
-    list: (params?: Record<string, unknown>) => api.get('/admin/service-orders', { params }),
-    get: (id: string) => api.get(`/admin/service-orders/${id}`),
-    update: (id: string, data: unknown) => api.put(`/admin/service-orders/${id}`, data),
+  clientLots: {
+    create: (data: unknown) => api.post('/admin/client-lots', data),
   },
   serviceTypes: {
     list: (params?: Record<string, unknown>) => api.get('/admin/service-types', { params }),
     get: (id: string) => api.get(`/admin/service-types/${id}`),
     create: (data: unknown) => api.post('/admin/service-types', data),
     update: (id: string, data: unknown) => api.put(`/admin/service-types/${id}`, data),
-    delete: (id: string) => api.delete(`/admin/service-types/${id}`),
   },
-  developments: {
-    list: (params?: Record<string, unknown>) => api.get('/admin/developments', { params }),
-    get: (id: string) => api.get(`/admin/developments/${id}`),
-    create: (data: unknown) => api.post('/admin/developments', data),
-    update: (id: string, data: unknown) => api.put(`/admin/developments/${id}`, data),
+  serviceOrders: {
+    list: (params?: Record<string, unknown>) => api.get('/admin/service-orders', { params }),
+    get: (id: string) => api.get(`/admin/service-orders/${id}`),
+    update: (id: string, data: unknown) => api.put(`/admin/service-orders/${id}`, data),
+    analytics: (params?: Record<string, unknown>) => api.get('/admin/service-orders/analytics', { params }),
   },
 };
 
@@ -107,32 +120,32 @@ export const clientApi = {
   },
   lots: {
     list: () => api.get('/client/lots'),
-    get: (id: string) => api.get(`/client/lots/${id}`),
+    getDocuments: (lotId: string) => api.get(`/client/lots/${lotId}/documents`),
   },
   invoices: {
     list: (params?: Record<string, unknown>) => api.get('/client/invoices', { params }),
     get: (id: string) => api.get(`/client/invoices/${id}`),
-    downloadBoleto: (id: string) => api.get(`/client/invoices/${id}/boleto`, { responseType: 'blob' }),
+  },
+  serviceTypes: {
+    list: () => api.get('/client/service-types'),
   },
   serviceOrders: {
     list: (params?: Record<string, unknown>) => api.get('/client/service-orders', { params }),
     get: (id: string) => api.get(`/client/service-orders/${id}`),
     create: (data: unknown) => api.post('/client/service-orders', data),
   },
-  serviceTypes: {
-    list: () => api.get('/client/service-types'),
-  },
   documents: {
     list: () => api.get('/client/documents'),
-    get: (id: string) => api.get(`/client/documents/${id}`),
-    download: (id: string) => api.get(`/client/documents/${id}/download`, { responseType: 'blob' }),
+    upload: (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return api.post('/client/documents', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    },
   },
   referrals: {
     list: () => api.get('/client/referrals'),
     create: (data: unknown) => api.post('/client/referrals', data),
-  },
-  profile: {
-    get: () => api.get('/client/profile'),
-    update: (data: unknown) => api.put('/client/profile', data),
   },
 };

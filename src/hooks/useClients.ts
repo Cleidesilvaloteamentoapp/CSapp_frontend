@@ -1,14 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/api';
 import { Client, ClientFilters, CreateClientData, UpdateClientData } from '@/types/client';
+import { PaginatedResponse } from '@/types';
 import { toast } from 'sonner';
 
 export function useClients(filters?: ClientFilters) {
   return useQuery({
     queryKey: ['clients', filters],
     queryFn: async () => {
-      const { data } = await adminApi.clients.list(filters);
-      return data as Client[];
+      const { data } = await adminApi.clients.list(filters as Record<string, unknown>);
+      return data as PaginatedResponse<Client>;
     },
   });
 }

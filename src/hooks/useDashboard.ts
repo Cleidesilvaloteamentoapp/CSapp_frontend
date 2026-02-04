@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { adminApi, clientApi } from '@/lib/api';
-import { DashboardStats, ClientDashboard } from '@/types';
+import { AdminDashboardStats, AdminDashboardFinancial, ClientDashboard } from '@/types';
 import { useOfflineStore } from '@/store/offlineStore';
 import { useOnline } from './useOnline';
 
@@ -13,13 +13,24 @@ export function useAdminDashboard() {
     queryFn: async () => {
       const { data } = await adminApi.dashboard.getStats();
       setCachedData('dashboard', data);
-      return data as DashboardStats;
+      return data as AdminDashboardStats;
     },
     placeholderData: () => {
       if (!isOnline) {
-        return getCachedData('dashboard') as DashboardStats | undefined;
+        return getCachedData('dashboard') as AdminDashboardStats | undefined;
       }
       return undefined;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useAdminFinancialDashboard() {
+  return useQuery({
+    queryKey: ['admin-dashboard-financial'],
+    queryFn: async () => {
+      const { data } = await adminApi.dashboard.getFinancial();
+      return data as AdminDashboardFinancial;
     },
     staleTime: 1000 * 60 * 5,
   });

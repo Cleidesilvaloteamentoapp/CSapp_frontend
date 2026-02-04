@@ -1,13 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi, clientApi } from '@/lib/api';
-import { ServiceOrder, ServiceOrderFilters, CreateServiceOrderData, UpdateServiceOrderData, ServiceType } from '@/types/service';
+import { 
+  ServiceOrder, 
+  ServiceOrderFilters, 
+  CreateServiceOrderData, 
+  UpdateServiceOrderData, 
+  ServiceType,
+  ServiceOrderAnalytics 
+} from '@/types/service';
 import { toast } from 'sonner';
 
 export function useAdminServiceOrders(filters?: ServiceOrderFilters) {
   return useQuery({
     queryKey: ['admin-service-orders', filters],
     queryFn: async () => {
-      const { data } = await adminApi.serviceOrders.list(filters);
+      const { data } = await adminApi.serviceOrders.list(filters as Record<string, unknown>);
       return data as ServiceOrder[];
     },
   });
@@ -17,7 +24,7 @@ export function useClientServiceOrders(filters?: ServiceOrderFilters) {
   return useQuery({
     queryKey: ['client-service-orders', filters],
     queryFn: async () => {
-      const { data } = await clientApi.serviceOrders.list(filters);
+      const { data } = await clientApi.serviceOrders.list(filters as Record<string, unknown>);
       return data as ServiceOrder[];
     },
   });
@@ -80,6 +87,16 @@ export function useServiceTypes(forClient = false) {
         ? await clientApi.serviceTypes.list()
         : await adminApi.serviceTypes.list();
       return data as ServiceType[];
+    },
+  });
+}
+
+export function useServiceOrderAnalytics(dateFrom?: string, dateTo?: string) {
+  return useQuery({
+    queryKey: ['service-order-analytics', dateFrom, dateTo],
+    queryFn: async () => {
+      const { data } = await adminApi.serviceOrders.analytics({ date_from: dateFrom, date_to: dateTo });
+      return data as ServiceOrderAnalytics;
     },
   });
 }
