@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1',
-  timeout: 15000,
+  timeout: 10000, // Reduced timeout to fail faster
   headers: {
     'Content-Type': 'application/json',
   },
@@ -11,10 +11,14 @@ const api = axios.create({
 
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    const { data } = await supabase.auth.getSession();
-
-    if (data.session?.access_token) {
-      config.headers.Authorization = `Bearer ${data.session.access_token}`;
+    try {
+      const { data } = await supabase.auth.getSession();
+      
+      if (data.session?.access_token) {
+        config.headers.Authorization = `Bearer ${data.session.access_token}`;
+      }
+    } catch (error) {
+      console.warn('Failed to get session for API request:', error);
     }
 
     return config;
@@ -27,13 +31,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      await supabase.auth.signOut();
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      }
-    }
-
+    // NÃO fazer logout automático em 401 - deixar a aplicação decidir
+    // O dashboard pode falhar mas o usuário ainda está autenticado no Supabase
+    
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return Promise.reject({
         message: 'Você está offline. Verifique sua conexão.',

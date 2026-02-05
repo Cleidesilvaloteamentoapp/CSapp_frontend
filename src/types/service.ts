@@ -31,12 +31,18 @@ export interface ServiceOrder {
   lot_number?: string;
   service_type_id: string;
   service_type_name?: string;
+  service_type?: ServiceType;
+  order_number?: string;
+  description?: string;
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
   requested_date: string;
+  scheduled_date?: string;
   execution_date?: string;
   status: ServiceOrderStatus;
   cost: number;
   revenue?: number;
   notes?: string;
+  admin_notes?: string;
   created_at: string;
   updated_at: string;
 }

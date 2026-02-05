@@ -12,8 +12,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 1000 * 60 * 5,
             gcTime: 1000 * 60 * 30,
-            retry: (failureCount, error: { isOffline?: boolean }) => {
-              if (error?.isOffline) return false;
+            retry: (failureCount) => {
               return failureCount < 2;
             },
             refetchOnWindowFocus: true,

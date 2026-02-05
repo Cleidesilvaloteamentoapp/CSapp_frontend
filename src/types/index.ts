@@ -9,9 +9,11 @@ export interface User {
   id: string;
   email: string;
   full_name: string;
+  name?: string;
   cpf_cnpj?: string;
   phone?: string;
   role: UserRole;
+  avatar_url?: string;
   created_at: string;
 }
 
@@ -43,6 +45,11 @@ export interface AdminDashboardStats {
   sold_lots: number;
   open_service_orders: number;
   completed_service_orders: number;
+  active_contracts?: number;
+  pending_invoices?: number;
+  overdue_amount?: number;
+  monthly_revenue?: { month: string; revenue: number }[];
+  recent_payments?: { id: string; client_name: string; amount: number; paid_at: string }[];
 }
 
 export interface Defaulter {
@@ -66,12 +73,15 @@ export interface AdminDashboardFinancial {
 }
 
 export interface ClientDashboardLot {
+  id?: string;
   client_lot_id: string;
   lot_number: string;
+  block?: string;
   area_m2: number;
   development_name: string;
   total_value: number;
   status: string;
+  address?: string;
 }
 
 export interface ClientNotification {
@@ -88,7 +98,11 @@ export interface ClientDashboard {
   lots: ClientDashboardLot[];
   pending_invoices: number;
   total_pending_amount: number;
+  total_pending?: number;
+  total_paid?: number;
+  pending_services?: number;
   next_due_date: string | null;
+  next_invoice?: { due_date: string; amount: number };
   open_service_orders: number;
   recent_notifications: ClientNotification[];
 }

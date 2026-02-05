@@ -18,8 +18,8 @@ import {
 const navItems = [
   { href: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/admin/clients', icon: Users, label: 'Clientes' },
+  { href: '/admin/developments', icon: Building2, label: 'Empreendimentos' },
   { href: '/admin/lots', icon: MapPin, label: 'Lotes' },
-  { href: '/admin/financial', icon: Receipt, label: 'Financeiro' },
   { href: '/admin/services', icon: Wrench, label: 'Serviços' },
   { href: '/admin/settings', icon: Settings, label: 'Configurações' },
 ];

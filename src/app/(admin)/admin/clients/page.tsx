@@ -32,7 +32,8 @@ export default function ClientsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
-  const { data: clients, isLoading, error, refetch } = useClients({ search });
+  const { data: clientsData, isLoading, error, refetch } = useClients({ search });
+  const clients = clientsData?.items || [];
   const deleteClient = useDeleteClient();
 
   const handleDelete = async () => {
@@ -104,12 +105,12 @@ export default function ClientsPage() {
                     <tr key={client.id} className="border-b hover:bg-muted/50">
                       <td className="py-3 px-4">
                         <div>
-                          <p className="font-medium">{client.name}</p>
+                          <p className="font-medium">{client.full_name}</p>
                           <p className="text-sm text-muted-foreground">{client.email}</p>
                         </div>
                       </td>
                       <td className="py-3 px-4 hidden md:table-cell">
-                        {formatCPF(client.cpf)}
+                        {formatCPF(client.cpf_cnpj)}
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell">
                         {formatPhone(client.phone)}
@@ -166,7 +167,7 @@ export default function ClientsPage() {
           <DialogHeader>
             <DialogTitle>Confirmar Exclusão</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir o cliente {selectedClient?.name}? Esta
+              Tem certeza que deseja excluir o cliente {selectedClient?.full_name}? Esta
               ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>

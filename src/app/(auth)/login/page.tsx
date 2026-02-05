@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,8 +16,15 @@ import { toast } from 'sonner';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, isLoading } = useAuthStore();
+  const { login, isLoading, isAuthenticated, user } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      const redirectPath = user.role === 'admin' ? '/admin/dashboard' : '/dashboard';
+      router.replace(redirectPath);
+    }
+  }, [isLoading, isAuthenticated, user, router]);
 
   const {
     register,
@@ -28,21 +35,28 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
+    console.log('[LoginPage] Login attempt started:', data.email);
     try {
       await login(data.email, data.password);
-      const user = useAuthStore.getState().user;
-      
-      if (user?.role === 'admin') {
-        router.push('/admin/dashboard');
-      } else {
-        router.push('/dashboard');
-      }
-      
+      console.log('[LoginPage] Login successful');
       toast.success('Login realizado com sucesso!');
     } catch (error) {
+      console.error('[LoginPage] Login failed:', error);
       toast.error('Email ou senha inválidos');
     }
   };
+
+  // Se já está autenticado, mostra loading enquanto redireciona
+  if (isAuthenticated && user) {
+    return (
+      <Card className="w-full max-w-md">
+        <CardContent className="flex items-center justify-center p-8">
+          <ButtonLoading className="mr-2" />
+          <span>Redirecionando...</span>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-md">

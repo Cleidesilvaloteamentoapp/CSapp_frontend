@@ -15,9 +15,9 @@ export function useAuth(requiredRole?: 'admin' | 'client') {
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
-        router.push('/login');
+        router.replace('/login');
       } else if (requiredRole && user?.role !== requiredRole) {
-        router.push(user?.role === 'admin' ? '/admin/dashboard' : '/dashboard');
+        router.replace(user?.role === 'admin' ? '/admin/dashboard' : '/dashboard');
       }
     }
   }, [isAuthenticated, isLoading, requiredRole, router, user?.role]);

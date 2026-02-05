@@ -31,8 +31,9 @@ export default function ClientFinancialPage() {
     return <ErrorMessage message="Erro ao carregar boletos" onRetry={refetch} />;
   }
 
-  const pendingInvoices = invoices?.filter((i) => i.status === 'pending' || i.status === 'overdue') || [];
-  const paidInvoices = invoices?.filter((i) => i.status === 'paid') || [];
+  const allInvoices = invoices?.items || [];
+  const pendingInvoices = allInvoices.filter((i) => i.status === 'pending' || i.status === 'overdue');
+  const paidInvoices = allInvoices.filter((i) => i.status === 'paid');
 
   return (
     <div className="space-y-6">
@@ -95,11 +96,11 @@ export default function ClientFinancialPage() {
                       <Download className="mr-2 h-4 w-4" />
                       Baixar Boleto
                     </Button>
-                    {invoice.pix_code && (
+                    {invoice.barcode && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleCopyPixCode(invoice.pix_code!, invoice.id)}
+                        onClick={() => handleCopyPixCode(invoice.barcode!, invoice.id)}
                       >
                         {copiedId === invoice.id ? (
                           <>
@@ -141,12 +142,12 @@ export default function ClientFinancialPage() {
                   <div>
                     <p className="font-medium">Parcela {invoice.installment_number}</p>
                     <p className="text-sm text-muted-foreground">
-                      Pago em {invoice.paid_date ? formatDate(invoice.paid_date) : '-'}
+                      Pago em {invoice.paid_at ? formatDate(invoice.paid_at) : '-'}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-green-600">
-                      {formatCurrency(invoice.paid_amount || invoice.amount)}
+                      {formatCurrency(invoice.amount)}
                     </p>
                     <Badge variant="success">Pago</Badge>
                   </div>

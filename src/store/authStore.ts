@@ -1,8 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { User } from '@/types';
 import { supabase, signInWithEmail, signOut as supabaseSignOut } from '@/lib/supabase';
-import api from '@/lib/api';
 
 interface AuthState {
   user: User | null;
@@ -13,37 +11,48 @@ interface AuthState {
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   clearError: () => void;
-  setUser: (user: User | null) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      user: null,
-      isAuthenticated: false,
-      isLoading: true,
-      error: null,
+export const useAuthStore = create<AuthState>()((set) => ({
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+  error: null,
 
-      login: async (email: string, password: string) => {
-        set({ isLoading: true, error: null });
-        try {
-          await signInWithEmail(email, password);
-          const { data } = await api.get('/auth/me');
-          set({
-            user: data,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'Erro ao fazer login';
-          set({
-            error: message,
-            isLoading: false,
-            isAuthenticated: false,
-          });
-          throw error;
-        }
-      },
+  login: async (email: string, password: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await signInWithEmail(email, password);
+      
+      if (result.user) {
+        const user: User = {
+          id: result.user.id,
+          email: result.user.email || '',
+          full_name: result.user.user_metadata?.full_name || result.user.email?.split('@')[0] || '',
+          cpf_cnpj: result.user.user_metadata?.cpf_cnpj,
+          phone: result.user.user_metadata?.phone,
+          role: result.user.user_metadata?.role || 'client',
+          created_at: result.user.created_at,
+        };
+        
+        set({
+          user,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        });
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao fazer login';
+      set({
+        error: message,
+        isLoading: false,
+        isAuthenticated: false,
+        user: null,
+      });
+      throw error;
+    }
+  },
 
       logout: async () => {
         set({ isLoading: true });
@@ -61,44 +70,43 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      checkAuth: async () => {
-        set({ isLoading: true });
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          if (session) {
-            const { data } = await api.get('/auth/me');
-            set({
-              user: data,
-              isAuthenticated: true,
-              isLoading: false,
-            });
-          } else {
-            set({
-              user: null,
-              isAuthenticated: false,
-              isLoading: false,
-            });
-          }
-        } catch {
-          set({
-            user: null,
-            isAuthenticated: false,
-            isLoading: false,
-          });
-        }
-      },
-
-      clearError: () => set({ error: null }),
-
-      setUser: (user) => set({ user, isAuthenticated: !!user }),
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
-      }),
+  checkAuth: async () => {
+    set({ isLoading: true });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        const user: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '',
+          cpf_cnpj: session.user.user_metadata?.cpf_cnpj,
+          phone: session.user.user_metadata?.phone,
+          role: session.user.user_metadata?.role || 'client',
+          created_at: session.user.created_at,
+        };
+        
+        set({
+          user,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      } else {
+        set({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+      }
+    } catch (error) {
+      console.error('checkAuth error:', error);
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
     }
-  )
-);
+  },
+
+  clearError: () => set({ error: null }),
+}));

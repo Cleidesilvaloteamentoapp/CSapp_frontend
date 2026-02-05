@@ -92,3 +92,41 @@ export function useDevelopments() {
     },
   });
 }
+
+export const useAdminDevelopments = useDevelopments;
+
+export function useCreateDevelopment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (devData: { name: string; description?: string; location: string }) => {
+      const { data } = await adminApi.developments.create(devData);
+      return data as Development;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['developments'] });
+      toast.success('Empreendimento criado com sucesso!');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Erro ao criar empreendimento');
+    },
+  });
+}
+
+export function useUpdateDevelopment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { name?: string; description?: string; location?: string } }) => {
+      const response = await adminApi.developments.update(id, data);
+      return response.data as Development;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['developments'] });
+      toast.success('Empreendimento atualizado com sucesso!');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Erro ao atualizar empreendimento');
+    },
+  });
+}

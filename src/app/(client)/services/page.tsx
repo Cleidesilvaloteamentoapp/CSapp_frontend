@@ -70,9 +70,11 @@ export default function ClientServicesPage() {
                         <Badge className={getStatusColor(order.status)}>
                           {getStatusLabel(order.status)}
                         </Badge>
+                        {order.priority && (
                         <Badge variant="outline">
                           {getStatusLabel(order.priority)}
                         </Badge>
+                        )}
                       </div>
                       <p className="text-sm font-medium">
                         {order.service_type?.name}

@@ -100,3 +100,39 @@ export function useServiceOrderAnalytics(dateFrom?: string, dateTo?: string) {
     },
   });
 }
+
+export function useCreateServiceType() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (typeData: { name: string; description?: string; base_price: number; is_active?: boolean }) => {
+      const { data } = await adminApi.serviceTypes.create(typeData);
+      return data as ServiceType;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['service-types'] });
+      toast.success('Tipo de serviço criado com sucesso!');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Erro ao criar tipo de serviço');
+    },
+  });
+}
+
+export function useUpdateServiceType() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { name?: string; description?: string; base_price?: number; is_active?: boolean } }) => {
+      const response = await adminApi.serviceTypes.update(id, data);
+      return response.data as ServiceType;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['service-types'] });
+      toast.success('Tipo de serviço atualizado com sucesso!');
+    },
+    onError: (error: { message?: string }) => {
+      toast.error(error.message || 'Erro ao atualizar tipo de serviço');
+    },
+  });
+}
