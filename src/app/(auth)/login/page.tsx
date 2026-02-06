@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { loginSchema, type LoginFormData } from "@/lib/validators";
-import { login } from "@/lib/auth";
+import { login, canAccessAdmin } from "@/lib/auth";
 import { getDefaultRedirect } from "@/lib/auth";
 import { useAuth } from "@/contexts/auth-context";
 import { ApiError } from "@/lib/api";
@@ -33,8 +33,19 @@ function LoginForm() {
       const me = await login(data);
       await refreshUser();
       toast.success(`Bem-vindo, ${me.full_name}!`);
-      const redirect = searchParams.get("redirect") || getDefaultRedirect(me.role);
-      router.push(redirect);
+      const defaultRedirect = getDefaultRedirect(me.role);
+      const requestedRedirect = searchParams.get("redirect");
+      // Validate redirect matches user role to prevent cross-layout loops
+      let redirect = defaultRedirect;
+      if (requestedRedirect) {
+        const isAdmin = canAccessAdmin(me.role);
+        const isAdminRoute = requestedRedirect.startsWith("/admin");
+        const isPortalRoute = requestedRedirect.startsWith("/portal");
+        if ((isAdmin && isAdminRoute) || (!isAdmin && isPortalRoute)) {
+          redirect = requestedRedirect;
+        }
+      }
+      router.replace(redirect);
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.status === 401) {

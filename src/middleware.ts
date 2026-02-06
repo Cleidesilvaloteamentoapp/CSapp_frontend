@@ -11,7 +11,8 @@ export function middleware(request: NextRequest) {
 
   if (PUBLIC_PATHS.some((p) => pathname === p)) {
     if (accessToken && (pathname === "/login" || pathname === "/signup")) {
-      return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+      // Redirect to home page which will route based on user role
+      return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
   }

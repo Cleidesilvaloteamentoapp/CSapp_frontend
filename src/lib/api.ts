@@ -63,17 +63,29 @@ async function fetchWithAuth(
       if (newToken) {
         reqHeaders["Authorization"] = `Bearer ${newToken}`;
       }
-      return fetch(`${API_URL}${endpoint}`, {
+      const retryResponse = await fetch(`${API_URL}${endpoint}`, {
         method,
         headers: reqHeaders,
         body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
         ...rest,
       });
+
+      if (!retryResponse.ok) {
+        let detail: string | Array<{ loc: string[]; msg: string; type: string }>;
+        try {
+          const errorData = await retryResponse.json();
+          detail = errorData.detail || `Erro ${retryResponse.status}`;
+        } catch {
+          detail = `Erro ${retryResponse.status}: ${retryResponse.statusText}`;
+        }
+        throw new ApiError(retryResponse.status, detail);
+      }
+
+      return retryResponse;
     }
 
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
+    // Refresh failed — session expired. Let auth context handle redirect.
+    clearTokenCookies();
     throw new ApiError(401, "Sessão expirada. Faça login novamente.");
   }
 

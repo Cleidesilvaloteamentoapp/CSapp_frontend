@@ -9,25 +9,19 @@ import { PortalSidebar } from "@/components/layout/portal-sidebar";
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-
   useEffect(() => {
     if (!loading && !user) {
-      router.push("/login");
-    }
-    if (!loading && user && user.role !== "client") {
-      router.push("/admin/dashboard");
+      router.replace("/login");
     }
   }, [user, loading, router]);
 
-  if (loading) {
+  if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
-
-  if (!user || user.role !== "client") return null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

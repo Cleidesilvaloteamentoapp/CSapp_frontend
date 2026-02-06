@@ -22,8 +22,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async () => {
     try {
       const me = await getMe();
+      console.log("[AuthProvider] getMe result:", me ? { role: me.role, email: me.email } : null);
       setUser(me);
     } catch {
+      console.log("[AuthProvider] getMe failed");
       setUser(null);
     } finally {
       setLoading(false);
