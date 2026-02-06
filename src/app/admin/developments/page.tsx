@@ -63,7 +63,7 @@ export default function DevelopmentsPage() {
         await api.put(`/admin/developments/${editing.id}`, data);
         toast.success("Empreendimento atualizado");
       } else {
-        await api.post("/admin/developments/", data);
+        await api.post("/admin/developments", data);
         toast.success("Empreendimento criado");
       }
       setFormOpen(false);

@@ -95,7 +95,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
         });
         toast.success("Cliente atualizado com sucesso");
       } else {
-        await api.post("/admin/clients/", data);
+        await api.post("/admin/clients", data);
         toast.success("Cliente cadastrado com sucesso");
       }
       onSuccess();

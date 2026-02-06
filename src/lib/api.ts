@@ -35,6 +35,11 @@ async function fetchWithAuth(
 ): Promise<Response> {
   const { method = "GET", headers = {}, body, ...rest } = options;
 
+  // Strip trailing slash — backend routes are defined without trailing slashes
+  if (endpoint.length > 1 && endpoint.endsWith("/")) {
+    endpoint = endpoint.slice(0, -1);
+  }
+
   const token = getTokenFromCookies();
 
   const reqHeaders: Record<string, string> = {

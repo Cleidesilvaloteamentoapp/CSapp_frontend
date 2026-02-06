@@ -35,11 +35,12 @@ export async function getMe(): Promise<MeResponse | null> {
 }
 
 export function canAccessAdmin(role: string): boolean {
-  return ["super_admin", "company_admin"].includes(role);
+  const normalized = role.toLowerCase();
+  return ["super_admin", "company_admin"].includes(normalized);
 }
 
 export function canAccessSuperAdmin(role: string): boolean {
-  return role === "super_admin";
+  return role.toLowerCase() === "super_admin";
 }
 
 export function getDefaultRedirect(role: string): string {

@@ -88,7 +88,7 @@ export default function LotsPage() {
 
   async function onCreateSubmit(data: LotCreateFormData) {
     try {
-      await api.post("/admin/lots/", data);
+      await api.post("/admin/lots", data);
       toast.success("Lote criado com sucesso");
       setCreateOpen(false);
       createForm.reset();
