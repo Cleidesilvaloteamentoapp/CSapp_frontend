@@ -1,0 +1,132 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+/* 
+ * CSApp Custom Palette
+ * Cinza Grafite  #2C3E50 — primary (marca)
+ * Areia Quente   #D5BDA7 — accent (destaque acolhedor)
+ * Cinza Médio    #7F8C8D — muted (secundário)
+ * Verde Suave    #27AE60 — success
+ * Branco Gelo    #F8F9FA — background
+ * Cinza Claro    #ECF0F1 — card/section bg
+ */
+
+:root {
+  --radius: 0.625rem;
+
+  /* Branco Gelo — fundo principal */
+  --background: #F8F9FA;
+  --foreground: #2C3E50;
+
+  /* Cinza Claro — cards */
+  --card: #FFFFFF;
+  --card-foreground: #2C3E50;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #2C3E50;
+
+  /* Cinza Grafite — cor da marca */
+  --primary: #2C3E50;
+  --primary-foreground: #FFFFFF;
+
+  /* Cinza Claro — secondary */
+  --secondary: #ECF0F1;
+  --secondary-foreground: #2C3E50;
+
+  /* Cinza Médio — muted */
+  --muted: #ECF0F1;
+  --muted-foreground: #7F8C8D;
+
+  /* Areia Quente — accent */
+  --accent: #D5BDA7;
+  --accent-foreground: #2C3E50;
+
+  /* Verde Suave — success */
+  --success: #27AE60;
+  --success-foreground: #FFFFFF;
+
+  /* Warning */
+  --warning: #F39C12;
+  --warning-foreground: #FFFFFF;
+
+  --destructive: #E74C3C;
+
+  --border: #DDE1E3;
+  --input: #DDE1E3;
+  --ring: #D5BDA7;
+
+  /* Charts — tons terrosos e profissionais */
+  --chart-1: #2C3E50;
+  --chart-2: #D5BDA7;
+  --chart-3: #27AE60;
+  --chart-4: #7F8C8D;
+  --chart-5: #E67E22;
+
+  /* Sidebar */
+  --sidebar: #2C3E50;
+  --sidebar-foreground: #ECF0F1;
+  --sidebar-primary: #D5BDA7;
+  --sidebar-primary-foreground: #2C3E50;
+  --sidebar-accent: #34495E;
+  --sidebar-accent-foreground: #ECF0F1;
+  --sidebar-border: #34495E;
+  --sidebar-ring: #D5BDA7;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
