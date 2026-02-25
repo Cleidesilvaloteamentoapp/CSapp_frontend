@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, Wrench, FolderOpen, Users, Building2, LogOut, ChevronLeft } from "lucide-react";
+import { LayoutDashboard, FileText, Wrench, FolderOpen, Users, Barcode, Building2, LogOut, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/portal/services", label: "Serviços", icon: Wrench },
   { href: "/portal/documents", label: "Documentos", icon: FolderOpen },
   { href: "/portal/referrals", label: "Indicações", icon: Users },
+  { href: "/portal/boletos", label: "Boletos", icon: Barcode },
 ];
 
 export function PortalSidebar() {

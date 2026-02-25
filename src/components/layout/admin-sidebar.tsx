@@ -9,6 +9,8 @@ import {
   LandPlot,
   DollarSign,
   Wrench,
+  Barcode,
+  Settings,
   Building2,
   LogOut,
   ChevronLeft,
@@ -28,6 +30,8 @@ const NAV_ITEMS = [
   { href: "/admin/lots", label: "Lotes", icon: LandPlot },
   { href: "/admin/financial", label: "Financeiro", icon: DollarSign },
   { href: "/admin/services", label: "Serviços", icon: Wrench },
+  { href: "/admin/sicredi/boletos", label: "Boletos", icon: Barcode },
+  { href: "/admin/sicredi/config", label: "Config Sicredi", icon: Settings },
 ];
 
 export function AdminSidebar() {

@@ -358,3 +358,6 @@ export interface PaginatedResponse<T> {
 export interface ApiError {
   detail: string | Array<{ loc: string[]; msg: string; type: string }>;
 }
+
+// ===================== Sicredi =====================
+export * from "./sicredi";
