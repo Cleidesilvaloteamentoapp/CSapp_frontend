@@ -135,6 +135,7 @@ export default function CreateBoletoPage() {
 
   const form = useForm<BoletoFormValues>({
     resolver: zodResolver(boletoSchema) as any,
+    mode: "onChange",
     defaultValues: {
       tipo_cobranca: "NORMAL",
       tipo_pessoa: "PESSOA_FISICA",
@@ -148,7 +149,7 @@ export default function CreateBoletoPage() {
       telefone: "",
       especie_documento: "DUPLICATA_MERCANTIL_INDICACAO",
       data_vencimento: "",
-      valor: 0,
+      valor: "" as any,
       seu_numero: "",
       tipo_desconto: "ISENTO",
       valor_desconto_1: 0,
@@ -164,7 +165,26 @@ export default function CreateBoletoPage() {
 
   const watchedValues = form.watch();
 
-  function handleNext() {
+  async function handleNext() {
+    // Validate current step fields before advancing
+    let fieldsToValidate: (keyof BoletoFormValues)[] = [];
+    
+    if (step === 0) {
+      fieldsToValidate = ["tipo_cobranca"];
+    } else if (step === 1) {
+      fieldsToValidate = ["tipo_pessoa", "documento", "nome", "endereco", "cidade", "uf", "cep"];
+    } else if (step === 2) {
+      fieldsToValidate = ["especie_documento", "data_vencimento", "valor", "seu_numero"];
+    }
+    
+    if (fieldsToValidate.length > 0) {
+      const isValid = await form.trigger(fieldsToValidate);
+      if (!isValid) {
+        toast.error("Por favor, preencha todos os campos obrigatórios");
+        return;
+      }
+    }
+    
     if (step < STEPS.length - 1) setStep(step + 1);
   }
 
@@ -172,7 +192,17 @@ export default function CreateBoletoPage() {
     if (step > 0) setStep(step - 1);
   }
 
-  function onSubmit() {
+  async function onSubmit(data: BoletoFormValues) {
+    console.log("Form submitted with data:", data);
+    console.log("Form errors:", form.formState.errors);
+    
+    // Validate all fields before opening confirmation dialog
+    const isValid = await form.trigger();
+    if (!isValid) {
+      console.log("Validation failed. Errors:", form.formState.errors);
+      toast.error("Por favor, corrija os erros no formulário antes de continuar");
+      return;
+    }
     setConfirmOpen(true);
   }
 
