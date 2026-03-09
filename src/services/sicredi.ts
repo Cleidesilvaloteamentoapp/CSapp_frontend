@@ -5,6 +5,7 @@ import type {
   CreateBoletoRequest,
   BoletoCreated,
   BoletoDetails,
+  BoletoStoredResponse,
   AlterarVencimentoRequest,
   AlterarDescontoRequest,
   AlterarJurosRequest,
@@ -129,6 +130,30 @@ export async function cancelarAbatimento(
 ): Promise<InstrucaoResponse> {
   return api.patch<InstrucaoResponse>(
     `/admin/sicredi/boletos/${nossoNumero}/cancelar-abatimento`
+  );
+}
+
+export async function getClientBoletos(
+  clientId: string
+): Promise<BoletoStoredResponse[]> {
+  return api.get<BoletoStoredResponse[]>(`/admin/clients/${clientId}/boletos`);
+}
+
+export async function listBoletos(params?: {
+  client_id?: string;
+  situacao?: string;
+  data_inicio?: string;
+  data_fim?: string;
+}): Promise<BoletoStoredResponse[]> {
+  const queryParams = new URLSearchParams();
+  if (params?.client_id) queryParams.set("client_id", params.client_id);
+  if (params?.situacao) queryParams.set("situacao", params.situacao);
+  if (params?.data_inicio) queryParams.set("data_inicio", params.data_inicio);
+  if (params?.data_fim) queryParams.set("data_fim", params.data_fim);
+  
+  const query = queryParams.toString();
+  return api.get<BoletoStoredResponse[]>(
+    `/admin/sicredi/boletos${query ? `?${query}` : ""}`
   );
 }
 

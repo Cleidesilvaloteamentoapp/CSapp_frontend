@@ -58,6 +58,7 @@ export type TipoJuros = "VALOR_DIA" | "PERCENTUAL_MES" | "ISENTO";
 export type TipoMulta = "VALOR" | "PERCENTUAL" | "ISENTO";
 
 export interface CreateBoletoRequest {
+  client_id: string; // UUID do cliente - vínculo obrigatório
   tipo_cobranca: TipoCobranca;
   pagador: Pagador;
   especie_documento: EspecieDocumento;
@@ -136,4 +137,25 @@ export interface InstrucaoResponse {
   status: string;
   detail: string;
   response?: Record<string, unknown>;
+}
+
+// ===================== Boleto Armazenado (com vínculo ao cliente) =====================
+export interface BoletoStoredResponse {
+  id: string;
+  company_id: string;
+  client_id: string;
+  nosso_numero: string;
+  linha_digitavel: string;
+  codigo_barras: string;
+  txid: string | null;
+  qr_code: string | null;
+  tipo_cobranca: TipoCobranca;
+  valor: number;
+  data_vencimento: string;
+  situacao: BoletoSituacao;
+  seu_numero: string;
+  pagador_nome: string;
+  pagador_documento: string;
+  created_at: string;
+  updated_at: string;
 }

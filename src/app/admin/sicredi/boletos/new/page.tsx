@@ -45,6 +45,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/layout/page-header";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { ClientSelector } from "@/components/sicredi/client-selector";
+import { ClientFormDialog } from "@/app/admin/clients/client-form-dialog";
 import { useSicrediBoletos } from "@/hooks/use-sicredi";
 import { formatCurrency } from "@/lib/format";
 import type {
@@ -56,6 +58,7 @@ import type {
   TipoJuros,
   TipoMulta,
 } from "@/types/sicredi";
+import type { ClientResponse } from "@/types";
 
 const ESPECIE_OPTIONS: { value: EspecieDocumento; label: string }[] = [
   { value: "DUPLICATA_MERCANTIL_INDICACAO", label: "Duplicata Mercantil por Indicação" },
@@ -118,6 +121,7 @@ type BoletoFormValues = z.infer<typeof boletoSchema>;
 
 const STEPS = [
   { id: "tipo", label: "Tipo" },
+  { id: "cliente", label: "Cliente" },
   { id: "pagador", label: "Pagador" },
   { id: "boleto", label: "Boleto" },
   { id: "extras", label: "Descontos/Juros" },
@@ -132,6 +136,8 @@ export default function CreateBoletoPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [result, setResult] = useState<BoletoCreated | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [selectedClient, setSelectedClient] = useState<ClientResponse | null>(null);
+  const [clientFormOpen, setClientFormOpen] = useState(false);
 
   const form = useForm<BoletoFormValues>({
     resolver: zodResolver(boletoSchema) as any,
@@ -165,15 +171,47 @@ export default function CreateBoletoPage() {
 
   const watchedValues = form.watch();
 
+  function handleClientSelect(clientId: string, clientData: ClientResponse) {
+    setSelectedClient(clientData);
+    
+    const addr = (clientData.address as Record<string, string>) || {};
+    const isPF = clientData.cpf_cnpj.length === 11;
+    
+    form.setValue("tipo_pessoa", isPF ? "PESSOA_FISICA" : "PESSOA_JURIDICA");
+    form.setValue("documento", clientData.cpf_cnpj.replace(/\D/g, ""));
+    form.setValue("nome", clientData.full_name);
+    form.setValue("email", clientData.email || "");
+    form.setValue("telefone", clientData.phone.replace(/\D/g, "") || "");
+    form.setValue("endereco", addr.street ? `${addr.street}, ${addr.number || "S/N"}` : "");
+    form.setValue("cidade", addr.city || "");
+    form.setValue("uf", addr.state || "");
+    form.setValue("cep", addr.zip?.replace(/\D/g, "") || "");
+    
+    toast.success(`Cliente ${clientData.full_name} selecionado`);
+  }
+
+  function handleCreateNewClient() {
+    setClientFormOpen(true);
+  }
+
+  function handleClientCreated() {
+    setClientFormOpen(false);
+    toast.success("Cliente cadastrado com sucesso! Selecione-o na lista.");
+  }
+
   async function handleNext() {
-    // Validate current step fields before advancing
     let fieldsToValidate: (keyof BoletoFormValues)[] = [];
     
     if (step === 0) {
       fieldsToValidate = ["tipo_cobranca"];
     } else if (step === 1) {
-      fieldsToValidate = ["tipo_pessoa", "documento", "nome", "endereco", "cidade", "uf", "cep"];
+      if (!selectedClient) {
+        toast.error("Por favor, selecione um cliente");
+        return;
+      }
     } else if (step === 2) {
+      fieldsToValidate = ["tipo_pessoa", "documento", "nome", "endereco", "cidade", "uf", "cep"];
+    } else if (step === 3) {
       fieldsToValidate = ["especie_documento", "data_vencimento", "valor", "seu_numero"];
     }
     
@@ -193,13 +231,13 @@ export default function CreateBoletoPage() {
   }
 
   async function onSubmit(data: BoletoFormValues) {
-    console.log("Form submitted with data:", data);
-    console.log("Form errors:", form.formState.errors);
+    if (!selectedClient) {
+      toast.error("Por favor, selecione um cliente");
+      return;
+    }
     
-    // Validate all fields before opening confirmation dialog
     const isValid = await form.trigger();
     if (!isValid) {
-      console.log("Validation failed. Errors:", form.formState.errors);
       toast.error("Por favor, corrija os erros no formulário antes de continuar");
       return;
     }
@@ -207,8 +245,14 @@ export default function CreateBoletoPage() {
   }
 
   async function handleConfirmCreate() {
+    if (!selectedClient) {
+      toast.error("Cliente não selecionado");
+      return;
+    }
+
     const values = form.getValues();
     const payload: CreateBoletoRequest = {
+      client_id: selectedClient.id,
       tipo_cobranca: values.tipo_cobranca as TipoCobranca,
       pagador: {
         tipo_pessoa: values.tipo_pessoa as "PESSOA_FISICA" | "PESSOA_JURIDICA",
@@ -471,10 +515,42 @@ export default function CreateBoletoPage() {
                 </div>
               )}
 
-              {/* Step 1: Pagador */}
+              {/* Step 1: Cliente */}
               {step === 1 && (
                 <div className="space-y-4">
+                  <CardTitle className="text-base">Selecionar Cliente</CardTitle>
+                  <CardDescription>
+                    Selecione um cliente existente ou cadastre um novo. Os dados do cliente serão usados para preencher automaticamente as informações do pagador.
+                  </CardDescription>
+                  
+                  <ClientSelector
+                    value={selectedClient?.id || null}
+                    onChange={handleClientSelect}
+                    onCreateNew={handleCreateNewClient}
+                  />
+                  
+                  {selectedClient && (
+                    <div className="rounded-lg border bg-muted/50 p-4">
+                      <p className="text-sm font-semibold mb-2">Cliente Selecionado:</p>
+                      <div className="space-y-1 text-sm">
+                        <p><span className="text-muted-foreground">Nome:</span> {selectedClient.full_name}</p>
+                        <p><span className="text-muted-foreground">CPF/CNPJ:</span> {selectedClient.cpf_cnpj}</p>
+                        <p><span className="text-muted-foreground">Email:</span> {selectedClient.email}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step 2: Pagador */}
+              {step === 2 && (
+                <div className="space-y-4">
                   <CardTitle className="text-base">Dados do Pagador</CardTitle>
+                  {selectedClient && (
+                    <Badge variant="outline" className="mb-2">
+                      Dados preenchidos do cliente: {selectedClient.full_name}
+                    </Badge>
+                  )}
                   <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                       control={form.control}
@@ -622,8 +698,8 @@ export default function CreateBoletoPage() {
                 </div>
               )}
 
-              {/* Step 2: Dados do Boleto */}
-              {step === 2 && (
+              {/* Step 3: Dados do Boleto */}
+              {step === 3 && (
                 <div className="space-y-4">
                   <CardTitle className="text-base">Dados do Boleto</CardTitle>
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -698,8 +774,8 @@ export default function CreateBoletoPage() {
                 </div>
               )}
 
-              {/* Step 3: Descontos/Juros/Multa */}
-              {step === 3 && (
+              {/* Step 4: Descontos/Juros/Multa */}
+              {step === 4 && (
                 <div className="space-y-4">
                   <CardTitle className="text-base">Descontos, Juros e Multa</CardTitle>
                   <CardDescription>Campos opcionais. Deixe como "Isento" para não aplicar.</CardDescription>
@@ -828,8 +904,8 @@ export default function CreateBoletoPage() {
                 </div>
               )}
 
-              {/* Step 4: Mensagens */}
-              {step === 4 && (
+              {/* Step 5: Mensagens */}
+              {step === 5 && (
                 <div className="space-y-4">
                   <CardTitle className="text-base">Mensagens e Informativos</CardTitle>
                   <CardDescription>Campos opcionais. Cada linha será uma mensagem separada.</CardDescription>
@@ -872,8 +948,8 @@ export default function CreateBoletoPage() {
                 </div>
               )}
 
-              {/* Step 5: Revisão */}
-              {step === 5 && (
+              {/* Step 6: Revisão */}
+              {step === 6 && (
                 <div className="space-y-4">
                   <CardTitle className="text-base">Revisão do Boleto</CardTitle>
                   <CardDescription>Verifique todos os dados antes de confirmar a criação.</CardDescription>
@@ -971,6 +1047,13 @@ export default function CreateBoletoPage() {
         confirmLabel="Sim, Criar Boleto"
         loading={loading}
         onConfirm={handleConfirmCreate}
+      />
+
+      <ClientFormDialog
+        open={clientFormOpen}
+        onOpenChange={setClientFormOpen}
+        client={null}
+        onSuccess={handleClientCreated}
       />
     </div>
   );

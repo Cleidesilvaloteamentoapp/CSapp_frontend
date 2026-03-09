@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, FileText, Upload, Loader2 } from "lucide-react";
+import { Pencil, FileText, Upload, Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -10,6 +10,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, ApiError } from "@/lib/api";
 import { formatPhone, formatCpfCnpj, formatDate, formatCurrency } from "@/lib/format";
+import { useClientBoletos } from "@/hooks/use-client-boletos";
+import { downloadBoletoPdf, triggerPdfDownload } from "@/services/sicredi";
 import type { ClientResponse, ClientLotResponse, InvoiceResponse } from "@/types";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
@@ -25,6 +27,14 @@ const INVOICE_STATUS: Record<string, { label: string; variant: "default" | "seco
   cancelled: { label: "Cancelada", variant: "secondary" },
 };
 
+const BOLETO_STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  NORMAL: { label: "Em Aberto", variant: "outline" },
+  EM_ABERTO: { label: "Em Aberto", variant: "outline" },
+  LIQUIDADO: { label: "Pago", variant: "default" },
+  VENCIDO: { label: "Vencido", variant: "destructive" },
+  CANCELADO: { label: "Cancelado", variant: "secondary" },
+};
+
 interface ClientDetailSheetProps {
   client: ClientResponse | null;
   onClose: () => void;
@@ -36,6 +46,9 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
+  
+  const { boletos, loading: boletosLoading, error: boletosError } = useClientBoletos(client?.id || null);
 
   useEffect(() => {
     if (!client) return;
@@ -67,6 +80,19 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
     }
   }
 
+  async function handleDownloadBoletoPdf(linhaDigitavel: string, nossoNumero: string) {
+    setDownloadingPdf(nossoNumero);
+    try {
+      const blob = await downloadBoletoPdf(linhaDigitavel);
+      triggerPdfDownload(blob, `boleto_${nossoNumero}.pdf`);
+      toast.success("Download iniciado");
+    } catch (error) {
+      toast.error("Erro ao baixar PDF do boleto");
+    } finally {
+      setDownloadingPdf(null);
+    }
+  }
+
   const status = client ? STATUS_MAP[client.status] || STATUS_MAP.active : STATUS_MAP.active;
   const addr = (client?.address as Record<string, string>) || {};
 
@@ -83,11 +109,12 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
             </SheetHeader>
 
             <Tabs defaultValue="info" className="mt-6">
-              <TabsList className="w-full">
-                <TabsTrigger value="info" className="flex-1">Dados</TabsTrigger>
-                <TabsTrigger value="lots" className="flex-1">Lotes</TabsTrigger>
-                <TabsTrigger value="invoices" className="flex-1">Faturas</TabsTrigger>
-                <TabsTrigger value="docs" className="flex-1">Docs</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="info">Dados</TabsTrigger>
+                <TabsTrigger value="lots">Lotes</TabsTrigger>
+                <TabsTrigger value="invoices">Faturas</TabsTrigger>
+                <TabsTrigger value="boletos">Boletos</TabsTrigger>
+                <TabsTrigger value="docs">Docs</TabsTrigger>
               </TabsList>
 
               <TabsContent value="info" className="space-y-4 mt-4">
@@ -149,6 +176,74 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                           <div className="text-right">
                             <p className="text-sm font-semibold">{formatCurrency(inv.amount)}</p>
                             <Badge variant={invStatus.variant} className="mt-1 text-xs">{invStatus.label}</Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="boletos" className="mt-4">
+                {boletosLoading ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Carregando boletos...</p>
+                ) : boletosError ? (
+                  <p className="text-sm text-destructive text-center py-8">{boletosError}</p>
+                ) : boletos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Nenhum boleto encontrado</p>
+                ) : (
+                  <div className="space-y-3">
+                    {boletos.map((boleto) => {
+                      const boletoStatus = BOLETO_STATUS[boleto.situacao] || BOLETO_STATUS.NORMAL;
+                      return (
+                        <div key={boleto.id} className="rounded-lg border p-4 space-y-3">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">Nosso Número: {boleto.nosso_numero}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Controle: {boleto.seu_numero}
+                              </p>
+                            </div>
+                            <Badge variant={boletoStatus.variant}>{boletoStatus.label}</Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Valor</p>
+                              <p className="font-semibold">{formatCurrency(boleto.valor)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Vencimento</p>
+                              <p className="font-medium">{formatDate(boleto.data_vencimento)}</p>
+                            </div>
+                          </div>
+
+                          {boleto.tipo_cobranca === "HIBRIDO" && (
+                            <Badge variant="secondary" className="text-xs">
+                              Boleto Híbrido (Pix)
+                            </Badge>
+                          )}
+
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1"
+                              onClick={() => handleDownloadBoletoPdf(boleto.linha_digitavel, boleto.nosso_numero)}
+                              disabled={downloadingPdf === boleto.nosso_numero}
+                            >
+                              {downloadingPdf === boleto.nosso_numero ? (
+                                <>
+                                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                  Baixando...
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="mr-2 h-3 w-3" />
+                                  Baixar PDF
+                                </>
+                              )}
+                            </Button>
                           </div>
                         </div>
                       );
