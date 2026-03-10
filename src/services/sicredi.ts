@@ -151,7 +151,7 @@ export async function cancelarAbatimento(
 
 export async function listLocalBoletos(
   filters?: BoletoListFilters
-): Promise<PaginatedResponse<Boleto>> {
+): Promise<Boleto[] | PaginatedResponse<Boleto>> {
   const params = new URLSearchParams();
   if (filters?.client_id) params.set("client_id", filters.client_id);
   if (filters?.status) params.set("status", filters.status);
@@ -162,7 +162,7 @@ export async function listLocalBoletos(
   if (filters?.per_page) params.set("per_page", String(filters.per_page));
 
   const query = params.toString();
-  return api.get<PaginatedResponse<Boleto>>(
+  return api.get<Boleto[] | PaginatedResponse<Boleto>>(
     `/admin/boletos${query ? `?${query}` : ""}`
   );
 }

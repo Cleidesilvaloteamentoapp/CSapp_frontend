@@ -131,27 +131,26 @@ export interface BoletoClient {
 
 export interface Boleto {
   id: string;
-  company_id: string;
-  client_id: string | null;
-  client: BoletoClient | null;
+  client_id?: string | null;
+  client?: BoletoClient | null;
   nosso_numero: string;
   linha_digitavel: string;
   codigo_barras: string;
-  txid: string | null;
-  qr_code: string | null;
+  txid?: string | null;
+  qr_code?: string | null;
   tipo_cobranca: TipoCobranca;
-  especie_documento: EspecieDocumento | null;
-  valor: number;
+  especie_documento?: EspecieDocumento | null;
+  valor: number | string;
   data_vencimento: string;
-  data_emissao: string | null;
-  data_liquidacao: string | null;
-  valor_liquidacao: number | null;
+  data_emissao?: string | null;
+  data_liquidacao?: string | null;
+  valor_liquidacao?: number | string | null;
   status: BoletoSituacao;
   seu_numero: string;
-  pagador_nome: string;
-  pagador_documento: string;
-  invoice_id: string | null;
-  dias_negativacao_auto: number | null;
+  pagador_nome?: string;
+  pagador_documento?: string;
+  invoice_id?: string | null;
+  dias_negativacao_auto?: number | null;
   created_at: string;
   updated_at: string;
 }

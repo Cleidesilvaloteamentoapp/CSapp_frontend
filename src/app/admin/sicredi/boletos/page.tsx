@@ -147,20 +147,30 @@ export default function BoletosListPage() {
     if (dateEnd) filters.data_fim = dateEnd;
     if (clientFilter) filters.client_id = clientFilter;
 
+    console.log('[Boletos] Loading with filters:', filters);
     const result = await loadLocalBoletos(filters);
+    console.log('[Boletos] API Response:', result);
     if (result) {
-      setBoletos(result.items || []);
-      setTotalCount(result.total || 0);
+      // Handle both array and paginated response formats
+      const isArray = Array.isArray(result);
+      const items = isArray ? result : (result.items || []);
+      const total = isArray ? result.length : (result.total || 0);
+      
+      console.log('[Boletos] Setting boletos:', items.length, 'items');
+      setBoletos(items);
+      setTotalCount(total);
+    } else {
+      console.error('[Boletos] No result from API');
     }
     setPageLoading(false);
-  }, [page, statusFilter, searchTerm, dateStart, dateEnd, clientFilter, loadLocalBoletos]);
+  }, [page, statusFilter, searchTerm, dateStart, dateEnd, clientFilter]);
 
   const loadStatsData = useCallback(async () => {
     setStatsLoading(true);
     const data = await loadStats();
     setStats(data);
     setStatsLoading(false);
-  }, [loadStats]);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -658,7 +668,7 @@ export default function BoletosListPage() {
                                     {formatCpfCnpj(boleto.client.cpf_cnpj)}
                                   </p>
                                 </>
-                              ) : (
+                              ) : boleto.pagador_nome && boleto.pagador_documento ? (
                                 <>
                                   <p className="text-sm font-medium">
                                     {boleto.pagador_nome}
@@ -670,6 +680,8 @@ export default function BoletosListPage() {
                                     )}
                                   </p>
                                 </>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">Sem dados de pagador</p>
                               )}
                             </div>
                           </TableCell>

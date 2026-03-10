@@ -47,8 +47,13 @@ export function useBatchProgress(batchId: string | null) {
     poll();
     intervalRef.current = setInterval(poll, 2000);
 
-    return () => stop();
-  }, [batchId, stop]);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [batchId]);
 
   return { data, loading, error, stop };
 }
