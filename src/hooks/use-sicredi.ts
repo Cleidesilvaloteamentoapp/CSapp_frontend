@@ -13,8 +13,16 @@ import {
   alterarJuros,
   concederAbatimento,
   cancelarAbatimento,
+  alterarSeuNumero,
+  incluirNegativacao,
+  sustarNegativacaoBaixar,
   downloadBoletoPdf,
   triggerPdfDownload,
+  listLocalBoletos,
+  getBoletoStats,
+  getBoletoByNossoNumero as fetchBoletoLocal,
+  executeBatchOperation as execBatchOp,
+  createBatchBoletos,
 } from "@/services/sicredi";
 import { ApiError } from "@/lib/api";
 import type {
@@ -23,11 +31,21 @@ import type {
   CreateBoletoRequest,
   BoletoCreated,
   BoletoDetails,
+  Boleto,
+  BoletoStats,
+  BoletoListFilters,
   AlterarVencimentoRequest,
   AlterarDescontoRequest,
   AlterarJurosRequest,
+  AlterarSeuNumeroRequest,
   ConcederAbatimentoRequest,
+  NegativacaoRequest,
+  BatchOperationRequest,
+  BatchOperationResponse,
+  BatchCreateRequest,
+  BatchCreateResponse,
 } from "@/types/sicredi";
+import type { PaginatedResponse } from "@/types";
 
 // ===================== Credentials Hook =====================
 
@@ -256,6 +274,134 @@ export function useSicrediBoletos() {
     }
   };
 
+  const updateSeuNumero = async (
+    nossoNumero: string,
+    data: AlterarSeuNumeroRequest
+  ): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await alterarSeuNumero(nossoNumero, data);
+      return true;
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erro ao alterar seu número"
+      );
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const negativar = async (
+    nossoNumero: string,
+    data?: NegativacaoRequest
+  ): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await incluirNegativacao(nossoNumero, data);
+      return true;
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erro ao incluir negativação"
+      );
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sustarNegativacao = async (nossoNumero: string): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sustarNegativacaoBaixar(nossoNumero);
+      return true;
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erro ao sustar negativação"
+      );
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadLocalBoletos = async (
+    filters?: BoletoListFilters
+  ): Promise<PaginatedResponse<Boleto> | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await listLocalBoletos(filters);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao carregar boletos");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStats = async (): Promise<BoletoStats | null> => {
+    try {
+      return await getBoletoStats();
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchBoletoLocalByNN = async (
+    nossoNumero: string
+  ): Promise<Boleto | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await fetchBoletoLocal(nossoNumero);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Boleto não encontrado"
+      );
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createBatch = async (
+    data: BatchCreateRequest
+  ): Promise<BatchCreateResponse | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await createBatchBoletos(data);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erro ao criar lote de boletos"
+      );
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const batchOperation = async (
+    data: BatchOperationRequest
+  ): Promise<BatchOperationResponse | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await execBatchOp(data);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erro na operação em lote"
+      );
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const downloadPdf = async (
     linhaDigitavel: string,
     filename?: string
@@ -279,13 +425,21 @@ export function useSicrediBoletos() {
     error,
     create,
     fetchBoleto,
+    fetchBoletoLocalByNN,
     searchBySeuNumero,
     cancel,
     updateVencimento,
     updateDesconto,
     updateJuros,
+    updateSeuNumero,
     grantAbatimento,
     revokeAbatimento,
+    negativar,
+    sustarNegativacao,
+    loadLocalBoletos,
+    loadStats,
+    createBatch,
+    batchOperation,
     downloadPdf,
   };
 }

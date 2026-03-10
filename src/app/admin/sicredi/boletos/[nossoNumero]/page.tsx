@@ -13,7 +13,15 @@ import {
   Calendar,
   Percent,
   DollarSign,
+  Hash,
   Loader2,
+  RefreshCw,
+  AlertTriangle,
+  ShieldOff,
+  User,
+  Mail,
+  Phone,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,23 +40,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/loading-skeleton";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { ClientSelector } from "@/components/sicredi/client-selector";
+import { ClientFormDialog } from "@/app/admin/clients/client-form-dialog";
 import { useSicrediBoletos } from "@/hooks/use-sicredi";
+import { updateBoleto } from "@/services/sicredi";
 import { formatCurrency, formatDate, formatCpfCnpj } from "@/lib/format";
-import type { BoletoDetails } from "@/types/sicredi";
-
-const SITUACAO_BADGE: Record<
-  string,
-  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
-> = {
-  NORMAL: { label: "Em Aberto", variant: "outline" },
-  EM_ABERTO: { label: "Em Aberto", variant: "outline" },
-  LIQUIDADO: { label: "Liquidado", variant: "default" },
-  VENCIDO: { label: "Vencido", variant: "destructive" },
-  CANCELADO: { label: "Cancelado", variant: "secondary" },
-};
+import { STATUS_CONFIG } from "@/types/sicredi";
+import type { Boleto, BoletoDetails } from "@/types/sicredi";
 
 export default function BoletoDetailsPage() {
   const params = useParams();
@@ -57,18 +59,24 @@ export default function BoletoDetailsPage() {
 
   const {
     fetchBoleto,
+    fetchBoletoLocalByNN,
     cancel,
     updateVencimento,
     updateDesconto,
     updateJuros,
+    updateSeuNumero,
     grantAbatimento,
     revokeAbatimento,
+    negativar,
+    sustarNegativacao,
     downloadPdf,
     loading,
   } = useSicrediBoletos();
 
-  const [boleto, setBoleto] = useState<BoletoDetails | null>(null);
+  const [boletoLocal, setBoletoLocal] = useState<Boleto | null>(null);
+  const [boletoSicredi, setBoletoSicredi] = useState<BoletoDetails | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
+  const [syncLoading, setSyncLoading] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Dialog states
@@ -77,24 +85,51 @@ export default function BoletoDetailsPage() {
   const [descontoOpen, setDescontoOpen] = useState(false);
   const [jurosOpen, setJurosOpen] = useState(false);
   const [abatimentoOpen, setAbatimentoOpen] = useState(false);
+  const [seuNumeroOpen, setSeuNumeroOpen] = useState(false);
+  const [negativarOpen, setNegativarOpen] = useState(false);
+  const [sustarOpen, setSustarOpen] = useState(false);
+  const [linkClientOpen, setLinkClientOpen] = useState(false);
+  const [clientFormOpen, setClientFormOpen] = useState(false);
 
-  // Form values for dialogs
+  // Form values
   const [newVencimento, setNewVencimento] = useState("");
   const [newDesconto, setNewDesconto] = useState("");
   const [newJuros, setNewJuros] = useState("");
   const [newAbatimento, setNewAbatimento] = useState("");
+  const [newSeuNumero, setNewSeuNumero] = useState("");
 
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const data = await fetchBoleto(nossoNumero);
-      setBoleto(data);
+      const [local, sicredi] = await Promise.all([
+        fetchBoletoLocalByNN(nossoNumero),
+        fetchBoleto(nossoNumero),
+      ]);
+      setBoletoLocal(local);
+      setBoletoSicredi(sicredi);
       setPageLoading(false);
     }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nossoNumero]);
+
+  async function handleSyncSicredi() {
+    setSyncLoading(true);
+    const data = await fetchBoleto(nossoNumero);
+    setBoletoSicredi(data);
+    setSyncLoading(false);
+    if (data) {
+      toast.success("Dados atualizados do Sicredi");
+    } else {
+      toast.error("Erro ao consultar Sicredi");
+    }
+  }
+
+  async function reloadLocal() {
+    const local = await fetchBoletoLocalByNN(nossoNumero);
+    setBoletoLocal(local);
+  }
 
   async function handleCopy(text: string, field: string) {
     await navigator.clipboard.writeText(text);
@@ -103,9 +138,20 @@ export default function BoletoDetailsPage() {
     setTimeout(() => setCopiedField(null), 2000);
   }
 
+  const boleto = boletoLocal || boletoSicredi;
+  const linhaDigitavel = boletoLocal?.linha_digitavel || boletoSicredi?.linha_digitavel || "";
+  const codigoBarras = boletoLocal?.codigo_barras || boletoSicredi?.codigo_barras || "";
+  const valor = boletoLocal?.valor ?? boletoSicredi?.valor ?? 0;
+  const dataVencimento = boletoLocal?.data_vencimento || boletoSicredi?.data_vencimento || "";
+  const tipoCobranca = boletoLocal?.tipo_cobranca || boletoSicredi?.tipo_cobranca || "NORMAL";
+  const qrCode = boletoLocal?.qr_code || boletoSicredi?.qr_code;
+  const txid = boletoLocal?.txid || boletoSicredi?.txid;
+  const seuNumero = boletoLocal?.seu_numero || boletoSicredi?.seu_numero || "";
+  const status = boletoLocal?.status || boletoSicredi?.situacao || "NORMAL";
+
   async function handleDownload() {
-    if (!boleto) return;
-    await downloadPdf(boleto.linha_digitavel, `boleto_${boleto.nosso_numero}.pdf`);
+    if (!linhaDigitavel) return;
+    await downloadPdf(linhaDigitavel, `boleto_${nossoNumero}.pdf`);
   }
 
   async function handleConfirmCancel() {
@@ -115,7 +161,8 @@ export default function BoletoDetailsPage() {
     setCancelConfirmOpen(false);
     if (success) {
       toast.success("Boleto cancelado com sucesso");
-      setBoleto((prev) => (prev ? { ...prev, situacao: "CANCELADO" } : prev));
+      reloadLocal();
+      handleSyncSicredi();
     } else {
       toast.error("Erro ao cancelar boleto");
     }
@@ -130,11 +177,9 @@ export default function BoletoDetailsPage() {
     setActionLoading(false);
     setVencimentoOpen(false);
     if (success) {
-      toast.success("Vencimento alterado com sucesso");
-      setBoleto((prev) =>
-        prev ? { ...prev, data_vencimento: newVencimento } : prev
-      );
+      toast.success("Vencimento alterado");
       setNewVencimento("");
+      reloadLocal();
     } else {
       toast.error("Erro ao alterar vencimento");
     }
@@ -148,7 +193,7 @@ export default function BoletoDetailsPage() {
     setActionLoading(false);
     setDescontoOpen(false);
     if (success) {
-      toast.success("Desconto alterado com sucesso");
+      toast.success("Desconto alterado");
       setNewDesconto("");
     } else {
       toast.error("Erro ao alterar desconto");
@@ -164,7 +209,7 @@ export default function BoletoDetailsPage() {
     setActionLoading(false);
     setJurosOpen(false);
     if (success) {
-      toast.success("Juros alterados com sucesso");
+      toast.success("Juros alterados");
       setNewJuros("");
     } else {
       toast.error("Erro ao alterar juros");
@@ -180,7 +225,7 @@ export default function BoletoDetailsPage() {
     setActionLoading(false);
     setAbatimentoOpen(false);
     if (success) {
-      toast.success("Abatimento concedido com sucesso");
+      toast.success("Abatimento concedido");
       setNewAbatimento("");
     } else {
       toast.error("Erro ao conceder abatimento");
@@ -191,10 +236,67 @@ export default function BoletoDetailsPage() {
     setActionLoading(true);
     const success = await revokeAbatimento(nossoNumero);
     setActionLoading(false);
+    if (success) toast.success("Abatimento cancelado");
+    else toast.error("Erro ao cancelar abatimento");
+  }
+
+  async function handleUpdateSeuNumero() {
+    if (!newSeuNumero) return;
+    setActionLoading(true);
+    const success = await updateSeuNumero(nossoNumero, {
+      seu_numero: newSeuNumero,
+    });
+    setActionLoading(false);
+    setSeuNumeroOpen(false);
     if (success) {
-      toast.success("Abatimento cancelado");
+      toast.success("Seu Número alterado");
+      setNewSeuNumero("");
+      reloadLocal();
     } else {
-      toast.error("Erro ao cancelar abatimento");
+      toast.error("Erro ao alterar Seu Número");
+    }
+  }
+
+  async function handleNegativar() {
+    setActionLoading(true);
+    const success = await negativar(nossoNumero);
+    setActionLoading(false);
+    setNegativarOpen(false);
+    if (success) {
+      toast.success("Negativação incluída");
+      reloadLocal();
+      handleSyncSicredi();
+    } else {
+      toast.error("Erro ao incluir negativação");
+    }
+  }
+
+  async function handleSustarNegativacao() {
+    setActionLoading(true);
+    const success = await sustarNegativacao(nossoNumero);
+    setActionLoading(false);
+    setSustarOpen(false);
+    if (success) {
+      toast.success("Negativação sustada e boleto baixado");
+      reloadLocal();
+      handleSyncSicredi();
+    } else {
+      toast.error("Erro ao sustar negativação");
+    }
+  }
+
+  async function handleLinkClient(clientId: string) {
+    if (!boletoLocal) return;
+    setActionLoading(true);
+    try {
+      await updateBoleto(boletoLocal.id, { client_id: clientId });
+      toast.success("Cliente vinculado ao boleto");
+      setLinkClientOpen(false);
+      reloadLocal();
+    } catch {
+      toast.error("Erro ao vincular cliente");
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -212,32 +314,45 @@ export default function BoletoDetailsPage() {
     );
   }
 
-  const sit = SITUACAO_BADGE[boleto.situacao] || SITUACAO_BADGE.NORMAL;
-  const isEditable =
-    boleto.situacao !== "CANCELADO" && boleto.situacao !== "LIQUIDADO";
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.NORMAL;
+  const isEditable = status !== "CANCELADO" && status !== "LIQUIDADO";
+  const isNegativado = status === "NEGATIVADO";
+  const isVencido = status === "VENCIDO";
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={`Boleto ${boleto.nosso_numero}`}
-        description={`Seu Número: ${boleto.seu_numero}`}
-      >
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <PageHeader
+          title={`Boleto ${nossoNumero}`}
+          description={`Seu Número: ${seuNumero}`}
+        >
+          <Button
+            variant="outline"
+            onClick={() => router.push("/admin/sicredi/boletos")}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar
+          </Button>
+        </PageHeader>
         <Button
           variant="outline"
-          onClick={() => router.push("/admin/sicredi/boletos")}
+          size="sm"
+          onClick={handleSyncSicredi}
+          disabled={syncLoading}
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar
+          <RefreshCw className={`mr-2 h-4 w-4 ${syncLoading ? "animate-spin" : ""}`} />
+          Consultar Sicredi
         </Button>
-      </PageHeader>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Informações do Boleto */}
+        {/* Dados do Boleto */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Dados do Boleto</CardTitle>
-              <Badge variant={sit.variant}>{sit.label}</Badge>
+              <Badge variant={cfg.variant}>{cfg.label}</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -245,12 +360,12 @@ export default function BoletoDetailsPage() {
               <p className="text-sm text-muted-foreground">Linha Digitável</p>
               <div className="flex items-center gap-2 mt-1">
                 <code className="flex-1 rounded bg-muted p-2 text-xs font-mono break-all">
-                  {boleto.linha_digitavel}
+                  {linhaDigitavel}
                 </code>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleCopy(boleto.linha_digitavel, "linha")}
+                  onClick={() => handleCopy(linhaDigitavel, "linha")}
                 >
                   {copiedField === "linha" ? (
                     <Check className="h-4 w-4" />
@@ -264,66 +379,144 @@ export default function BoletoDetailsPage() {
             <div>
               <p className="text-sm text-muted-foreground">Código de Barras</p>
               <code className="block rounded bg-muted p-2 text-xs font-mono break-all mt-1">
-                {boleto.codigo_barras}
+                {codigoBarras}
               </code>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Valor</p>
-                <p className="text-lg font-bold">
-                  {formatCurrency(boleto.valor)}
-                </p>
+                <p className="text-lg font-bold">{formatCurrency(valor)}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Vencimento</p>
-                <p className="text-lg font-semibold">
-                  {formatDate(boleto.data_vencimento)}
-                </p>
+                <p className="text-lg font-semibold">{formatDate(dataVencimento)}</p>
               </div>
             </div>
 
-            <div>
-              <p className="text-sm text-muted-foreground">Tipo de Cobrança</p>
-              <Badge
-                variant={
-                  boleto.tipo_cobranca === "HIBRIDO" ? "default" : "secondary"
-                }
-                className="mt-1"
-              >
-                {boleto.tipo_cobranca === "HIBRIDO"
-                  ? "Híbrido (Pix)"
-                  : "Tradicional"}
-              </Badge>
+            {boletoLocal?.data_emissao && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Emissão</p>
+                  <p className="text-sm font-medium">{formatDate(boletoLocal.data_emissao)}</p>
+                </div>
+                {boletoLocal.data_liquidacao && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Liquidação</p>
+                    <p className="text-sm font-medium">{formatDate(boletoLocal.data_liquidacao)}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {boletoLocal?.valor_liquidacao != null && (
+              <div>
+                <p className="text-sm text-muted-foreground">Valor Liquidado</p>
+                <p className="text-sm font-bold text-green-600">
+                  {formatCurrency(boletoLocal.valor_liquidacao)}
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <div>
+                <p className="text-sm text-muted-foreground">Tipo de Cobrança</p>
+                <Badge
+                  variant={tipoCobranca === "HIBRIDO" ? "default" : "secondary"}
+                  className="mt-1"
+                >
+                  {tipoCobranca === "HIBRIDO" ? "Híbrido (Pix)" : "Tradicional"}
+                </Badge>
+              </div>
+              {boletoLocal?.dias_negativacao_auto != null && (
+                <div className="ml-4">
+                  <p className="text-sm text-muted-foreground">Negativação Auto</p>
+                  <p className="text-sm font-medium">{boletoLocal.dias_negativacao_auto} dias</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Dados do Pagador */}
+        {/* Cliente / Pagador */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Pagador</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">
+                {boletoLocal?.client ? "Cliente Vinculado" : "Pagador"}
+              </CardTitle>
+              {boletoLocal && !boletoLocal.client_id && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLinkClientOpen(true)}
+                >
+                  <UserPlus className="mr-2 h-3 w-3" />
+                  Vincular
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div>
-              <p className="text-sm text-muted-foreground">Nome</p>
-              <p className="font-medium">{boleto.pagador.nome}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">
-                {boleto.pagador.tipoPessoa === "PESSOA_FISICA"
-                  ? "CPF"
-                  : "CNPJ"}
-              </p>
-              <p className="font-mono">
-                {formatCpfCnpj(boleto.pagador.documento)}
-              </p>
-            </div>
+            {boletoLocal?.client ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Nome</p>
+                    <p className="font-medium">{boletoLocal.client.full_name}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Hash className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">CPF/CNPJ</p>
+                    <p className="font-mono">{formatCpfCnpj(boletoLocal.client.cpf_cnpj)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">E-mail</p>
+                    <p className="text-sm">{boletoLocal.client.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Telefone</p>
+                    <p className="text-sm">{boletoLocal.client.phone}</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <p className="text-sm text-muted-foreground">Nome</p>
+                  <p className="font-medium">
+                    {boletoLocal?.pagador_nome || boletoSicredi?.pagador?.nome || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Documento</p>
+                  <p className="font-mono">
+                    {formatCpfCnpj(
+                      boletoLocal?.pagador_documento || boletoSicredi?.pagador?.documento || ""
+                    )}
+                  </p>
+                </div>
+                {!boletoLocal?.client_id && (
+                  <p className="text-xs text-yellow-600 mt-2">
+                    Este boleto não está vinculado a um cliente cadastrado.
+                  </p>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
 
         {/* QR Code Pix */}
-        {boleto.qr_code && (
+        {qrCode && (
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="text-base">QR Code Pix</CardTitle>
@@ -334,20 +527,18 @@ export default function BoletoDetailsPage() {
             <CardContent>
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
                 <div className="rounded-lg border bg-white p-4">
-                  <QRCodeSVG value={boleto.qr_code} size={180} />
+                  <QRCodeSVG value={qrCode} size={180} />
                 </div>
                 <div className="flex-1 space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    Pix Copia e Cola
-                  </p>
+                  <p className="text-sm text-muted-foreground">Pix Copia e Cola</p>
                   <div className="flex items-start gap-2">
                     <code className="flex-1 rounded bg-muted p-2 text-xs font-mono break-all max-h-28 overflow-y-auto">
-                      {boleto.qr_code}
+                      {qrCode}
                     </code>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleCopy(boleto.qr_code!, "pix")}
+                      onClick={() => handleCopy(qrCode, "pix")}
                     >
                       {copiedField === "pix" ? (
                         <Check className="h-4 w-4" />
@@ -356,10 +547,10 @@ export default function BoletoDetailsPage() {
                       )}
                     </Button>
                   </div>
-                  {boleto.txid && (
+                  {txid && (
                     <div>
                       <p className="text-sm text-muted-foreground">TXID</p>
-                      <p className="text-xs font-mono">{boleto.txid}</p>
+                      <p className="text-xs font-mono">{txid}</p>
                     </div>
                   )}
                 </div>
@@ -373,8 +564,7 @@ export default function BoletoDetailsPage() {
           <CardHeader>
             <CardTitle className="text-base">Ações</CardTitle>
             <CardDescription>
-              Todas as ações requerem confirmação antes de serem enviadas ao
-              banco
+              Ações disponíveis com base no status atual do boleto
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -388,32 +578,33 @@ export default function BoletoDetailsPage() {
                 Baixar PDF
               </Button>
 
-              {isEditable && (
+              {isEditable && !isNegativado && (
                 <>
+                  <Separator orientation="vertical" className="h-9" />
                   <Button
                     variant="outline"
-                    onClick={() => setVencimentoOpen(true)}
+                    onClick={() => { setNewVencimento(""); setVencimentoOpen(true); }}
                   >
                     <Calendar className="mr-2 h-4 w-4" />
                     Alterar Vencimento
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setDescontoOpen(true)}
+                    onClick={() => { setNewDesconto(""); setDescontoOpen(true); }}
                   >
                     <Percent className="mr-2 h-4 w-4" />
                     Alterar Desconto
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setJurosOpen(true)}
+                    onClick={() => { setNewJuros(""); setJurosOpen(true); }}
                   >
                     <Percent className="mr-2 h-4 w-4" />
                     Alterar Juros
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setAbatimentoOpen(true)}
+                    onClick={() => { setNewAbatimento(""); setAbatimentoOpen(true); }}
                   >
                     <DollarSign className="mr-2 h-4 w-4" />
                     Conceder Abatimento
@@ -426,6 +617,46 @@ export default function BoletoDetailsPage() {
                     <DollarSign className="mr-2 h-4 w-4" />
                     Cancelar Abatimento
                   </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => { setNewSeuNumero(seuNumero); setSeuNumeroOpen(true); }}
+                  >
+                    <Hash className="mr-2 h-4 w-4" />
+                    Alterar Seu Número
+                  </Button>
+                </>
+              )}
+
+              {isVencido && (
+                <>
+                  <Separator orientation="vertical" className="h-9" />
+                  <Button
+                    variant="destructive"
+                    onClick={() => setNegativarOpen(true)}
+                  >
+                    <AlertTriangle className="mr-2 h-4 w-4" />
+                    Incluir Negativação
+                  </Button>
+                </>
+              )}
+
+              {isNegativado && (
+                <>
+                  <Separator orientation="vertical" className="h-9" />
+                  <Button
+                    variant="outline"
+                    className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                    onClick={() => setSustarOpen(true)}
+                  >
+                    <ShieldOff className="mr-2 h-4 w-4" />
+                    Sustar Negativação + Baixar
+                  </Button>
+                </>
+              )}
+
+              {isEditable && (
+                <>
+                  <Separator orientation="vertical" className="h-9" />
                   <Button
                     variant="destructive"
                     onClick={() => setCancelConfirmOpen(true)}
@@ -440,7 +671,8 @@ export default function BoletoDetailsPage() {
         </Card>
       </div>
 
-      {/* Cancel Confirmation */}
+      {/* ==================== Dialogs ==================== */}
+
       <ConfirmationDialog
         open={cancelConfirmOpen}
         onOpenChange={setCancelConfirmOpen}
@@ -452,14 +684,11 @@ export default function BoletoDetailsPage() {
         onConfirm={handleConfirmCancel}
       />
 
-      {/* Alterar Vencimento Dialog */}
       <Dialog open={vencimentoOpen} onOpenChange={setVencimentoOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Alterar Data de Vencimento</DialogTitle>
-            <DialogDescription>
-              Esta alteração será enviada ao banco Sicredi.
-            </DialogDescription>
+            <DialogDescription>Esta alteração será enviada ao banco Sicredi.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -472,32 +701,21 @@ export default function BoletoDetailsPage() {
               />
             </div>
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setVencimentoOpen(false)}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleUpdateVencimento}
-                disabled={actionLoading || !newVencimento}
-              >
-                {actionLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                Confirmar Alteração
+              <Button variant="outline" onClick={() => setVencimentoOpen(false)}>Cancelar</Button>
+              <Button onClick={handleUpdateVencimento} disabled={actionLoading || !newVencimento}>
+                {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirmar
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Alterar Desconto Dialog */}
       <Dialog open={descontoOpen} onOpenChange={setDescontoOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Alterar Desconto</DialogTitle>
-            <DialogDescription>
-              Esta alteração será enviada ao banco Sicredi. Deixe vazio para
-              remover o desconto.
-            </DialogDescription>
+            <DialogDescription>Deixe vazio para remover o desconto.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -513,28 +731,21 @@ export default function BoletoDetailsPage() {
               />
             </div>
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setDescontoOpen(false)}>
-                Cancelar
-              </Button>
+              <Button variant="outline" onClick={() => setDescontoOpen(false)}>Cancelar</Button>
               <Button onClick={handleUpdateDesconto} disabled={actionLoading}>
-                {actionLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                Confirmar Alteração
+                {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirmar
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Alterar Juros Dialog */}
       <Dialog open={jurosOpen} onOpenChange={setJurosOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Alterar Juros</DialogTitle>
-            <DialogDescription>
-              Informe o novo valor ou percentual de juros.
-            </DialogDescription>
+            <DialogDescription>Informe o novo valor ou percentual.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -548,31 +759,21 @@ export default function BoletoDetailsPage() {
               />
             </div>
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setJurosOpen(false)}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleUpdateJuros}
-                disabled={actionLoading || !newJuros}
-              >
-                {actionLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                Confirmar Alteração
+              <Button variant="outline" onClick={() => setJurosOpen(false)}>Cancelar</Button>
+              <Button onClick={handleUpdateJuros} disabled={actionLoading || !newJuros}>
+                {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirmar
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Conceder Abatimento Dialog */}
       <Dialog open={abatimentoOpen} onOpenChange={setAbatimentoOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Conceder Abatimento</DialogTitle>
-            <DialogDescription>
-              Informe o valor do abatimento a conceder.
-            </DialogDescription>
+            <DialogDescription>Informe o valor do abatimento.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -588,22 +789,93 @@ export default function BoletoDetailsPage() {
               />
             </div>
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setAbatimentoOpen(false)}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleGrantAbatimento}
-                disabled={actionLoading || !newAbatimento}
-              >
-                {actionLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                Confirmar Abatimento
+              <Button variant="outline" onClick={() => setAbatimentoOpen(false)}>Cancelar</Button>
+              <Button onClick={handleGrantAbatimento} disabled={actionLoading || !newAbatimento}>
+                {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirmar
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={seuNumeroOpen} onOpenChange={setSeuNumeroOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Alterar Seu Número</DialogTitle>
+            <DialogDescription>Esta alteração será enviada ao banco Sicredi.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Novo Seu Número</label>
+              <Input
+                value={newSeuNumero}
+                onChange={(e) => setNewSeuNumero(e.target.value)}
+                placeholder="INV-12345"
+                className="mt-1"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setSeuNumeroOpen(false)}>Cancelar</Button>
+              <Button onClick={handleUpdateSeuNumero} disabled={actionLoading || !newSeuNumero}>
+                {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmationDialog
+        open={negativarOpen}
+        onOpenChange={setNegativarOpen}
+        title="Incluir Negativação"
+        description={`Tem certeza que deseja incluir negativação para o boleto ${nossoNumero}? O pagador será registrado nos órgãos de proteção ao crédito.`}
+        confirmLabel="Sim, Negativar"
+        destructive
+        loading={actionLoading}
+        onConfirm={handleNegativar}
+      />
+
+      <ConfirmationDialog
+        open={sustarOpen}
+        onOpenChange={setSustarOpen}
+        title="Sustar Negativação e Baixar Título"
+        description={`Tem certeza que deseja sustar a negativação e dar baixa no boleto ${nossoNumero}?`}
+        confirmLabel="Sim, Sustar e Baixar"
+        destructive
+        loading={actionLoading}
+        onConfirm={handleSustarNegativacao}
+      />
+
+      <Dialog open={linkClientOpen} onOpenChange={setLinkClientOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Vincular Cliente ao Boleto</DialogTitle>
+            <DialogDescription>
+              Pagador: {boletoLocal?.pagador_nome || boletoSicredi?.pagador?.nome}
+            </DialogDescription>
+          </DialogHeader>
+          <ClientSelector
+            value={null}
+            onChange={(clientId) => handleLinkClient(clientId)}
+            onCreateNew={() => {
+              setLinkClientOpen(false);
+              setClientFormOpen(true);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <ClientFormDialog
+        open={clientFormOpen}
+        onOpenChange={setClientFormOpen}
+        client={null}
+        onSuccess={() => {
+          setClientFormOpen(false);
+          toast.success("Cliente criado com sucesso");
+        }}
+      />
     </div>
   );
 }

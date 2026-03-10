@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, FileText, Upload, Loader2, Download } from "lucide-react";
+import { Pencil, FileText, Upload, Loader2, Download, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -12,6 +12,7 @@ import { api, ApiError } from "@/lib/api";
 import { formatPhone, formatCpfCnpj, formatDate, formatCurrency } from "@/lib/format";
 import { useClientBoletos } from "@/hooks/use-client-boletos";
 import { downloadBoletoPdf, triggerPdfDownload } from "@/services/sicredi";
+import { STATUS_CONFIG } from "@/types/sicredi";
 import type { ClientResponse, ClientLotResponse, InvoiceResponse } from "@/types";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
@@ -27,13 +28,6 @@ const INVOICE_STATUS: Record<string, { label: string; variant: "default" | "seco
   cancelled: { label: "Cancelada", variant: "secondary" },
 };
 
-const BOLETO_STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  NORMAL: { label: "Em Aberto", variant: "outline" },
-  EM_ABERTO: { label: "Em Aberto", variant: "outline" },
-  LIQUIDADO: { label: "Pago", variant: "default" },
-  VENCIDO: { label: "Vencido", variant: "destructive" },
-  CANCELADO: { label: "Cancelado", variant: "secondary" },
-};
 
 interface ClientDetailSheetProps {
   client: ClientResponse | null;
@@ -194,7 +188,7 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                 ) : (
                   <div className="space-y-3">
                     {boletos.map((boleto) => {
-                      const boletoStatus = BOLETO_STATUS[boleto.situacao] || BOLETO_STATUS.NORMAL;
+                      const cfg = STATUS_CONFIG[boleto.status] || STATUS_CONFIG.NORMAL;
                       return (
                         <div key={boleto.id} className="rounded-lg border p-4 space-y-3">
                           <div className="flex justify-between items-start">
@@ -204,7 +198,7 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                                 Controle: {boleto.seu_numero}
                               </p>
                             </div>
-                            <Badge variant={boletoStatus.variant}>{boletoStatus.label}</Badge>
+                            <Badge variant={cfg.variant}>{cfg.label}</Badge>
                           </div>
                           
                           <div className="grid grid-cols-2 gap-2 text-sm">
@@ -243,6 +237,16 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                                   Baixar PDF
                                 </>
                               )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              asChild
+                            >
+                              <a href={`/admin/sicredi/boletos/${boleto.nosso_numero}`}>
+                                <ExternalLink className="mr-1 h-3 w-3" />
+                                Detalhes
+                              </a>
                             </Button>
                           </div>
                         </div>

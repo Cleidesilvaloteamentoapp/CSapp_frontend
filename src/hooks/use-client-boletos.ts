@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { getClientBoletos } from "@/services/sicredi";
-import type { BoletoStoredResponse } from "@/types/sicredi";
+import type { Boleto } from "@/types/sicredi";
 
 export function useClientBoletos(clientId: string | null) {
-  const [boletos, setBoletos] = useState<BoletoStoredResponse[]>([]);
+  const [boletos, setBoletos] = useState<Boleto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

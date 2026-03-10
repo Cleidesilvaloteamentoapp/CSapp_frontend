@@ -10,6 +10,7 @@ import {
   DollarSign,
   Wrench,
   Barcode,
+  ListChecks,
   Settings,
   Building2,
   LogOut,
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { href: "/admin/financial", label: "Financeiro", icon: DollarSign },
   { href: "/admin/services", label: "Serviços", icon: Wrench },
   { href: "/admin/sicredi/boletos", label: "Boletos", icon: Barcode },
+  { href: "/admin/sicredi/boletos/batch", label: "Lote Boletos", icon: ListChecks },
   { href: "/admin/sicredi/config", label: "Config Sicredi", icon: Settings },
 ];
 
