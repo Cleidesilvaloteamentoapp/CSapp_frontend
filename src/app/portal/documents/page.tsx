@@ -1,55 +1,152 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Upload, FolderOpen, FileText, Loader2, Download } from "lucide-react";
+import {
+  Upload, FolderOpen, FileText, Loader2, Download, Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
-import { api, ApiError } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import type { DocumentResponse } from "@/types";
+import {
+  listClientDocuments,
+  uploadClientDocument,
+  deleteClientDocument,
+  getDocumentDownloadUrl,
+} from "@/services/portal";
+import {
+  DOCUMENT_TYPE_LABELS,
+  DOCUMENT_STATUS_CONFIG,
+} from "@/types/portal";
+import type { ClientDocument, DocumentType, DocumentStatus } from "@/types/portal";
+
+const DOC_TYPES: DocumentType[] = [
+  "RG", "CPF", "COMPROVANTE_RESIDENCIA", "CNH", "CONTRATO", "OUTROS",
+];
+
+const STATUS_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "ALL", label: "Todos" },
+  { value: "PENDING_REVIEW", label: "Em Análise" },
+  { value: "APPROVED", label: "Aprovados" },
+  { value: "REJECTED", label: "Rejeitados" },
+];
 
 export default function PortalDocumentsPage() {
-  const [docs, setDocs] = useState<DocumentResponse[]>([]);
+  const [docs, setDocs] = useState<ClientDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [typeFilter, setTypeFilter] = useState("ALL");
+
+  // Upload dialog state
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadType, setUploadType] = useState<DocumentType>("OUTROS");
+  const [uploadDesc, setUploadDesc] = useState("");
 
   useEffect(() => {
-    api.get<DocumentResponse[]>("/client/documents")
-      .then(setDocs)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    loadDocuments();
+  }, [statusFilter, typeFilter]);
 
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function loadDocuments() {
+    setLoading(true);
+    try {
+      const params: { document_type?: DocumentType; doc_status?: string } = {};
+      if (statusFilter !== "ALL") params.doc_status = statusFilter;
+      if (typeFilter !== "ALL") params.document_type = typeFilter as DocumentType;
+      const data = await listClientDocuments(params);
+      setDocs(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error("Erro ao carregar documentos.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpload() {
+    if (!uploadFile) return;
     setUploading(true);
     try {
-      const doc = await api.upload<DocumentResponse>("/client/documents", file);
+      const doc = await uploadClientDocument(
+        uploadFile,
+        uploadType,
+        uploadDesc || undefined
+      );
       setDocs((prev) => [doc, ...prev]);
       toast.success("Documento enviado com sucesso");
-    } catch (error) {
-      if (error instanceof ApiError) toast.error(typeof error.detail === "string" ? error.detail : "Erro ao enviar");
+      resetUploadDialog();
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao enviar documento");
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
+  }
+
+  function resetUploadDialog() {
+    setUploadOpen(false);
+    setUploadFile(null);
+    setUploadType("OUTROS");
+    setUploadDesc("");
+  }
+
+  async function handleDelete(docId: string) {
+    try {
+      await deleteClientDocument(docId);
+      setDocs((prev) => prev.filter((d) => d.id !== docId));
+      toast.success("Documento removido");
+    } catch {
+      toast.error("Erro ao remover documento");
+    }
+  }
+
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <PageHeader title="Meus Documentos" description="Contratos, boletos e outros documentos" />
-        <div>
-          <input ref={fileRef} type="file" className="hidden" onChange={handleUpload} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
-          <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-            {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</> : <><Upload className="mr-2 h-4 w-4" />Enviar</>}
-          </Button>
-        </div>
+        <PageHeader title="Meus Documentos" description="Envie e acompanhe seus documentos" />
+        <Button size="sm" onClick={() => setUploadOpen(true)}>
+          <Upload className="mr-2 h-4 w-4" /> Enviar Documento
+        </Button>
+      </div>
+
+      <div className="flex gap-3">
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_FILTER_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Todos os tipos</SelectItem>
+            {DOC_TYPES.map((t) => (
+              <SelectItem key={t} value={t}>{DOCUMENT_TYPE_LABELS[t]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {loading ? (
@@ -63,30 +160,126 @@ export default function PortalDocumentsPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {docs.map((doc) => (
-            <Card key={doc.id} className="hover:shadow-sm transition-shadow">
-              <CardContent className="flex items-center justify-between py-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <FileText className="h-5 w-5 text-muted-foreground" />
+          {docs.map((doc) => {
+            const statusCfg = DOCUMENT_STATUS_CONFIG[doc.status] || DOCUMENT_STATUS_CONFIG.PENDING_REVIEW;
+            return (
+              <Card key={doc.id} className="hover:shadow-sm transition-shadow">
+                <CardContent className="flex items-center justify-between py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm">{doc.file_name}</p>
+                        <Badge variant={statusCfg.variant} className="text-xs">
+                          {statusCfg.label}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted-foreground">
+                          {DOCUMENT_TYPE_LABELS[doc.document_type]}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatFileSize(doc.file_size)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(doc.created_at)}
+                        </span>
+                      </div>
+                      {doc.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{doc.description}</p>
+                      )}
+                      {doc.status === "REJECTED" && doc.rejection_reason && (
+                        <p className="text-xs text-destructive mt-0.5">
+                          Motivo: {doc.rejection_reason}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">{doc.filename}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(doc.created_at)}</p>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" asChild>
+                      <a
+                        href={doc.file_url || getDocumentDownloadUrl(doc.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Download className="h-4 w-4" />
+                      </a>
+                    </Button>
+                    {doc.status === "PENDING_REVIEW" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(doc.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
-                </div>
-                {doc.url && (
-                  <Button variant="ghost" size="sm" asChild>
-                    <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                      <Download className="h-4 w-4" />
-                    </a>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
+
+      {/* Upload Dialog */}
+      <Dialog open={uploadOpen} onOpenChange={(open) => { if (!open) resetUploadDialog(); else setUploadOpen(true); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar Documento</DialogTitle>
+            <DialogDescription>Selecione o tipo e o arquivo para envio</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Tipo de Documento *</label>
+              <Select value={uploadType} onValueChange={(v) => setUploadType(v as DocumentType)}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DOC_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{DOCUMENT_TYPE_LABELS[t]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Arquivo *</label>
+              <Input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="mt-1"
+                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">PDF, JPG ou PNG (máx 10MB)</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Descrição (opcional)</label>
+              <Textarea
+                value={uploadDesc}
+                onChange={(e) => setUploadDesc(e.target.value)}
+                placeholder="Descrição do documento..."
+                className="mt-1"
+                rows={2}
+                maxLength={500}
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={resetUploadDialog}>Cancelar</Button>
+              <Button onClick={handleUpload} disabled={uploading || !uploadFile}>
+                {uploading ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
+                ) : (
+                  "Enviar"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

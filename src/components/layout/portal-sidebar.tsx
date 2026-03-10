@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, Wrench, FolderOpen, Users, Barcode, Building2, LogOut, ChevronLeft } from "lucide-react";
+import {
+  LayoutDashboard, FileText, Wrench, FolderOpen, Users, Barcode,
+  Building2, LogOut, ChevronLeft, Bell, TicketCheck, User,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -10,20 +13,25 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
+import { useNotifications } from "@/hooks/use-notifications";
 
 const NAV_ITEMS = [
   { href: "/portal/dashboard", label: "Meu Painel", icon: LayoutDashboard },
-  { href: "/portal/invoices", label: "Faturas", icon: FileText },
-  { href: "/portal/services", label: "Serviços", icon: Wrench },
-  { href: "/portal/documents", label: "Documentos", icon: FolderOpen },
-  { href: "/portal/referrals", label: "Indicações", icon: Users },
   { href: "/portal/boletos", label: "Boletos", icon: Barcode },
+  { href: "/portal/invoices", label: "Faturas", icon: FileText },
+  { href: "/portal/documents", label: "Documentos", icon: FolderOpen },
+  { href: "/portal/service-requests", label: "Solicitações", icon: TicketCheck },
+  { href: "/portal/services", label: "Serviços", icon: Wrench },
+  { href: "/portal/referrals", label: "Indicações", icon: Users },
+  { href: "/portal/notifications", label: "Notificações", icon: Bell, badge: true },
+  { href: "/portal/profile", label: "Meu Perfil", icon: User },
 ];
 
 export function PortalSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const { unreadCount } = useNotifications();
 
   const initials = user?.full_name?.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase() || "?";
 
@@ -48,10 +56,27 @@ export function PortalSidebar() {
         <nav className="flex-1 space-y-1 px-3 py-4">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname.startsWith(item.href);
+            const showBadge = (item as any).badge && unreadCount > 0;
             const linkContent = (
-              <Link key={item.href} href={item.href} className={cn("flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors", isActive ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground")}>
-                <item.icon className={cn("h-5 w-5 shrink-0", isActive && "text-sidebar-primary")} />
-                {!collapsed && <span>{item.label}</span>}
+              <Link key={item.href} href={item.href} className={cn("flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative", isActive ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground")}>
+                <div className="relative shrink-0">
+                  <item.icon className={cn("h-5 w-5", isActive && "text-sidebar-primary")} />
+                  {showBadge && collapsed && (
+                    <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </div>
+                {!collapsed && (
+                  <span className="flex-1 flex items-center justify-between">
+                    {item.label}
+                    {showBadge && (
+                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                  </span>
+                )}
               </Link>
             );
             if (collapsed) {

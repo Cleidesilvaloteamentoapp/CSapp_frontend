@@ -283,6 +283,10 @@ export async function issueSegundaVia(
 
 // ===================== Boletos (Client) =====================
 
+export async function listClientBoletos(): Promise<Boleto[]> {
+  return api.get<Boleto[]>("/client/boletos");
+}
+
 export async function getClientBoleto(
   nossoNumero: string
 ): Promise<BoletoDetails> {

@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/layout/page-header";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
-import { api, ApiError } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { listServiceTypes, listServiceOrders, createServiceOrder } from "@/services/portal";
 import type { ServiceTypeResponse, ServiceOrderResponse } from "@/types";
 
 const ORDER_STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -38,8 +38,8 @@ export default function PortalServicesPage() {
 
   useEffect(() => {
     Promise.all([
-      api.get<ServiceTypeResponse[]>("/client/services/types"),
-      api.get<ServiceOrderResponse[]>("/client/services/orders"),
+      listServiceTypes() as Promise<ServiceTypeResponse[]>,
+      listServiceOrders() as Promise<ServiceOrderResponse[]>,
     ])
       .then(([t, o]) => { setTypes(t); setOrders(o); })
       .catch(() => {})
@@ -50,17 +50,17 @@ export default function PortalServicesPage() {
     if (!selectedType) return;
     setSaving(true);
     try {
-      const order = await api.post<ServiceOrderResponse>("/client/services/orders", {
+      const order = await createServiceOrder({
         service_type_id: selectedType,
         notes: notes || undefined,
-      });
+      }) as ServiceOrderResponse;
       setOrders((prev) => [order, ...prev]);
       toast.success("Serviço solicitado com sucesso");
       setRequestOpen(false);
       setSelectedType("");
       setNotes("");
-    } catch (error) {
-      if (error instanceof ApiError) toast.error(typeof error.detail === "string" ? error.detail : "Erro ao solicitar");
+    } catch {
+      toast.error("Erro ao solicitar serviço");
     } finally {
       setSaving(false);
     }

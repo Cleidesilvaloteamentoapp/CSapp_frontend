@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
-import { api, ApiError } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import type { ReferralResponse } from "@/types";
+import { listReferrals, createReferral } from "@/services/portal";
+import type { PortalReferral } from "@/types/portal";
 
 const REFERRAL_STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pendente", variant: "outline" },
@@ -24,7 +24,7 @@ const REFERRAL_STATUS: Record<string, { label: string; variant: "default" | "sec
 };
 
 export default function PortalReferralsPage() {
-  const [referrals, setReferrals] = useState<ReferralResponse[]>([]);
+  const [referrals, setReferrals] = useState<PortalReferral[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -33,7 +33,7 @@ export default function PortalReferralsPage() {
   const [email, setEmail] = useState("");
 
   useEffect(() => {
-    api.get<ReferralResponse[]>("/client/referrals")
+    listReferrals()
       .then(setReferrals)
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -43,7 +43,7 @@ export default function PortalReferralsPage() {
     if (!name || !phone) return;
     setSaving(true);
     try {
-      const ref = await api.post<ReferralResponse>("/client/referrals", {
+      const ref = await createReferral({
         referred_name: name,
         referred_phone: phone,
         referred_email: email || undefined,
@@ -54,8 +54,8 @@ export default function PortalReferralsPage() {
       setName("");
       setPhone("");
       setEmail("");
-    } catch (error) {
-      if (error instanceof ApiError) toast.error(typeof error.detail === "string" ? error.detail : "Erro ao enviar indicação");
+    } catch {
+      toast.error("Erro ao enviar indicação");
     } finally {
       setSaving(false);
     }

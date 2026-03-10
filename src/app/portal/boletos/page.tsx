@@ -6,45 +6,54 @@ import { Download, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "@/components/layout/page-header";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
-import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
-import {
-  downloadClientBoletoPdf,
-  triggerPdfDownload,
-} from "@/services/sicredi";
-import type { BoletoDetails } from "@/types/sicredi";
+import { listPortalBoletos, downloadPortalBoletoPdf, triggerDownload } from "@/services/portal";
+import { BOLETO_STATUS_CONFIG } from "@/types/portal";
+import type { PortalBoleto } from "@/types/portal";
 
-const SITUACAO_BADGE: Record<
-  string,
-  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
-> = {
-  NORMAL: { label: "Em Aberto", variant: "outline" },
-  EM_ABERTO: { label: "Em Aberto", variant: "outline" },
-  LIQUIDADO: { label: "Pago", variant: "default" },
-  VENCIDO: { label: "Vencido", variant: "destructive" },
-  CANCELADO: { label: "Cancelado", variant: "secondary" },
-};
+const STATUS_OPTIONS = [
+  { value: "ALL", label: "Todos" },
+  { value: "NORMAL", label: "Normal" },
+  { value: "LIQUIDADO", label: "Liquidado" },
+  { value: "VENCIDO", label: "Vencido" },
+  { value: "CANCELADO", label: "Cancelado" },
+  { value: "NEGATIVADO", label: "Negativado" },
+  { value: "PENDING_APPROVAL", label: "Pendente" },
+];
 
 export default function PortalBoletosPage() {
-  const [boletos, setBoletos] = useState<BoletoDetails[]>([]);
+  const [boletos, setBoletos] = useState<PortalBoleto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
-    api
-      .get<BoletoDetails[]>("/client/boletos")
-      .then(setBoletos)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    loadBoletos();
+  }, [statusFilter]);
 
-  async function handleDownloadPdf(boleto: BoletoDetails) {
+  async function loadBoletos() {
+    setLoading(true);
+    try {
+      const status = statusFilter === "ALL" ? undefined : statusFilter;
+      const data = await listPortalBoletos(status);
+      setBoletos(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error("Não foi possível carregar seus boletos.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDownloadPdf(boleto: PortalBoleto) {
     setDownloadingId(boleto.nosso_numero);
     try {
-      const blob = await downloadClientBoletoPdf(boleto.nosso_numero);
-      triggerPdfDownload(blob, `boleto_${boleto.nosso_numero}.pdf`);
+      const blob = await downloadPortalBoletoPdf(boleto.nosso_numero);
+      triggerDownload(blob, `boleto_${boleto.nosso_numero}.pdf`);
       toast.success("PDF baixado com sucesso");
     } catch {
       toast.error("Erro ao baixar PDF do boleto");
@@ -55,10 +64,22 @@ export default function PortalBoletosPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Meus Boletos"
-        description="Visualize e baixe seus boletos"
-      />
+      <div className="flex items-center justify-between">
+        <PageHeader
+          title="Meus Boletos"
+          description="Visualize e baixe seus boletos"
+        />
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filtrar status" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {loading ? (
         <TableSkeleton />
@@ -72,8 +93,7 @@ export default function PortalBoletosPage() {
       ) : (
         <div className="space-y-3">
           {boletos.map((boleto) => {
-            const sit =
-              SITUACAO_BADGE[boleto.situacao] || SITUACAO_BADGE.NORMAL;
+            const cfg = BOLETO_STATUS_CONFIG[boleto.status] || BOLETO_STATUS_CONFIG.NORMAL;
             const isDownloading = downloadingId === boleto.nosso_numero;
 
             return (
@@ -87,8 +107,8 @@ export default function PortalBoletosPage() {
                       <p className="font-medium text-sm">
                         Boleto {boleto.nosso_numero}
                       </p>
-                      <Badge variant={sit.variant} className="text-xs">
-                        {sit.label}
+                      <Badge variant={cfg.variant} className="text-xs">
+                        {cfg.label}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">

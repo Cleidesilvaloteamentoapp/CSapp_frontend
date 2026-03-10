@@ -15,6 +15,8 @@ import {
   Building2,
   LogOut,
   ChevronLeft,
+  FolderOpen,
+  TicketCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -34,6 +36,8 @@ const NAV_ITEMS = [
   { href: "/admin/sicredi/boletos", label: "Boletos", icon: Barcode },
   { href: "/admin/sicredi/boletos/batch", label: "Lote Boletos", icon: ListChecks },
   { href: "/admin/sicredi/config", label: "Config Sicredi", icon: Settings },
+  { href: "/admin/documents", label: "Documentos", icon: FolderOpen },
+  { href: "/admin/service-requests", label: "Solicitações", icon: TicketCheck },
 ];
 
 export function AdminSidebar() {
