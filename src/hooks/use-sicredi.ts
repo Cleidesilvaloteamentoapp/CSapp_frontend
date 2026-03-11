@@ -330,7 +330,7 @@ export function useSicrediBoletos() {
 
   const loadLocalBoletos = async (
     filters?: BoletoListFilters
-  ): Promise<PaginatedResponse<Boleto> | null> => {
+  ): Promise<PaginatedResponse<Boleto> | Boleto[] | null> => {
     setLoading(true);
     setError(null);
     try {
