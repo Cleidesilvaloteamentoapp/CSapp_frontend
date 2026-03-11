@@ -35,9 +35,14 @@ function LoginForm() {
       toast.success(`Bem-vindo, ${me.full_name}!`);
       const defaultRedirect = getDefaultRedirect(me.role);
       const requestedRedirect = searchParams.get("redirect");
-      // Validate redirect matches user role to prevent cross-layout loops
+      // Validate redirect: must be relative path, match user role, no protocol/external URLs
       let redirect = defaultRedirect;
-      if (requestedRedirect) {
+      if (
+        requestedRedirect &&
+        requestedRedirect.startsWith("/") &&
+        !requestedRedirect.startsWith("//") &&
+        !requestedRedirect.includes("://")
+      ) {
         const isAdmin = canAccessAdmin(me.role);
         const isAdminRoute = requestedRedirect.startsWith("/admin");
         const isPortalRoute = requestedRedirect.startsWith("/portal");

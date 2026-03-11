@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText, MapPin, AlertTriangle, CalendarClock } from "lucide-react";
+import { Barcode, MapPin, AlertTriangle, CalendarClock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatsCardsSkeleton } from "@/components/shared/loading-skeleton";
@@ -26,7 +26,7 @@ export default function PortalDashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title={`Olá, ${user?.full_name?.split(" ")[0] || "Cliente"}`}
-        description="Acompanhe seus lotes, faturas e serviços"
+        description="Acompanhe seus lotes, boletos e serviços"
       />
 
       {loading ? (
@@ -45,8 +45,8 @@ export default function PortalDashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Faturas Pendentes</CardTitle>
-                <FileText className="h-5 w-5 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Boletos Pendentes</CardTitle>
+                <Barcode className="h-5 w-5 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{data?.pending_invoices ?? 0}</div>
@@ -54,7 +54,7 @@ export default function PortalDashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Em Atraso</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Boletos Vencidos</CardTitle>
                 <AlertTriangle className="h-5 w-5 text-destructive" />
               </CardHeader>
               <CardContent>

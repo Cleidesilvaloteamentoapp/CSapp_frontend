@@ -139,14 +139,20 @@ export function setTokenCookies(
   accessToken: string,
   refreshToken: string
 ): void {
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `access_token=${encodeURIComponent(accessToken)}; path=/; SameSite=Lax; max-age=3600${secure}`;
-  document.cookie = `refresh_token=${encodeURIComponent(refreshToken)}; path=/; SameSite=Lax; max-age=604800${secure}`;
+  const isProduction = window.location.protocol === "https:";
+  const secure = isProduction ? "; Secure" : "";
+  // Access token: SameSite=Strict prevents CSRF, short-lived (1h)
+  document.cookie = `access_token=${encodeURIComponent(accessToken)}; path=/; SameSite=Strict; max-age=3600${secure}`;
+  // Refresh token: SameSite=Strict, longer-lived (7d)
+  document.cookie = `refresh_token=${encodeURIComponent(refreshToken)}; path=/; SameSite=Strict; max-age=604800${secure}`;
 }
 
 export function clearTokenCookies(): void {
-  document.cookie = "access_token=; path=/; max-age=0";
-  document.cookie = "refresh_token=; path=/; max-age=0";
+  const isProduction =
+    typeof window !== "undefined" && window.location.protocol === "https:";
+  const secure = isProduction ? "; Secure" : "";
+  document.cookie = `access_token=; path=/; SameSite=Strict; max-age=0${secure}`;
+  document.cookie = `refresh_token=; path=/; SameSite=Strict; max-age=0${secure}`;
 }
 
 export const api = {

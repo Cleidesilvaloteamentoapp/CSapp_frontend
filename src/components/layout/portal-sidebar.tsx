@@ -18,7 +18,6 @@ import { useNotifications } from "@/hooks/use-notifications";
 const NAV_ITEMS = [
   { href: "/portal/dashboard", label: "Meu Painel", icon: LayoutDashboard },
   { href: "/portal/boletos", label: "Boletos", icon: Barcode },
-  { href: "/portal/invoices", label: "Faturas", icon: FileText },
   { href: "/portal/documents", label: "Documentos", icon: FolderOpen },
   { href: "/portal/service-requests", label: "Solicitações", icon: TicketCheck },
   { href: "/portal/services", label: "Serviços", icon: Wrench },

@@ -147,20 +147,16 @@ export default function BoletosListPage() {
     if (dateEnd) filters.data_fim = dateEnd;
     if (clientFilter) filters.client_id = clientFilter;
 
-    console.log('[Boletos] Loading with filters:', filters);
     const result = await loadLocalBoletos(filters);
-    console.log('[Boletos] API Response:', result);
     if (result) {
       // Handle both array and paginated response formats
       const isArray = Array.isArray(result);
       const items = isArray ? result : (result.items || []);
       const total = isArray ? result.length : (result.total || 0);
       
-      console.log('[Boletos] Setting boletos:', items.length, 'items');
       setBoletos(items);
       setTotalCount(total);
     } else {
-      console.error('[Boletos] No result from API');
     }
     setPageLoading(false);
   }, [page, statusFilter, searchTerm, dateStart, dateEnd, clientFilter]);
