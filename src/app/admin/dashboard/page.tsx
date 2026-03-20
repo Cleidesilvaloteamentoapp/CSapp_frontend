@@ -11,14 +11,22 @@ import {
   TrendingUp,
   ArrowDownRight,
   ArrowUpRight,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatsCardsSkeleton } from "@/components/shared/loading-skeleton";
 import { api, ApiError } from "@/lib/api";
-import { formatCurrency, formatDate } from "@/lib/format";
-import type { AdminStats, FinancialOverview, RevenueChart, RecentActivity } from "@/types";
+import { formatCurrency, formatDate, formatCpfCnpj, formatPhone } from "@/lib/format";
+import type { AdminStats, FinancialOverview, RevenueChart, RecentActivity, DefaulterDetail } from "@/types";
+import { listDashboardDefaulters } from "@/services/admin";
 import {
   BarChart,
   Bar,
@@ -37,6 +45,11 @@ export default function AdminDashboardPage() {
   const [revenue, setRevenue] = useState<RevenueChart[]>([]);
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Defaulters drill-down
+  const [defaultersOpen, setDefaultersOpen] = useState(false);
+  const [defaulters, setDefaulters] = useState<DefaulterDetail[]>([]);
+  const [defaultersLoading, setDefaultersLoading] = useState(false);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -61,6 +74,26 @@ export default function AdminDashboardPage() {
     }
     loadDashboard();
   }, []);
+
+  async function handleOpenDefaulters() {
+    setDefaultersOpen(true);
+    setDefaultersLoading(true);
+    try {
+      const data = await listDashboardDefaulters();
+      setDefaulters(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error("Erro ao carregar inadimplentes");
+    } finally {
+      setDefaultersLoading(false);
+    }
+  }
+
+  function getDaysOverdueColor(days: number) {
+    if (days >= 90) return "text-red-600 bg-red-50";
+    if (days >= 60) return "text-orange-600 bg-orange-50";
+    if (days >= 30) return "text-yellow-600 bg-yellow-50";
+    return "text-muted-foreground";
+  }
 
   if (loading) {
     return (
@@ -93,9 +126,12 @@ export default function AdminDashboardPage() {
             <p className="text-xs text-muted-foreground mt-1">
               {stats?.total_clients ?? 0} total
               {(stats?.defaulter_clients ?? 0) > 0 && (
-                <span className="text-destructive ml-2">
+                <button
+                  onClick={handleOpenDefaulters}
+                  className="text-destructive ml-2 underline underline-offset-2 hover:text-destructive/80 transition-colors cursor-pointer"
+                >
                   {stats?.defaulter_clients} inadimplente{(stats?.defaulter_clients ?? 0) > 1 ? "s" : ""}
-                </span>
+                </button>
               )}
             </p>
           </CardContent>
@@ -310,6 +346,66 @@ export default function AdminDashboardPage() {
           )}
         </CardContent>
       </Card>
+      {/* Defaulters Drill-Down Dialog */}
+      <Dialog open={defaultersOpen} onOpenChange={setDefaultersOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Clientes Inadimplentes
+            </DialogTitle>
+            <DialogDescription>
+              Detalhamento dos clientes com boletos vencidos
+            </DialogDescription>
+          </DialogHeader>
+          {defaultersLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : defaulters.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p className="text-sm">Nenhum cliente inadimplente encontrado</p>
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>CPF/CNPJ</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead className="text-right">Boletos Vencidos</TableHead>
+                    <TableHead className="text-right">Valor em Atraso</TableHead>
+                    <TableHead>Venc. Mais Antigo</TableHead>
+                    <TableHead>Dias em Atraso</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {defaulters.map((d) => (
+                    <TableRow key={d.client_id}>
+                      <TableCell className="font-medium">{d.client_name}</TableCell>
+                      <TableCell className="font-mono text-sm">{formatCpfCnpj(d.cpf_cnpj)}</TableCell>
+                      <TableCell className="text-sm">{formatPhone(d.phone)}</TableCell>
+                      <TableCell className="text-right font-semibold">{d.overdue_invoices}</TableCell>
+                      <TableCell className="text-right font-semibold text-destructive">
+                        {formatCurrency(d.overdue_amount)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {d.oldest_due_date ? formatDate(d.oldest_due_date) : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${getDaysOverdueColor(d.days_overdue)}`}>
+                          {d.days_overdue} dias
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -64,6 +64,7 @@ import type {
 } from "@/types/sicredi";
 import { STATUS_CONFIG as StatusConfig, BATCH_ACTION_LABELS } from "@/types/sicredi";
 import type { ClientResponse } from "@/types";
+import { TAG_CONFIG, type BoletoTag } from "@/types";
 
 export default function BoletosListPage() {
   const router = useRouter();
@@ -95,6 +96,7 @@ export default function BoletosListPage() {
   const [dateEnd, setDateEnd] = useState("");
   const [clientFilter, setClientFilter] = useState<string | null>(null);
   const [clientFilterName, setClientFilterName] = useState<string>("");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const perPage = 20;
 
@@ -146,6 +148,7 @@ export default function BoletosListPage() {
     if (dateStart) filters.data_inicio = dateStart;
     if (dateEnd) filters.data_fim = dateEnd;
     if (clientFilter) filters.client_id = clientFilter;
+    if (tagFilter) filters.tag = tagFilter;
 
     const result = await loadLocalBoletos(filters);
     if (result) {
@@ -201,10 +204,11 @@ export default function BoletosListPage() {
     setDateEnd("");
     setClientFilter(null);
     setClientFilterName("");
+    setTagFilter(null);
     setPage(1);
   }
 
-  const hasActiveFilters = statusFilter || searchTerm || dateStart || dateEnd || clientFilter;
+  const hasActiveFilters = statusFilter || searchTerm || dateStart || dateEnd || clientFilter || tagFilter;
 
   // ==================== Selection ====================
 
@@ -481,7 +485,7 @@ export default function BoletosListPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <div className="lg:col-span-2">
               <Input
                 placeholder="Buscar por Nosso Nº, Seu Nº, pagador..."
@@ -507,6 +511,25 @@ export default function BoletosListPage() {
                 <SelectItem value="VENCIDO">Vencidos</SelectItem>
                 <SelectItem value="CANCELADO">Cancelados</SelectItem>
                 <SelectItem value="NEGATIVADO">Negativados</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={tagFilter || "all"}
+              onValueChange={(v) => {
+                setTagFilter(v === "all" ? null : v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Tag" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Tags</SelectItem>
+                <SelectItem value="ENTRADA_PARCELADA">Entrada Parcelada</SelectItem>
+                <SelectItem value="PARCELA_CONTRATO">Parcela de Contrato</SelectItem>
+                <SelectItem value="SERVICO_AVULSO">Serviço Avulso</SelectItem>
+                <SelectItem value="SEGUNDA_VIA">Segunda Via</SelectItem>
+                <SelectItem value="RENEGOCIACAO">Renegociação</SelectItem>
               </SelectContent>
             </Select>
             <Input
@@ -620,6 +643,7 @@ export default function BoletosListPage() {
                       <TableHead>Cliente / Pagador</TableHead>
                       <TableHead>Valor</TableHead>
                       <TableHead>Vencimento</TableHead>
+                      <TableHead>Tag</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
@@ -651,6 +675,11 @@ export default function BoletosListPage() {
                               <p className="text-xs text-muted-foreground">
                                 {boleto.seu_numero}
                               </p>
+                              {boleto.installment_label && (
+                                <p className="text-[10px] font-medium text-blue-600 mt-0.5">
+                                  {boleto.installment_label}
+                                </p>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -688,7 +717,27 @@ export default function BoletosListPage() {
                             {formatDate(boleto.data_vencimento)}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                            {boleto.tag && TAG_CONFIG[boleto.tag as BoletoTag] ? (
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${TAG_CONFIG[boleto.tag as BoletoTag].bg} ${TAG_CONFIG[boleto.tag as BoletoTag].color}`}>
+                                {TAG_CONFIG[boleto.tag as BoletoTag].label}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                              {boleto.writeoff_type && (
+                                <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+                                  boleto.writeoff_type === "MANUAL_ADMIN"
+                                    ? "bg-orange-100 text-orange-700"
+                                    : "bg-green-100 text-green-700"
+                                }`}>
+                                  {boleto.writeoff_type === "MANUAL_ADMIN" ? "Baixa Manual" : "Baixa Automática"}
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <BoletoActionsMenu

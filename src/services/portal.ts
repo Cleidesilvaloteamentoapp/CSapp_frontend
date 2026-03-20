@@ -274,6 +274,21 @@ export async function markAllNotificationsRead(): Promise<void> {
   await api.patch("/client/notifications/read-all");
 }
 
+// ===================== Early Payoff (Client) =====================
+
+export async function requestEarlyPayoff(data: {
+  client_lot_id: string;
+  client_message?: string;
+}): Promise<import("@/types/portal").ClientEarlyPayoffResponse> {
+  return api.post("/client/early-payoff", data);
+}
+
+export async function listMyEarlyPayoffRequests(): Promise<
+  import("@/types/portal").ClientEarlyPayoffResponse[]
+> {
+  return api.get("/client/early-payoff");
+}
+
 // ===================== Referrals =====================
 
 export async function listReferrals(): Promise<PortalReferral[]> {

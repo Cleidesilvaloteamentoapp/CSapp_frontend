@@ -176,6 +176,10 @@ export type NotificationType =
   | "DOCUMENTO_APROVADO"
   | "DOCUMENTO_REJEITADO"
   | "SOLICITACAO_ATUALIZADA"
+  | "CICLO_PENDENTE"
+  | "TRANSFERENCIA_CONTRATO"
+  | "ANTECIPACAO_SOLICITADA"
+  | "DISTRATO_AUTOMATICO"
   | "GERAL";
 
 export interface Notification {
@@ -197,6 +201,10 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   DOCUMENTO_APROVADO: "Documento Aprovado",
   DOCUMENTO_REJEITADO: "Documento Rejeitado",
   SOLICITACAO_ATUALIZADA: "Solicitação Atualizada",
+  CICLO_PENDENTE: "Ciclo Pendente",
+  TRANSFERENCIA_CONTRATO: "Transferência de Contrato",
+  ANTECIPACAO_SOLICITADA: "Antecipação Solicitada",
+  DISTRATO_AUTOMATICO: "Distrato Automático",
   GERAL: "Geral",
 };
 
@@ -262,6 +270,9 @@ export interface PortalBoleto {
   valor_liquidacao: number | null;
   status: string;
   pagador_data: { nome: string; cpfCnpj: string } | null;
+  tag: 'ENTRADA_PARCELADA' | 'PARCELA_CONTRATO' | 'SERVICO_AVULSO' | 'SEGUNDA_VIA' | 'RENEGOCIACAO' | null;
+  installment_label: string | null;
+  writeoff_type: 'AUTOMATICA_BANCO' | 'MANUAL_ADMIN' | null;
   created_at: string;
 }
 
@@ -291,6 +302,35 @@ export interface PortalReferral {
   created_at: string;
   updated_at: string;
 }
+
+// ===================== Early Payoff (Client) =====================
+export type ClientEarlyPayoffStatus = "PENDING" | "CONTACTED" | "COMPLETED" | "CANCELLED";
+
+export interface ClientEarlyPayoffRequest {
+  client_lot_id: string;
+  client_message?: string;
+}
+
+export interface ClientEarlyPayoffResponse {
+  id: string;
+  company_id: string;
+  client_id: string;
+  client_lot_id: string;
+  status: ClientEarlyPayoffStatus;
+  requested_at: string;
+  admin_notes: string | null;
+  client_message: string | null;
+}
+
+export const EARLY_PAYOFF_STATUS_CONFIG: Record<
+  ClientEarlyPayoffStatus,
+  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
+> = {
+  PENDING: { label: "Pendente", variant: "outline" },
+  CONTACTED: { label: "Contactado", variant: "default" },
+  COMPLETED: { label: "Concluído", variant: "default" },
+  CANCELLED: { label: "Cancelado", variant: "secondary" },
+};
 
 // ===================== Segunda Via =====================
 export interface SegundaViaPreview {

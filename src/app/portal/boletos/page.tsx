@@ -15,6 +15,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { listPortalBoletos, downloadPortalBoletoPdf, triggerDownload } from "@/services/portal";
 import { BOLETO_STATUS_CONFIG } from "@/types/portal";
 import type { PortalBoleto } from "@/types/portal";
+import { TAG_CONFIG, type BoletoTag } from "@/types";
 
 const STATUS_OPTIONS = [
   { value: "ALL", label: "Todos" },
@@ -103,16 +104,33 @@ export default function PortalBoletosPage() {
               >
                 <CardContent className="flex items-center justify-between py-4">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium text-sm">
                         Boleto {boleto.nosso_numero}
                       </p>
                       <Badge variant={cfg.variant} className="text-xs">
                         {cfg.label}
                       </Badge>
+                      {boleto.tag && TAG_CONFIG[boleto.tag as BoletoTag] && (
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${TAG_CONFIG[boleto.tag as BoletoTag].bg} ${TAG_CONFIG[boleto.tag as BoletoTag].color}`}>
+                          {TAG_CONFIG[boleto.tag as BoletoTag].label}
+                        </span>
+                      )}
+                      {boleto.writeoff_type && (
+                        <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+                          boleto.writeoff_type === "MANUAL_ADMIN"
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-green-100 text-green-700"
+                        }`}>
+                          {boleto.writeoff_type === "MANUAL_ADMIN" ? "Baixa Manual" : "Baixa Automática"}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Vencimento: {formatDate(boleto.data_vencimento)}
+                      {boleto.installment_label && (
+                        <span className="ml-2 font-medium text-blue-600">{boleto.installment_label}</span>
+                      )}
                     </p>
                     {boleto.seu_numero && (
                       <p className="text-xs text-muted-foreground">

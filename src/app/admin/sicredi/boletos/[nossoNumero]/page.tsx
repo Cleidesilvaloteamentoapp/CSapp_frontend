@@ -49,12 +49,17 @@ import { ClientFormDialog } from "@/app/admin/clients/client-form-dialog";
 import { useSicrediBoletos } from "@/hooks/use-sicredi";
 import { updateBoleto } from "@/services/sicredi";
 import { formatCurrency, formatDate, formatCpfCnpj } from "@/lib/format";
+import { Textarea } from "@/components/ui/textarea";
 import { STATUS_CONFIG } from "@/types/sicredi";
 import type { Boleto, BoletoDetails } from "@/types/sicredi";
+import { TAG_CONFIG, type BoletoTag } from "@/types";
+import { useAuth } from "@/contexts/auth-context";
+import { manualBoletoWriteoff } from "@/services/admin";
 
 export default function BoletoDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const { isSuperAdmin } = useAuth();
   const nossoNumero = params.nossoNumero as string;
 
   const {
@@ -90,6 +95,11 @@ export default function BoletoDetailsPage() {
   const [sustarOpen, setSustarOpen] = useState(false);
   const [linkClientOpen, setLinkClientOpen] = useState(false);
   const [clientFormOpen, setClientFormOpen] = useState(false);
+  const [baixaManualOpen, setBaixaManualOpen] = useState(false);
+  const [baixaReason, setBaixaReason] = useState("");
+  const [baixaValor, setBaixaValor] = useState("");
+  const [baixaData, setBaixaData] = useState("");
+  const [baixaLoading, setBaixaLoading] = useState(false);
 
   // Form values
   const [newVencimento, setNewVencimento] = useState("");
@@ -300,6 +310,29 @@ export default function BoletoDetailsPage() {
     }
   }
 
+  async function handleBaixaManual() {
+    if (!boletoLocal || baixaReason.length < 5) return;
+    setBaixaLoading(true);
+    try {
+      await manualBoletoWriteoff(boletoLocal.id, {
+        reason: baixaReason,
+        valor_liquidacao: baixaValor ? parseFloat(baixaValor) : undefined,
+        data_liquidacao: baixaData || undefined,
+      });
+      toast.success("Baixa manual realizada com sucesso");
+      setBaixaManualOpen(false);
+      setBaixaReason("");
+      setBaixaValor("");
+      setBaixaData("");
+      reloadLocal();
+      handleSyncSicredi();
+    } catch {
+      toast.error("Erro ao realizar baixa manual");
+    } finally {
+      setBaixaLoading(false);
+    }
+  }
+
   if (pageLoading) return <PageSkeleton />;
 
   if (!boleto) {
@@ -435,6 +468,54 @@ export default function BoletoDetailsPage() {
                 </div>
               )}
             </div>
+
+            {/* Tag & Installment Label */}
+            {(boletoLocal?.tag || boletoLocal?.installment_label) && (
+              <div className="flex items-center gap-3 flex-wrap">
+                {boletoLocal?.tag && TAG_CONFIG[boletoLocal.tag as BoletoTag] && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Tag</p>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold mt-1 ${TAG_CONFIG[boletoLocal.tag as BoletoTag].bg} ${TAG_CONFIG[boletoLocal.tag as BoletoTag].color}`}>
+                      {TAG_CONFIG[boletoLocal.tag as BoletoTag].label}
+                    </span>
+                  </div>
+                )}
+                {boletoLocal?.installment_label && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Parcela</p>
+                    <p className="text-sm font-semibold text-blue-600 mt-1">{boletoLocal.installment_label}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Writeoff Info */}
+            {boletoLocal?.writeoff_type && (
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">Tipo de Baixa</p>
+                  <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${
+                    boletoLocal.writeoff_type === "MANUAL_ADMIN"
+                      ? "bg-orange-100 text-orange-700"
+                      : "bg-green-100 text-green-700"
+                  }`}>
+                    {boletoLocal.writeoff_type === "MANUAL_ADMIN" ? "Baixa Manual" : "Baixa Automática (Banco)"}
+                  </span>
+                </div>
+                {boletoLocal.writeoff_by && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Baixado por</p>
+                    <p className="text-sm">{boletoLocal.writeoff_by}</p>
+                  </div>
+                )}
+                {boletoLocal.writeoff_reason && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Motivo</p>
+                    <p className="text-sm bg-muted rounded p-2">{boletoLocal.writeoff_reason}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -650,6 +731,25 @@ export default function BoletoDetailsPage() {
                   >
                     <ShieldOff className="mr-2 h-4 w-4" />
                     Sustar Negativação + Baixar
+                  </Button>
+                </>
+              )}
+
+              {isEditable && isSuperAdmin && !boletoLocal?.writeoff_type && (
+                <>
+                  <Separator orientation="vertical" className="h-9" />
+                  <Button
+                    variant="outline"
+                    className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                    onClick={() => {
+                      setBaixaReason("");
+                      setBaixaValor(String(valor));
+                      setBaixaData("");
+                      setBaixaManualOpen(true);
+                    }}
+                  >
+                    <DollarSign className="mr-2 h-4 w-4" />
+                    Baixa Manual
                   </Button>
                 </>
               )}
@@ -876,6 +976,67 @@ export default function BoletoDetailsPage() {
           toast.success("Cliente criado com sucesso");
         }}
       />
+
+      {/* Baixa Manual Dialog */}
+      <Dialog open={baixaManualOpen} onOpenChange={setBaixaManualOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Baixa Manual do Boleto</DialogTitle>
+            <DialogDescription>
+              Boleto: {nossoNumero} — Esta ação registra a baixa manual sem comunicação com o banco.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Motivo da Baixa *</label>
+              <Textarea
+                value={baixaReason}
+                onChange={(e) => setBaixaReason(e.target.value)}
+                className="mt-1"
+                rows={3}
+                placeholder="Mínimo 5 caracteres..."
+              />
+              {baixaReason.length > 0 && baixaReason.length < 5 && (
+                <p className="text-xs text-destructive mt-1">Mínimo 5 caracteres</p>
+              )}
+            </div>
+            <div>
+              <label className="text-sm font-medium">Valor Liquidado (R$)</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={baixaValor}
+                onChange={(e) => setBaixaValor(e.target.value)}
+                className="mt-1"
+                placeholder="Opcional — valor efetivamente pago"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Data de Liquidação</label>
+              <Input
+                type="date"
+                value={baixaData}
+                onChange={(e) => setBaixaData(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setBaixaManualOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleBaixaManual}
+                disabled={baixaLoading || baixaReason.length < 5}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                {baixaLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirmar Baixa Manual
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

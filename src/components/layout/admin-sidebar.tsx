@@ -17,6 +17,11 @@ import {
   ChevronLeft,
   FolderOpen,
   TicketCheck,
+  TrendingUp,
+  CheckCircle,
+  ArrowLeftRight,
+  FastForward,
+  FileSpreadsheet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -26,13 +31,27 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
 
-const NAV_ITEMS = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: "pending" | "coming-soon";
+  separator?: boolean;
+  superAdminOnly?: boolean;
+};
+
+const NAV_ITEMS: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/clients", label: "Clientes", icon: Users },
   { href: "/admin/developments", label: "Empreendimentos", icon: MapPin },
   { href: "/admin/lots", label: "Lotes", icon: LandPlot },
-  { href: "/admin/financial", label: "Financeiro", icon: DollarSign },
-  { href: "/admin/services", label: "Serviços", icon: Wrench },
+  { href: "/admin/financial", label: "Financeiro", icon: DollarSign, separator: true },
+  { href: "/admin/economic-indices", label: "Índices Econômicos", icon: TrendingUp, superAdminOnly: true },
+  { href: "/admin/cycle-approvals", label: "Aprovação de Ciclos", icon: CheckCircle, badge: "pending" },
+  { href: "/admin/transfers", label: "Transferências", icon: ArrowLeftRight, superAdminOnly: true },
+  { href: "/admin/early-payoff-requests", label: "Antecipações", icon: FastForward },
+  { href: "/admin/bank-statements", label: "Extratos Bancários", icon: FileSpreadsheet, badge: "coming-soon", superAdminOnly: true },
+  { href: "/admin/services", label: "Serviços", icon: Wrench, separator: true },
   { href: "/admin/sicredi/boletos", label: "Boletos", icon: Barcode },
   { href: "/admin/sicredi/boletos/batch", label: "Lote Boletos", icon: ListChecks },
   { href: "/admin/sicredi/config", label: "Config Sicredi", icon: Settings },
@@ -42,8 +61,12 @@ const NAV_ITEMS = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+
+  const visibleNavItems = NAV_ITEMS.filter(
+    (item) => !item.superAdminOnly || isSuperAdmin
+  );
 
   const initials = user?.full_name
     ?.split(" ")
@@ -89,8 +112,8 @@ export function AdminSidebar() {
         <Separator className="bg-sidebar-border" />
 
         {/* Nav */}
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {NAV_ITEMS.map((item) => {
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          {visibleNavItems.map((item, idx) => {
             const isActive = pathname.startsWith(item.href);
             const linkContent = (
               <Link
@@ -104,22 +127,47 @@ export function AdminSidebar() {
                 )}
               >
                 <item.icon className={cn("h-5 w-5 shrink-0", isActive && "text-sidebar-primary")} />
-                {!collapsed && <span>{item.label}</span>}
+                {!collapsed && (
+                  <span className="flex-1 flex items-center justify-between">
+                    {item.label}
+                    {item.badge === "coming-soon" && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase text-muted-foreground">
+                        Em breve
+                      </span>
+                    )}
+                    {item.badge === "pending" && (
+                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-yellow-500 px-1.5 text-[10px] font-bold text-white">
+                        !
+                      </span>
+                    )}
+                  </span>
+                )}
               </Link>
             );
 
+            const showSeparator = item.separator && idx > 0;
+
             if (collapsed) {
               return (
-                <Tooltip key={item.href}>
-                  <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                  <TooltipContent side="right" className="font-medium">
-                    {item.label}
-                  </TooltipContent>
-                </Tooltip>
+                <div key={item.href}>
+                  {showSeparator && <Separator className="my-2 bg-sidebar-border" />}
+                  <Tooltip>
+                    <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                    <TooltipContent side="right" className="font-medium">
+                      {item.label}
+                      {item.badge === "coming-soon" && " (em breve)"}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
               );
             }
 
-            return linkContent;
+            return (
+              <div key={item.href}>
+                {showSeparator && <Separator className="my-2 bg-sidebar-border" />}
+                {linkContent}
+              </div>
+            );
           })}
         </nav>
 

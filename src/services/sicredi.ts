@@ -155,6 +155,7 @@ export async function listLocalBoletos(
   const params = new URLSearchParams();
   if (filters?.client_id) params.set("client_id", filters.client_id);
   if (filters?.status) params.set("status", filters.status);
+  if (filters?.tag) params.set("tag", filters.tag);
   if (filters?.data_inicio) params.set("data_inicio", filters.data_inicio);
   if (filters?.data_fim) params.set("data_fim", filters.data_fim);
   if (filters?.search) params.set("search", filters.search);
@@ -195,7 +196,7 @@ export async function getClientBoletos(
 
 export async function updateBoleto(
   id: string,
-  data: Partial<Pick<Boleto, "client_id" | "status" | "invoice_id">>
+  data: Partial<Pick<Boleto, "client_id" | "status" | "invoice_id" | "tag">>
 ): Promise<Boleto> {
   return api.patch<Boleto>(`/admin/boletos/${id}`, data);
 }

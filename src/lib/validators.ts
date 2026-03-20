@@ -93,3 +93,44 @@ export type LotAssignFormData = z.infer<typeof lotAssignSchema>;
 export type ServiceTypeCreateFormData = z.infer<typeof serviceTypeCreateSchema>;
 export type ServiceOrderCreateFormData = z.infer<typeof serviceOrderCreateSchema>;
 export type ReferralCreateFormData = z.infer<typeof referralCreateSchema>;
+
+export const economicIndexCreateSchema = z.object({
+  index_type: z.enum(["IPCA", "IGPM", "CUB", "INPC"], { message: "Selecione o tipo" }),
+  reference_month: z.string().min(1, "Mês de referência é obrigatório"),
+  value: z.coerce.number({ message: "Valor é obrigatório" }),
+  state_code: z.string().length(2, "UF deve ter 2 caracteres").optional().or(z.literal("")),
+});
+
+export const cycleApproveSchema = z.object({
+  new_installment_value: z.coerce.number().positive("Valor deve ser maior que 0"),
+  admin_notes: z.string().optional(),
+});
+
+export const cycleRejectSchema = z.object({
+  admin_notes: z.string().min(5, "Motivo deve ter no mínimo 5 caracteres"),
+});
+
+export const transferCreateSchema = z.object({
+  client_lot_id: z.string().uuid("Selecione um lote"),
+  to_client_id: z.string().uuid("Selecione o cliente destino"),
+  transfer_fee: z.coerce.number().min(0).optional(),
+  reason: z.string().optional(),
+});
+
+export const earlyPayoffRequestSchema = z.object({
+  client_lot_id: z.string().uuid("Selecione um lote"),
+  client_message: z.string().optional(),
+});
+
+export const manualWriteoffSchema = z.object({
+  reason: z.string().min(5, "Motivo deve ter no mínimo 5 caracteres"),
+  valor_liquidacao: z.coerce.number().positive().optional(),
+  data_liquidacao: z.string().optional(),
+});
+
+export type EconomicIndexCreateFormData = z.infer<typeof economicIndexCreateSchema>;
+export type CycleApproveFormData = z.infer<typeof cycleApproveSchema>;
+export type CycleRejectFormData = z.infer<typeof cycleRejectSchema>;
+export type TransferCreateFormData = z.infer<typeof transferCreateSchema>;
+export type EarlyPayoffRequestFormData = z.infer<typeof earlyPayoffRequestSchema>;
+export type ManualWriteoffFormData = z.infer<typeof manualWriteoffSchema>;

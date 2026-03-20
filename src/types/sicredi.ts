@@ -151,6 +151,11 @@ export interface Boleto {
   pagador_documento?: string;
   invoice_id?: string | null;
   dias_negativacao_auto?: number | null;
+  tag: 'ENTRADA_PARCELADA' | 'PARCELA_CONTRATO' | 'SERVICO_AVULSO' | 'SEGUNDA_VIA' | 'RENEGOCIACAO' | null;
+  installment_label: string | null;
+  writeoff_type: 'AUTOMATICA_BANCO' | 'MANUAL_ADMIN' | null;
+  writeoff_by: string | null;
+  writeoff_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -172,6 +177,7 @@ export interface BoletoStats {
 export interface BoletoListFilters {
   client_id?: string;
   status?: BoletoSituacao;
+  tag?: string;
   data_inicio?: string;
   data_fim?: string;
   search?: string;

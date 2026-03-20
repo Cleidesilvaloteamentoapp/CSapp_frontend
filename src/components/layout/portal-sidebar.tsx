@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, FileText, Wrench, FolderOpen, Users, Barcode,
-  Building2, LogOut, ChevronLeft, Bell, TicketCheck, User,
+  Building2, LogOut, ChevronLeft, Bell, TicketCheck, User, FastForward,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { href: "/portal/service-requests", label: "Solicitações", icon: TicketCheck },
   { href: "/portal/services", label: "Serviços", icon: Wrench },
   { href: "/portal/referrals", label: "Indicações", icon: Users },
+  { href: "/portal/early-payoff", label: "Antecipar Pagamento", icon: FastForward },
   { href: "/portal/notifications", label: "Notificações", icon: Bell, badge: true },
   { href: "/portal/profile", label: "Meu Perfil", icon: User },
 ];

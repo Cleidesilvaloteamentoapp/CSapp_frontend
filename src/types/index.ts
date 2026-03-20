@@ -359,5 +359,147 @@ export interface ApiError {
   detail: string | Array<{ loc: string[]; msg: string; type: string }>;
 }
 
+// ===================== Boleto Tag =====================
+export type BoletoTag =
+  | "ENTRADA_PARCELADA"
+  | "PARCELA_CONTRATO"
+  | "SERVICO_AVULSO"
+  | "SEGUNDA_VIA"
+  | "RENEGOCIACAO";
+
+export const TAG_CONFIG: Record<
+  BoletoTag,
+  { label: string; color: string; bg: string }
+> = {
+  ENTRADA_PARCELADA: { label: "Entrada Parcelada", color: "text-blue-700", bg: "bg-blue-100" },
+  PARCELA_CONTRATO: { label: "Parcela de Contrato", color: "text-green-700", bg: "bg-green-100" },
+  SERVICO_AVULSO: { label: "Serviço Avulso", color: "text-orange-700", bg: "bg-orange-100" },
+  SEGUNDA_VIA: { label: "Segunda Via", color: "text-yellow-700", bg: "bg-yellow-100" },
+  RENEGOCIACAO: { label: "Renegociação", color: "text-purple-700", bg: "bg-purple-100" },
+};
+
+// ===================== Economic Index =====================
+export type IndexType = "IPCA" | "IGPM" | "CUB" | "INPC";
+export type IndexSource = "MANUAL" | "BCB_API";
+
+export interface EconomicIndexResponse {
+  id: string;
+  company_id: string;
+  index_type: IndexType;
+  state_code: string | null;
+  reference_month: string;
+  value: number;
+  source: IndexSource;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EconomicIndexCreate {
+  index_type: IndexType;
+  reference_month: string;
+  value: number;
+  state_code?: string;
+}
+
+export interface EconomicIndexUpdate {
+  value: number;
+}
+
+// ===================== Cycle Approval =====================
+export type CycleApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface CycleApprovalResponse {
+  id: string;
+  company_id: string;
+  client_lot_id: string;
+  cycle_number: number;
+  status: CycleApprovalStatus;
+  previous_installment_value: number;
+  new_installment_value: number | null;
+  adjustment_details: Record<string, unknown> | null;
+  requested_at: string;
+  approved_at: string | null;
+  approved_by: string | null;
+  admin_notes: string | null;
+  client_name: string | null;
+  lot_identifier: string | null;
+  total_installments: number | null;
+}
+
+// ===================== Contract Transfer =====================
+export type TransferStatus = "PENDING" | "APPROVED" | "COMPLETED" | "CANCELLED";
+
+export interface ContractTransferResponse {
+  id: string;
+  company_id: string;
+  client_lot_id: string;
+  from_client_id: string;
+  to_client_id: string;
+  status: TransferStatus;
+  transfer_fee: number | null;
+  transfer_date: string | null;
+  reason: string | null;
+  admin_notes: string | null;
+  from_client_name: string | null;
+  to_client_name: string | null;
+  lot_identifier: string | null;
+}
+
+export interface ContractTransferCreate {
+  client_lot_id: string;
+  to_client_id: string;
+  transfer_fee?: number;
+  reason?: string;
+}
+
+// ===================== Early Payoff =====================
+export type EarlyPayoffStatus = "PENDING" | "CONTACTED" | "COMPLETED" | "CANCELLED";
+
+export interface EarlyPayoffResponse {
+  id: string;
+  company_id: string;
+  client_id: string;
+  client_lot_id: string;
+  status: EarlyPayoffStatus;
+  requested_at: string;
+  admin_notes: string | null;
+  client_message: string | null;
+  client_name?: string | null;
+  lot_identifier?: string | null;
+}
+
+// ===================== Defaulter Detail (Enhanced) =====================
+export interface DefaulterDetail {
+  client_id: string;
+  client_name: string;
+  cpf_cnpj: string;
+  phone: string;
+  overdue_invoices: number;
+  overdue_amount: number;
+  oldest_due_date: string | null;
+  days_overdue: number;
+}
+
+// ===================== Status Color Helpers =====================
+export const WORKFLOW_STATUS_CONFIG: Record<
+  string,
+  { label: string; variant: "default" | "secondary" | "destructive" | "outline"; color: string }
+> = {
+  PENDING: { label: "Pendente", variant: "outline", color: "text-yellow-600" },
+  APPROVED: { label: "Aprovado", variant: "default", color: "text-green-600" },
+  REJECTED: { label: "Rejeitado", variant: "destructive", color: "text-red-600" },
+  COMPLETED: { label: "Concluído", variant: "default", color: "text-blue-600" },
+  CANCELLED: { label: "Cancelado", variant: "secondary", color: "text-gray-500" },
+  CONTACTED: { label: "Contactado", variant: "outline", color: "text-blue-500" },
+};
+
+// ===================== Manual Writeoff =====================
+export interface ManualWriteoffRequest {
+  reason: string;
+  valor_liquidacao?: number;
+  data_liquidacao?: string;
+}
+
 // ===================== Sicredi =====================
 export * from "./sicredi";
