@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, FileText, Upload, Loader2, Download, ExternalLink } from "lucide-react";
+import {
+  Pencil, FileText, Upload, Loader2, Download, ExternalLink,
+  ArrowLeftRight, FastForward, RefreshCw, CheckCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -13,7 +16,13 @@ import { formatPhone, formatCpfCnpj, formatDate, formatCurrency } from "@/lib/fo
 import { useClientBoletos } from "@/hooks/use-client-boletos";
 import { downloadBoletoPdf, triggerPdfDownload } from "@/services/sicredi";
 import { STATUS_CONFIG } from "@/types/sicredi";
-import type { ClientResponse, ClientLotResponse, InvoiceResponse } from "@/types";
+import { TAG_CONFIG, type BoletoTag } from "@/types";
+import { WORKFLOW_STATUS_CONFIG } from "@/types";
+import type {
+  ClientResponse, ClientLotResponse, InvoiceResponse,
+  CycleApprovalResponse, ContractTransferResponse, EarlyPayoffResponse,
+} from "@/types";
+import { useAuth } from "@/contexts/auth-context";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   active: { label: "Ativo", variant: "default" },
@@ -36,8 +45,12 @@ interface ClientDetailSheetProps {
 }
 
 export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheetProps) {
+  const { isSuperAdmin } = useAuth();
   const [lots, setLots] = useState<ClientLotResponse[]>([]);
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
+  const [cycles, setCycles] = useState<CycleApprovalResponse[]>([]);
+  const [transfers, setTransfers] = useState<ContractTransferResponse[]>([]);
+  const [earlyPayoffs, setEarlyPayoffs] = useState<EarlyPayoffResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
@@ -50,10 +63,16 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
     Promise.all([
       api.get<ClientLotResponse[]>(`/admin/clients/${client.id}/lots`).catch(() => []),
       api.get<InvoiceResponse[]>(`/admin/clients/${client.id}/invoices`).catch(() => []),
+      api.get<CycleApprovalResponse[]>(`/admin/cycle-approvals?client_id=${client.id}`).catch(() => []),
+      api.get<ContractTransferResponse[]>(`/admin/transfers?client_id=${client.id}`).catch(() => []),
+      api.get<EarlyPayoffResponse[]>(`/admin/early-payoff-requests?client_id=${client.id}`).catch(() => []),
     ])
-      .then(([lotsData, invoicesData]) => {
+      .then(([lotsData, invoicesData, cyclesData, transfersData, payoffData]) => {
         setLots(lotsData);
         setInvoices(invoicesData);
+        setCycles(Array.isArray(cyclesData) ? cyclesData : []);
+        setTransfers(Array.isArray(transfersData) ? transfersData : []);
+        setEarlyPayoffs(Array.isArray(payoffData) ? payoffData : []);
       })
       .finally(() => setLoading(false));
   }, [client]);
@@ -103,11 +122,12 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
             </SheetHeader>
 
             <Tabs defaultValue="info" className="mt-6">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="info">Dados</TabsTrigger>
                 <TabsTrigger value="lots">Lotes</TabsTrigger>
                 <TabsTrigger value="invoices">Faturas</TabsTrigger>
                 <TabsTrigger value="boletos">Boletos</TabsTrigger>
+                <TabsTrigger value="ajustes">Ajustes</TabsTrigger>
                 <TabsTrigger value="docs">Docs</TabsTrigger>
               </TabsList>
 
@@ -193,12 +213,33 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                         <div key={boleto.id} className="rounded-lg border p-4 space-y-3">
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
-                              <p className="text-sm font-medium">Nosso Número: {boleto.nosso_numero}</p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-sm font-medium">Nosso Número: {boleto.nosso_numero}</p>
+                                {boleto.tag && TAG_CONFIG[boleto.tag as BoletoTag] && (
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${TAG_CONFIG[boleto.tag as BoletoTag].bg} ${TAG_CONFIG[boleto.tag as BoletoTag].color}`}>
+                                    {TAG_CONFIG[boleto.tag as BoletoTag].label}
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-xs text-muted-foreground mt-1">
                                 Controle: {boleto.seu_numero}
+                                {boleto.installment_label && (
+                                  <span className="ml-2 font-medium text-blue-600">{boleto.installment_label}</span>
+                                )}
                               </p>
                             </div>
-                            <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                              {boleto.writeoff_type && (
+                                <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+                                  boleto.writeoff_type === "MANUAL_ADMIN"
+                                    ? "bg-orange-100 text-orange-700"
+                                    : "bg-green-100 text-green-700"
+                                }`}>
+                                  {boleto.writeoff_type === "MANUAL_ADMIN" ? "Baixa Manual" : "Baixa Automática"}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           
                           <div className="grid grid-cols-2 gap-2 text-sm">
@@ -252,6 +293,128 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="ajustes" className="mt-4">
+                {loading ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
+                ) : (
+                  <div className="space-y-5">
+                    {/* Ciclos */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-semibold">Ciclos de Parcelas</p>
+                      </div>
+                      {cycles.length === 0 ? (
+                        <p className="text-xs text-muted-foreground pl-6">Nenhum ciclo encontrado</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {cycles.map((cycle) => {
+                            const wcfg = WORKFLOW_STATUS_CONFIG[cycle.status] || { label: cycle.status, variant: "secondary" as const };
+                            return (
+                              <div key={cycle.id} className="rounded-lg border px-3 py-2.5">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-medium">
+                                    Ciclo {cycle.cycle_number}
+                                    {cycle.lot_identifier && <span className="text-muted-foreground ml-1">— {cycle.lot_identifier}</span>}
+                                  </p>
+                                  <Badge variant={wcfg.variant}>{wcfg.label}</Badge>
+                                </div>
+                                <div className="flex gap-4 mt-1.5 text-xs text-muted-foreground">
+                                  <span>Anterior: {formatCurrency(cycle.previous_installment_value)}</span>
+                                  {cycle.new_installment_value && (
+                                    <span className="text-green-600 font-medium">Novo: {formatCurrency(cycle.new_installment_value)}</span>
+                                  )}
+                                  <span>{formatDate(cycle.requested_at)}</span>
+                                </div>
+                                {cycle.admin_notes && (
+                                  <p className="text-xs bg-muted rounded p-1.5 mt-1.5">{cycle.admin_notes}</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    {/* Transferências */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-semibold">Transferências</p>
+                      </div>
+                      {transfers.length === 0 ? (
+                        <p className="text-xs text-muted-foreground pl-6">Nenhuma transferência encontrada</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {transfers.map((t) => {
+                            const tcfg = WORKFLOW_STATUS_CONFIG[t.status] || { label: t.status, variant: "secondary" as const };
+                            return (
+                              <div key={t.id} className="rounded-lg border px-3 py-2.5">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm">
+                                    <span className="font-medium">{t.from_client_name}</span>
+                                    <span className="text-muted-foreground mx-1">→</span>
+                                    <span className="font-medium">{t.to_client_name}</span>
+                                  </p>
+                                  <Badge variant={tcfg.variant}>{tcfg.label}</Badge>
+                                </div>
+                                <div className="flex gap-4 mt-1.5 text-xs text-muted-foreground">
+                                  {t.lot_identifier && <span>Lote: {t.lot_identifier}</span>}
+                                  {t.transfer_fee != null && <span>Taxa: {formatCurrency(t.transfer_fee)}</span>}
+                                  {t.transfer_date && <span>{formatDate(t.transfer_date)}</span>}
+                                </div>
+                                {t.reason && (
+                                  <p className="text-xs bg-muted rounded p-1.5 mt-1.5">{t.reason}</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    {/* Antecipações */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <FastForward className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-semibold">Antecipações</p>
+                      </div>
+                      {earlyPayoffs.length === 0 ? (
+                        <p className="text-xs text-muted-foreground pl-6">Nenhuma solicitação de antecipação</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {earlyPayoffs.map((ep) => {
+                            const epcfg = WORKFLOW_STATUS_CONFIG[ep.status] || { label: ep.status, variant: "secondary" as const };
+                            return (
+                              <div key={ep.id} className="rounded-lg border px-3 py-2.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-muted-foreground">{formatDate(ep.requested_at)}</span>
+                                  <Badge variant={epcfg.variant}>{epcfg.label}</Badge>
+                                </div>
+                                {ep.client_message && (
+                                  <p className="text-xs mt-1.5">
+                                    <span className="font-medium">Mensagem:</span> {ep.client_message}
+                                  </p>
+                                )}
+                                {ep.admin_notes && (
+                                  <p className="text-xs bg-muted rounded p-1.5 mt-1.5">
+                                    <span className="font-medium">Admin:</span> {ep.admin_notes}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </TabsContent>
