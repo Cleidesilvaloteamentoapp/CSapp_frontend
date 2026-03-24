@@ -31,9 +31,9 @@ import { getFinancialSettings } from "@/services/admin";
 import { cn } from "@/lib/utils";
 
 const LOT_STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  disponivel: { label: "Disponível", variant: "default" },
-  reservado: { label: "Reservado", variant: "outline" },
-  vendido: { label: "Vendido", variant: "secondary" },
+  DISPONIVEL: { label: "Disponível", variant: "default" },
+  RESERVADO: { label: "Reservado", variant: "outline" },
+  VENDIDO: { label: "Vendido", variant: "secondary" },
 };
 
 export default function LotsPage() {
@@ -69,8 +69,8 @@ export default function LotsPage() {
       const params = new URLSearchParams({ page: String(page), per_page: "20" });
       if (devFilter !== "all") params.set("development_id", devFilter);
       if (statusFilter !== "all") params.set("status", statusFilter);
-      const data = await api.get<PaginatedResponse<LotResponse>>(`/admin/lots/?${params}`);
-      setLots(data);
+      const res = await api.get<PaginatedResponse<LotResponse>>(`/admin/lots/?${params.toString()}`);
+      setLots(res.data);
     } catch (error) {
       if (error instanceof ApiError) toast.error("Erro ao carregar lotes");
     } finally {
@@ -160,9 +160,9 @@ export default function LotsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="disponivel">Disponíveis</SelectItem>
-            <SelectItem value="reservado">Reservados</SelectItem>
-            <SelectItem value="vendido">Vendidos</SelectItem>
+            <SelectItem value="DISPONIVEL">Disponíveis</SelectItem>
+            <SelectItem value="RESERVADO">Reservados</SelectItem>
+            <SelectItem value="VENDIDO">Vendidos</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -193,7 +193,7 @@ export default function LotsPage() {
                 </TableHeader>
                 <TableBody>
                   {lots.items.map((lot) => {
-                    const status = LOT_STATUS[lot.status] || LOT_STATUS.disponivel;
+                    const status = LOT_STATUS[lot.status] || LOT_STATUS.DISPONIVEL;
                     return (
                       <TableRow key={lot.id}>
                         <TableCell className="font-medium">{lot.lot_number}</TableCell>
@@ -202,7 +202,7 @@ export default function LotsPage() {
                         <TableCell>{formatCurrency(lot.price)}</TableCell>
                         <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
                         <TableCell>
-                          {lot.status === "disponivel" && (
+                          {lot.status === "DISPONIVEL" && (
                             <Button variant="ghost" size="sm" onClick={() => openAssign(lot)} title="Vender lote">
                               <ShoppingCart className="h-4 w-4" />
                             </Button>
