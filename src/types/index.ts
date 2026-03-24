@@ -123,7 +123,7 @@ export interface DevelopmentResponse {
 }
 
 // ===================== Lot =====================
-export type LotStatus = "DISPONIVEL" | "RESERVADO" | "VENDIDO";
+export type LotStatus = "AVAILABLE" | "RESERVED" | "SOLD";
 
 export interface LotCreate {
   development_id: string;

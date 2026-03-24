@@ -31,9 +31,9 @@ import { getFinancialSettings } from "@/services/admin";
 import { cn } from "@/lib/utils";
 
 const LOT_STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  DISPONIVEL: { label: "Disponível", variant: "default" },
-  RESERVADO: { label: "Reservado", variant: "outline" },
-  VENDIDO: { label: "Vendido", variant: "secondary" },
+  AVAILABLE: { label: "Disponível", variant: "default" },
+  RESERVED: { label: "Reservado", variant: "outline" },
+  SOLD: { label: "Vendido", variant: "secondary" },
 };
 
 export default function LotsPage() {
@@ -160,9 +160,9 @@ export default function LotsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="DISPONIVEL">Disponíveis</SelectItem>
-            <SelectItem value="RESERVADO">Reservados</SelectItem>
-            <SelectItem value="VENDIDO">Vendidos</SelectItem>
+            <SelectItem value="AVAILABLE">Disponíveis</SelectItem>
+            <SelectItem value="RESERVED">Reservados</SelectItem>
+            <SelectItem value="SOLD">Vendidos</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -193,7 +193,7 @@ export default function LotsPage() {
                 </TableHeader>
                 <TableBody>
                   {lots.items.map((lot) => {
-                    const status = LOT_STATUS[lot.status] || LOT_STATUS.DISPONIVEL;
+                    const status = LOT_STATUS[lot.status] || LOT_STATUS.AVAILABLE;
                     return (
                       <TableRow key={lot.id}>
                         <TableCell className="font-medium">{lot.lot_number}</TableCell>
@@ -202,7 +202,7 @@ export default function LotsPage() {
                         <TableCell>{formatCurrency(lot.price)}</TableCell>
                         <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
                         <TableCell>
-                          {lot.status === "DISPONIVEL" && (
+                          {lot.status === "AVAILABLE" && (
                             <Button variant="ghost" size="sm" onClick={() => openAssign(lot)} title="Vender lote">
                               <ShoppingCart className="h-4 w-4" />
                             </Button>
