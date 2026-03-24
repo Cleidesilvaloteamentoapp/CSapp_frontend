@@ -23,6 +23,7 @@ import {
   FastForward,
   FileSpreadsheet,
   Cog,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -59,6 +60,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/sicredi/config", label: "Config Sicredi", icon: Settings },
   { href: "/admin/documents", label: "Documentos", icon: FolderOpen },
   { href: "/admin/service-requests", label: "Solicitações", icon: TicketCheck },
+  { href: "/admin/settings/whatsapp", label: "WhatsApp", icon: MessageSquare, separator: true },
 ];
 
 export function AdminSidebar() {
