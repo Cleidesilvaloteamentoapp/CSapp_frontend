@@ -16,6 +16,7 @@ import type {
   ConcederAbatimentoRequest,
   NegativacaoRequest,
   InstrucaoResponse,
+  SyncBoletoResponse,
   BatchCreateRequest,
   BatchCreateResponse,
   BatchOperationRequest,
@@ -91,11 +92,34 @@ export async function downloadBoletoPdf(
   return response.blob();
 }
 
+/**
+ * Cancela (dar baixa) no boleto.
+ * Se o Sicredi retornar erro 422 com código 0077 (título já liquidado),
+ * o backend automaticamente sincroniza o boleto local para LIQUIDADO
+ * e atualiza a Invoice para PAID.
+ */
 export async function cancelBoleto(
   nossoNumero: string
 ): Promise<InstrucaoResponse> {
   return api.patch<InstrucaoResponse>(
     `/admin/sicredi/boletos/${nossoNumero}/baixa`
+  );
+}
+
+/**
+ * Sincroniza o status do boleto consultando a situação atual no Sicredi.
+ * Mapeia automaticamente a situação do Sicredi para o status local:
+ * - LIQUIDADO → LIQUIDADO (+ atualiza Invoice para PAID)
+ * - BAIXADO → CANCELADO
+ * - VENCIDO → VENCIDO
+ * - NEGATIVADO → NEGATIVADO
+ * - NORMAL → NORMAL
+ */
+export async function syncBoleto(
+  nossoNumero: string
+): Promise<SyncBoletoResponse> {
+  return api.post<SyncBoletoResponse>(
+    `/admin/sicredi/boletos/${nossoNumero}/sync`
   );
 }
 

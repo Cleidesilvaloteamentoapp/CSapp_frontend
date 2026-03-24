@@ -47,7 +47,7 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { ClientSelector } from "@/components/sicredi/client-selector";
 import { ClientFormDialog } from "@/app/admin/clients/client-form-dialog";
 import { useSicrediBoletos } from "@/hooks/use-sicredi";
-import { updateBoleto } from "@/services/sicredi";
+import { updateBoleto, syncBoleto } from "@/services/sicredi";
 import { formatCurrency, formatDate, formatCpfCnpj } from "@/lib/format";
 import { Textarea } from "@/components/ui/textarea";
 import { STATUS_CONFIG } from "@/types/sicredi";
@@ -133,6 +133,23 @@ export default function BoletoDetailsPage() {
       toast.success("Dados atualizados do Sicredi");
     } else {
       toast.error("Erro ao consultar Sicredi");
+    }
+  }
+
+  async function handleSyncStatus() {
+    setSyncLoading(true);
+    try {
+      const result = await syncBoleto(nossoNumero);
+      toast.success(
+        `Status sincronizado: ${result.status_local_anterior} → ${result.status_local_novo}`,
+        { description: result.detail }
+      );
+      await reloadLocal();
+      await handleSyncSicredi();
+    } catch (error) {
+      toast.error("Erro ao sincronizar status do boleto");
+    } finally {
+      setSyncLoading(false);
     }
   }
 
@@ -657,6 +674,19 @@ export default function BoletoDetailsPage() {
                   <Download className="mr-2 h-4 w-4" />
                 )}
                 Baixar PDF
+              </Button>
+
+              <Button 
+                variant="outline"
+                onClick={handleSyncStatus} 
+                disabled={syncLoading}
+              >
+                {syncLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Sincronizar Status
               </Button>
 
               {isEditable && !isNegativado && (

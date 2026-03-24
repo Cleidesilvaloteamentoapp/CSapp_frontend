@@ -218,6 +218,15 @@ export interface InstrucaoResponse {
   response?: Record<string, unknown>;
 }
 
+export interface SyncBoletoResponse {
+  status: string;
+  detail: string;
+  situacao_sicredi: BoletoSituacao;
+  status_local_anterior: BoletoSituacao;
+  status_local_novo: BoletoSituacao;
+  invoice_updated?: boolean;
+}
+
 // ===================== Batch =====================
 export type BatchFrequency = "MENSAL" | "TRIMESTRAL" | "SEMESTRAL" | "ANUAL";
 
