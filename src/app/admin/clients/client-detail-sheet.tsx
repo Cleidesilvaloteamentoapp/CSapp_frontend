@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Pencil, FileText, Upload, Loader2, Download, ExternalLink,
-  ArrowLeftRight, FastForward, RefreshCw, CheckCircle,
+  ArrowLeftRight, FastForward, RefreshCw, CheckCircle, DollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -412,6 +412,56 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                   <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
                 ) : (
                   <div className="space-y-5">
+                    {/* Regras Financeiras por Lote */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-semibold">Regras Financeiras por Lote</p>
+                      </div>
+                      {lots.length === 0 ? (
+                        <p className="text-xs text-muted-foreground pl-6">
+                          Nenhum lote associado. As regras financeiras individuais são configuradas por lote.
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {lots.map((lot) => {
+                            const penEff = getEffective(lot.penalty_rate, "penalty_rate");
+                            const intEff = getEffective(lot.daily_interest_rate, "daily_interest_rate");
+                            const idxEff = getEffective(lot.adjustment_index, "adjustment_index");
+                            const freqEff = getEffective(lot.adjustment_frequency, "adjustment_frequency");
+                            const custEff = getEffective(lot.adjustment_custom_rate, "adjustment_custom_rate");
+                            return (
+                              <div key={lot.id} className="rounded-lg border p-3 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium">Lote {lot.lot_id.slice(0, 8)}...</p>
+                                    <Badge variant="secondary" className="text-[10px]">{lot.status}</Badge>
+                                  </div>
+                                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openFinancialRules(lot)}>
+                                    <Pencil className="mr-1 h-3 w-3" /> Editar Regras
+                                  </Button>
+                                </div>
+                                <div className="space-y-1">
+                                  <FinancialRuleRow label="Multa" value={formatRate(penEff.value)} source={penEff.source} />
+                                  <FinancialRuleRow label="Juros/dia" value={formatRate(intEff.value)} source={intEff.source} />
+                                  <FinancialRuleRow label="Índice" value={INDEX_LABELS[idxEff.value] || idxEff.value} source={idxEff.source} />
+                                  <FinancialRuleRow label="Frequência" value={FREQ_LABELS[freqEff.value] || freqEff.value} source={freqEff.source} />
+                                  <FinancialRuleRow label="Taxa fixa" value={formatRate(custEff.value)} source={custEff.source} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <p className="text-[10px] text-muted-foreground flex items-center gap-1.5 pt-1">
+                            <span className="inline-block w-2 h-2 rounded-full bg-green-400" /> customizado
+                            <span className="inline-block w-2 h-2 rounded-full bg-blue-400 ml-2" /> padrão empresa
+                            <span className="inline-block w-2 h-2 rounded-full bg-gray-300 ml-2" /> sistema
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
                     {/* Ciclos */}
                     <div>
                       <div className="flex items-center gap-2 mb-2">
