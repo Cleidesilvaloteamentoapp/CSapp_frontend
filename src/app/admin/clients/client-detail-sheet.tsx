@@ -186,7 +186,7 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
     setAssignDialogOpen(true);
     setLoadingAvailableLots(true);
     try {
-      const res = await api.get<PaginatedResponse<LotResponse>>("/admin/lots/?status=available&per_page=100");
+      const res = await api.get<PaginatedResponse<LotResponse>>("/admin/lots/?status=available&per_page=50");
       setAvailableLots(res.items || []);
     } catch {
       toast.error("Erro ao carregar lotes disponíveis");
