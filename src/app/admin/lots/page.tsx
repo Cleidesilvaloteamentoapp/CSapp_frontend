@@ -70,7 +70,7 @@ export default function LotsPage() {
       if (devFilter !== "all") params.set("development_id", devFilter);
       if (statusFilter !== "all") params.set("status", statusFilter);
       const res = await api.get<PaginatedResponse<LotResponse>>(`/admin/lots/?${params.toString()}`);
-      setLots(res.data);
+      setLots(res);
     } catch (error) {
       if (error instanceof ApiError) toast.error("Erro ao carregar lotes");
     } finally {
