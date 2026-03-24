@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Search, Loader2, ShoppingCart } from "lucide-react";
+import { Plus, Search, Loader2, ShoppingCart, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,7 +26,9 @@ import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { api, ApiError } from "@/lib/api";
 import { lotCreateSchema, lotAssignSchema, type LotCreateFormData, type LotAssignFormData } from "@/lib/validators";
 import { formatCurrency, formatArea } from "@/lib/format";
-import type { LotResponse, PaginatedResponse, DevelopmentResponse, ClientResponse } from "@/types";
+import type { LotResponse, PaginatedResponse, DevelopmentResponse, ClientResponse, CompanyFinancialSettingsResponse } from "@/types";
+import { getFinancialSettings } from "@/services/admin";
+import { cn } from "@/lib/utils";
 
 const LOT_STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   available: { label: "Disponível", variant: "default" },
@@ -45,6 +47,8 @@ export default function LotsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedLot, setSelectedLot] = useState<LotResponse | null>(null);
+  const [financialExpanded, setFinancialExpanded] = useState(false);
+  const [companyDefaults, setCompanyDefaults] = useState<CompanyFinancialSettingsResponse | null>(null);
 
   const createForm = useForm<LotCreateFormData>({
     resolver: zodResolver(lotCreateSchema) as never,
@@ -78,9 +82,11 @@ export default function LotsPage() {
     Promise.all([
       api.get<DevelopmentResponse[]>("/admin/developments/").catch(() => []),
       api.get<PaginatedResponse<ClientResponse>>("/admin/clients/?per_page=50&status=active").catch(() => ({ items: [] })),
-    ]).then(([devs, cls]) => {
+      getFinancialSettings().catch(() => null),
+    ]).then(([devs, cls, defaults]) => {
       setDevelopments(devs);
       setClients((cls as PaginatedResponse<ClientResponse>).items || []);
+      setCompanyDefaults(defaults as CompanyFinancialSettingsResponse | null);
     });
   }, []);
 
@@ -104,7 +110,16 @@ export default function LotsPage() {
       client_id: "", lot_id: lot.id, purchase_date: new Date().toISOString().split("T")[0],
       total_value: parseFloat(lot.price),
       payment_plan: { installments: 12, first_due: "" },
+      penalty_rate: undefined,
+      daily_interest_rate: undefined,
+      adjustment_index: undefined,
+      adjustment_frequency: undefined,
+      adjustment_custom_rate: undefined,
+      down_payment: undefined,
+      total_installments: undefined,
+      annual_adjustment_rate: undefined,
     });
+    setFinancialExpanded(false);
     setAssignOpen(true);
   }
 
@@ -301,6 +316,115 @@ export default function LotsPage() {
                   )} />
                 </div>
               </div>
+              {/* Expandable Financial Rules */}
+              <div className="rounded-lg border">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setFinancialExpanded(!financialExpanded)}
+                >
+                  <span>{financialExpanded ? "Regras Financeiras" : "Usando regras padrão da empresa"}</span>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", financialExpanded && "rotate-180")} />
+                </button>
+                {financialExpanded && (
+                  <div className="border-t px-4 pb-4 pt-3 space-y-4">
+                    <p className="text-xs text-muted-foreground">
+                      Deixe em branco para usar os padrões da empresa. Preencha apenas os campos que deseja sobrescrever.
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <FormField control={assignForm.control} name="down_payment" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Entrada (R$)</FormLabel>
+                          <FormControl><Input type="number" step="0.01" placeholder="Sem entrada" {...field} value={field.value ?? ""} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={assignForm.control} name="total_installments" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Total de Parcelas</FormLabel>
+                          <FormControl><Input type="number" placeholder={`Padrão`} {...field} value={field.value ?? ""} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <FormField control={assignForm.control} name="penalty_rate" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Multa (decimal)</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.001" placeholder={companyDefaults ? String(companyDefaults.penalty_rate) : "0.02"} {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={assignForm.control} name="daily_interest_rate" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Juros/dia (decimal)</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.00001" placeholder={companyDefaults ? String(companyDefaults.daily_interest_rate) : "0.00033"} {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <FormField control={assignForm.control} name="adjustment_index" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Índice de Reajuste</FormLabel>
+                          <Select onValueChange={(v) => field.onChange(v === "__default__" ? undefined : v)} value={field.value ?? "__default__"}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Padrão" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="__default__">Padrão ({companyDefaults?.adjustment_index ?? "IPCA"})</SelectItem>
+                              <SelectItem value="IPCA">IPCA</SelectItem>
+                              <SelectItem value="IGPM">IGP-M</SelectItem>
+                              <SelectItem value="CUB">CUB</SelectItem>
+                              <SelectItem value="INPC">INPC</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={assignForm.control} name="adjustment_frequency" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Frequência</FormLabel>
+                          <Select onValueChange={(v) => field.onChange(v === "__default__" ? undefined : v)} value={field.value ?? "__default__"}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Padrão" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="__default__">Padrão ({companyDefaults?.adjustment_frequency ?? "ANNUAL"})</SelectItem>
+                              <SelectItem value="MONTHLY">Mensal</SelectItem>
+                              <SelectItem value="QUARTERLY">Trimestral</SelectItem>
+                              <SelectItem value="SEMIANNUAL">Semestral</SelectItem>
+                              <SelectItem value="ANNUAL">Anual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <FormField control={assignForm.control} name="adjustment_custom_rate" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Taxa Fixa (decimal)</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.001" placeholder={companyDefaults ? String(companyDefaults.adjustment_custom_rate) : "0.05"} {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={assignForm.control} name="annual_adjustment_rate" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Reajuste Anual (decimal)</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.001" placeholder="0.05" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-3 pt-2">
                 <Button type="button" variant="outline" onClick={() => setAssignOpen(false)}>Cancelar</Button>
                 <Button type="submit" disabled={assignForm.formState.isSubmitting} className="bg-success hover:bg-success/90">

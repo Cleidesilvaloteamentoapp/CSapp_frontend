@@ -171,17 +171,63 @@ export interface LotAssignRequest {
   };
 }
 
+export type AdjustmentIndex = "IPCA" | "IGPM" | "CUB" | "INPC";
+export type AdjustmentFrequency = "MONTHLY" | "QUARTERLY" | "SEMIANNUAL" | "ANNUAL";
+
 export interface ClientLotResponse {
   id: string;
   company_id: string;
   client_id: string;
   lot_id: string;
   purchase_date: string;
-  total_value: string;
+  total_value: number;
+  down_payment: number | null;
+  total_installments: number;
+  current_cycle: number;
+  current_installment_value: number | null;
+  annual_adjustment_rate: number | null;
+  last_adjustment_date: string | null;
+  last_cycle_paid_at: string | null;
+  penalty_rate: number | null;
+  daily_interest_rate: number | null;
+  adjustment_index: AdjustmentIndex | null;
+  adjustment_frequency: AdjustmentFrequency | null;
+  adjustment_custom_rate: number | null;
+  previous_client_id: string | null;
+  transfer_date: string | null;
   payment_plan: Record<string, unknown> | null;
-  status: "active" | "completed" | "cancelled";
+  status: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface CompanyFinancialSettingsResponse {
+  id: string;
+  company_id: string;
+  penalty_rate: number;
+  daily_interest_rate: number;
+  adjustment_index: AdjustmentIndex;
+  adjustment_frequency: AdjustmentFrequency;
+  adjustment_custom_rate: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanyFinancialSettingsUpdate {
+  penalty_rate?: number;
+  daily_interest_rate?: number;
+  adjustment_index?: AdjustmentIndex;
+  adjustment_frequency?: AdjustmentFrequency;
+  adjustment_custom_rate?: number;
+}
+
+export interface ClientLotFinancialRulesUpdate {
+  penalty_rate?: number | null;
+  daily_interest_rate?: number | null;
+  adjustment_index?: AdjustmentIndex | null;
+  adjustment_frequency?: AdjustmentFrequency | null;
+  adjustment_custom_rate?: number | null;
+  annual_adjustment_rate?: number | null;
 }
 
 // ===================== Invoice =====================

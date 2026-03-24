@@ -7,10 +7,17 @@ import {
   ArrowLeftRight, FastForward, RefreshCw, CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { api, ApiError } from "@/lib/api";
 import { formatPhone, formatCpfCnpj, formatDate, formatCurrency } from "@/lib/format";
 import { useClientBoletos } from "@/hooks/use-client-boletos";
@@ -21,8 +28,13 @@ import { WORKFLOW_STATUS_CONFIG } from "@/types";
 import type {
   ClientResponse, ClientLotResponse, InvoiceResponse,
   CycleApprovalResponse, ContractTransferResponse, EarlyPayoffResponse,
+  CompanyFinancialSettingsResponse, AdjustmentIndex, AdjustmentFrequency,
+  ClientLotFinancialRulesUpdate,
 } from "@/types";
 import { useAuth } from "@/contexts/auth-context";
+import {
+  getFinancialSettings, getClientLotDetail, updateClientLotFinancialRules,
+} from "@/services/admin";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   active: { label: "Ativo", variant: "default" },
@@ -44,6 +56,17 @@ interface ClientDetailSheetProps {
   onEdit: (client: ClientResponse) => void;
 }
 
+const INDEX_LABELS: Record<string, string> = {
+  IPCA: "IPCA", IGPM: "IGP-M", CUB: "CUB", INPC: "INPC",
+};
+const FREQ_LABELS: Record<string, string> = {
+  MONTHLY: "Mensal", QUARTERLY: "Trimestral", SEMIANNUAL: "Semestral", ANNUAL: "Anual",
+};
+const HARDCODED: Record<string, number | string> = {
+  penalty_rate: 0.02, daily_interest_rate: 0.00033,
+  adjustment_index: "IPCA", adjustment_frequency: "ANNUAL", adjustment_custom_rate: 0.05,
+};
+
 export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheetProps) {
   const { isSuperAdmin } = useAuth();
   const [lots, setLots] = useState<ClientLotResponse[]>([]);
@@ -54,6 +77,13 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
+
+  // Financial rules
+  const [companyDefaults, setCompanyDefaults] = useState<CompanyFinancialSettingsResponse | null>(null);
+  const [rulesDialogOpen, setRulesDialogOpen] = useState(false);
+  const [editingLot, setEditingLot] = useState<ClientLotResponse | null>(null);
+  const [rulesForm, setRulesForm] = useState<ClientLotFinancialRulesUpdate>({});
+  const [savingRules, setSavingRules] = useState(false);
   
   const { boletos, loading: boletosLoading, error: boletosError } = useClientBoletos(client?.id || null);
 
@@ -66,16 +96,61 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
       api.get<CycleApprovalResponse[]>(`/admin/cycle-approvals?client_id=${client.id}`).catch(() => []),
       api.get<ContractTransferResponse[]>(`/admin/transfers?client_id=${client.id}`).catch(() => []),
       api.get<EarlyPayoffResponse[]>(`/admin/early-payoff-requests?client_id=${client.id}`).catch(() => []),
+      getFinancialSettings().catch(() => null),
     ])
-      .then(([lotsData, invoicesData, cyclesData, transfersData, payoffData]) => {
+      .then(([lotsData, invoicesData, cyclesData, transfersData, payoffData, defaults]) => {
         setLots(lotsData);
         setInvoices(invoicesData);
         setCycles(Array.isArray(cyclesData) ? cyclesData : []);
         setTransfers(Array.isArray(transfersData) ? transfersData : []);
         setEarlyPayoffs(Array.isArray(payoffData) ? payoffData : []);
+        setCompanyDefaults(defaults as CompanyFinancialSettingsResponse | null);
       })
       .finally(() => setLoading(false));
   }, [client]);
+
+  function openFinancialRules(lot: ClientLotResponse) {
+    setEditingLot(lot);
+    setRulesForm({
+      penalty_rate: lot.penalty_rate,
+      daily_interest_rate: lot.daily_interest_rate,
+      adjustment_index: lot.adjustment_index,
+      adjustment_frequency: lot.adjustment_frequency,
+      adjustment_custom_rate: lot.adjustment_custom_rate,
+      annual_adjustment_rate: lot.annual_adjustment_rate,
+    });
+    setRulesDialogOpen(true);
+  }
+
+  async function handleSaveRules() {
+    if (!editingLot) return;
+    setSavingRules(true);
+    try {
+      const updated = await updateClientLotFinancialRules(editingLot.id, rulesForm);
+      setLots((prev) => prev.map((l) => (l.id === editingLot.id ? updated : l)));
+      toast.success("Regras financeiras atualizadas");
+      setRulesDialogOpen(false);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        toast.error(typeof error.detail === "string" ? error.detail : "Erro ao salvar regras");
+      }
+    } finally {
+      setSavingRules(false);
+    }
+  }
+
+  function getEffective(lotVal: number | string | null, field: string): { value: string; source: "custom" | "company" | "system" } {
+    if (lotVal != null) return { value: String(lotVal), source: "custom" };
+    const compVal = companyDefaults ? (companyDefaults as unknown as Record<string, unknown>)[field] : undefined;
+    if (compVal != null) return { value: String(compVal), source: "company" };
+    return { value: String(HARDCODED[field] ?? "—"), source: "system" };
+  }
+
+  function formatRate(val: string): string {
+    const n = parseFloat(val);
+    if (isNaN(n)) return val;
+    return `${(n * 100).toFixed(n < 0.001 ? 4 : 1)}%`;
+  }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!client || !e.target.files?.[0]) return;
@@ -110,6 +185,7 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
   const addr = (client?.address as Record<string, string>) || {};
 
   return (
+    <>
     <Sheet open={!!client} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         {client && (
@@ -155,19 +231,53 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                 ) : lots.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Nenhum lote associado</p>
                 ) : (
-                  <div className="space-y-3">
-                    {lots.map((lot) => (
-                      <div key={lot.id} className="rounded-lg border p-4">
-                        <div className="flex justify-between items-center">
-                          <p className="font-medium text-sm">Lote {lot.lot_id.slice(0, 8)}...</p>
-                          <Badge variant="secondary">{lot.status}</Badge>
+                  <div className="space-y-4">
+                    {lots.map((lot) => {
+                      const penEff = getEffective(lot.penalty_rate, "penalty_rate");
+                      const intEff = getEffective(lot.daily_interest_rate, "daily_interest_rate");
+                      const idxEff = getEffective(lot.adjustment_index, "adjustment_index");
+                      const freqEff = getEffective(lot.adjustment_frequency, "adjustment_frequency");
+                      const custEff = getEffective(lot.adjustment_custom_rate, "adjustment_custom_rate");
+                      return (
+                        <div key={lot.id} className="rounded-lg border p-4 space-y-3">
+                          <div className="flex justify-between items-center">
+                            <p className="font-medium text-sm">Lote {lot.lot_id.slice(0, 8)}...</p>
+                            <Badge variant="secondary">{lot.status}</Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                            <p>Valor: <span className="font-medium text-foreground">{formatCurrency(lot.total_value)}</span></p>
+                            <p>Compra: <span className="font-medium text-foreground">{formatDate(lot.purchase_date)}</span></p>
+                            {lot.total_installments > 0 && (
+                              <p>Parcelas: <span className="font-medium text-foreground">{lot.total_installments}</span></p>
+                            )}
+                            {lot.current_cycle > 0 && (
+                              <p>Ciclo: <span className="font-medium text-foreground">{lot.current_cycle}</span></p>
+                            )}
+                            {lot.current_installment_value != null && (
+                              <p>Parcela atual: <span className="font-medium text-foreground">{formatCurrency(lot.current_installment_value)}</span></p>
+                            )}
+                            {lot.down_payment != null && lot.down_payment > 0 && (
+                              <p>Entrada: <span className="font-medium text-foreground">{formatCurrency(lot.down_payment)}</span></p>
+                            )}
+                          </div>
+
+                          <Separator />
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Regras Financeiras</p>
+                              <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => openFinancialRules(lot)}>
+                                <Pencil className="mr-1 h-3 w-3" /> Editar
+                              </Button>
+                            </div>
+                            <FinancialRuleRow label="Multa" value={formatRate(penEff.value)} source={penEff.source} />
+                            <FinancialRuleRow label="Juros/dia" value={formatRate(intEff.value)} source={intEff.source} />
+                            <FinancialRuleRow label="Índice" value={INDEX_LABELS[idxEff.value] || idxEff.value} source={idxEff.source} />
+                            <FinancialRuleRow label="Frequência" value={FREQ_LABELS[freqEff.value] || freqEff.value} source={freqEff.source} />
+                            <FinancialRuleRow label="Taxa fixa" value={formatRate(custEff.value)} source={custEff.source} />
+                          </div>
                         </div>
-                        <div className="mt-2 text-sm text-muted-foreground space-y-1">
-                          <p>Valor: {formatCurrency(lot.total_value)}</p>
-                          <p>Compra: {formatDate(lot.purchase_date)}</p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </TabsContent>
@@ -448,6 +558,109 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
         )}
       </SheetContent>
     </Sheet>
+
+    {/* Financial Rules Edit Dialog */}
+    <Dialog open={rulesDialogOpen} onOpenChange={setRulesDialogOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Regras Financeiras do Lote</DialogTitle>
+          <DialogDescription>
+            Sobrescreva os valores padrão da empresa para este lote. Deixe vazio para usar o padrão.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <FinancialRuleField
+            label="Multa por Atraso"
+            value={rulesForm.penalty_rate}
+            onChange={(v) => setRulesForm((p) => ({ ...p, penalty_rate: v }))}
+            onClear={() => setRulesForm((p) => ({ ...p, penalty_rate: null }))}
+            step="0.001"
+            suffix={rulesForm.penalty_rate != null ? `= ${(rulesForm.penalty_rate * 100).toFixed(1)}%` : ""}
+          />
+          <FinancialRuleField
+            label="Juros Diários"
+            value={rulesForm.daily_interest_rate}
+            onChange={(v) => setRulesForm((p) => ({ ...p, daily_interest_rate: v }))}
+            onClear={() => setRulesForm((p) => ({ ...p, daily_interest_rate: null }))}
+            step="0.00001"
+            suffix={rulesForm.daily_interest_rate != null ? `= ${(rulesForm.daily_interest_rate * 100).toFixed(4)}%/dia` : ""}
+          />
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Índice de Reajuste</label>
+              {rulesForm.adjustment_index != null && (
+                <Button variant="ghost" size="sm" className="h-5 text-[10px] px-1.5 text-muted-foreground" onClick={() => setRulesForm((p) => ({ ...p, adjustment_index: null }))}>
+                  Limpar
+                </Button>
+              )}
+            </div>
+            <Select
+              value={rulesForm.adjustment_index ?? "__default__"}
+              onValueChange={(v) => setRulesForm((p) => ({ ...p, adjustment_index: v === "__default__" ? null : v as AdjustmentIndex }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Padrão da empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__default__">Padrão da empresa</SelectItem>
+                <SelectItem value="IPCA">IPCA</SelectItem>
+                <SelectItem value="IGPM">IGP-M</SelectItem>
+                <SelectItem value="CUB">CUB</SelectItem>
+                <SelectItem value="INPC">INPC</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Frequência de Reajuste</label>
+              {rulesForm.adjustment_frequency != null && (
+                <Button variant="ghost" size="sm" className="h-5 text-[10px] px-1.5 text-muted-foreground" onClick={() => setRulesForm((p) => ({ ...p, adjustment_frequency: null }))}>
+                  Limpar
+                </Button>
+              )}
+            </div>
+            <Select
+              value={rulesForm.adjustment_frequency ?? "__default__"}
+              onValueChange={(v) => setRulesForm((p) => ({ ...p, adjustment_frequency: v === "__default__" ? null : v as AdjustmentFrequency }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Padrão da empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__default__">Padrão da empresa</SelectItem>
+                <SelectItem value="MONTHLY">Mensal</SelectItem>
+                <SelectItem value="QUARTERLY">Trimestral</SelectItem>
+                <SelectItem value="SEMIANNUAL">Semestral</SelectItem>
+                <SelectItem value="ANNUAL">Anual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <FinancialRuleField
+            label="Taxa Fixa Adicional"
+            value={rulesForm.adjustment_custom_rate}
+            onChange={(v) => setRulesForm((p) => ({ ...p, adjustment_custom_rate: v }))}
+            onClear={() => setRulesForm((p) => ({ ...p, adjustment_custom_rate: null }))}
+            step="0.001"
+            suffix={rulesForm.adjustment_custom_rate != null ? `= ${(rulesForm.adjustment_custom_rate * 100).toFixed(1)}%` : ""}
+          />
+          <FinancialRuleField
+            label="Taxa Reajuste Anual"
+            value={rulesForm.annual_adjustment_rate}
+            onChange={(v) => setRulesForm((p) => ({ ...p, annual_adjustment_rate: v }))}
+            onClear={() => setRulesForm((p) => ({ ...p, annual_adjustment_rate: null }))}
+            step="0.001"
+            suffix={rulesForm.annual_adjustment_rate != null ? `= ${(rulesForm.annual_adjustment_rate * 100).toFixed(1)}%` : ""}
+          />
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setRulesDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveRules} disabled={savingRules}>
+              {savingRules ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : "Salvar Regras"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </>
   );
 }
 
@@ -456,6 +669,71 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     <div className="flex justify-between items-start py-2 border-b border-dashed last:border-0">
       <span className="text-sm text-muted-foreground">{label}</span>
       <span className="text-sm font-medium text-right max-w-[60%]">{value}</span>
+    </div>
+  );
+}
+
+function FinancialRuleRow({ label, value, source }: { label: string; value: string; source: "custom" | "company" | "system" }) {
+  const badgeMap = {
+    custom: { label: "customizado", className: "bg-green-100 text-green-700" },
+    company: { label: "padrão", className: "bg-blue-100 text-blue-700" },
+    system: { label: "sistema", className: "bg-gray-100 text-gray-500" },
+  };
+  const badge = badgeMap[source];
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-1.5">
+        <span className="font-mono font-medium">{value}</span>
+        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${badge.className}`}>
+          {badge.label}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function FinancialRuleField({ label, value, onChange, onClear, step, suffix }: {
+  label: string;
+  value: number | null | undefined;
+  onChange: (v: number) => void;
+  onClear: () => void;
+  step: string;
+  suffix: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium">{label}</label>
+        {value != null && (
+          <button
+            type="button"
+            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+            onClick={onClear}
+          >
+            Limpar
+          </button>
+        )}
+      </div>
+      <div className="relative">
+        <Input
+          type="number"
+          step={step}
+          min="0"
+          value={value ?? ""}
+          placeholder="Padrão da empresa"
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === "") { onClear(); return; }
+            onChange(parseFloat(v));
+          }}
+        />
+        {suffix && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+            {suffix}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

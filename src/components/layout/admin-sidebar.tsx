@@ -22,6 +22,7 @@ import {
   ArrowLeftRight,
   FastForward,
   FileSpreadsheet,
+  Cog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -46,6 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/developments", label: "Empreendimentos", icon: MapPin },
   { href: "/admin/lots", label: "Lotes", icon: LandPlot },
   { href: "/admin/financial", label: "Financeiro", icon: DollarSign, separator: true },
+  { href: "/admin/financial-settings", label: "Config. Financeiras", icon: Cog },
   { href: "/admin/economic-indices", label: "Índices Econômicos", icon: TrendingUp, superAdminOnly: true },
   { href: "/admin/cycle-approvals", label: "Aprovação de Ciclos", icon: CheckCircle, badge: "pending" },
   { href: "/admin/transfers", label: "Transferências", icon: ArrowLeftRight, superAdminOnly: true },

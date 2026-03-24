@@ -9,6 +9,10 @@ import type {
   EarlyPayoffResponse,
   DefaulterDetail,
   ManualWriteoffRequest,
+  CompanyFinancialSettingsResponse,
+  CompanyFinancialSettingsUpdate,
+  ClientLotResponse,
+  ClientLotFinancialRulesUpdate,
 } from "@/types";
 import type { Boleto } from "@/types/sicredi";
 
@@ -198,4 +202,34 @@ export async function getSupportedBanks(): Promise<
   Array<{ code: string; name: string }>
 > {
   return api.get("/admin/bank-statements/supported-banks");
+}
+
+// ===================== Company Financial Settings =====================
+
+export async function getFinancialSettings(): Promise<CompanyFinancialSettingsResponse> {
+  return api.get<CompanyFinancialSettingsResponse>("/admin/financial-settings/");
+}
+
+export async function updateFinancialSettings(
+  data: CompanyFinancialSettingsUpdate
+): Promise<CompanyFinancialSettingsResponse> {
+  return api.put<CompanyFinancialSettingsResponse>("/admin/financial-settings/", data);
+}
+
+// ===================== Client-Lot Financial Rules =====================
+
+export async function getClientLotDetail(
+  clientLotId: string
+): Promise<ClientLotResponse> {
+  return api.get<ClientLotResponse>(`/admin/lots/client-lots/${clientLotId}`);
+}
+
+export async function updateClientLotFinancialRules(
+  clientLotId: string,
+  data: ClientLotFinancialRulesUpdate
+): Promise<ClientLotResponse> {
+  return api.patch<ClientLotResponse>(
+    `/admin/lots/client-lots/${clientLotId}/financial-rules`,
+    data
+  );
 }
