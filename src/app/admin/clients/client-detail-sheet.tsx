@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Pencil, FileText, Upload, Loader2, Download, ExternalLink,
-  ArrowLeftRight, FastForward, RefreshCw, CheckCircle, DollarSign,
+  ArrowLeftRight, FastForward, RefreshCw, CheckCircle, DollarSign, Plus, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +29,9 @@ import type {
   ClientResponse, ClientLotResponse, InvoiceResponse,
   CycleApprovalResponse, ContractTransferResponse, EarlyPayoffResponse,
   CompanyFinancialSettingsResponse, AdjustmentIndex, AdjustmentFrequency,
-  ClientLotFinancialRulesUpdate,
+  ClientLotFinancialRulesUpdate, LotResponse, PaginatedResponse,
 } from "@/types";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import {
   getFinancialSettings, getClientLotDetail, updateClientLotFinancialRules,
@@ -84,6 +85,27 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
   const [editingLot, setEditingLot] = useState<ClientLotResponse | null>(null);
   const [rulesForm, setRulesForm] = useState<ClientLotFinancialRulesUpdate>({});
   const [savingRules, setSavingRules] = useState(false);
+
+  // Lot assignment
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [availableLots, setAvailableLots] = useState<LotResponse[]>([]);
+  const [loadingAvailableLots, setLoadingAvailableLots] = useState(false);
+  const [assigningLot, setAssigningLot] = useState(false);
+  const [assignFinExpanded, setAssignFinExpanded] = useState(false);
+  const [assignForm, setAssignForm] = useState({
+    lot_id: "",
+    purchase_date: new Date().toISOString().split("T")[0],
+    total_value: 0,
+    installments: 12,
+    first_due: "",
+    down_payment: undefined as number | undefined,
+    penalty_rate: undefined as number | undefined,
+    daily_interest_rate: undefined as number | undefined,
+    adjustment_index: undefined as AdjustmentIndex | undefined,
+    adjustment_frequency: undefined as AdjustmentFrequency | undefined,
+    adjustment_custom_rate: undefined as number | undefined,
+    annual_adjustment_rate: undefined as number | undefined,
+  });
   
   const { boletos, loading: boletosLoading, error: boletosError } = useClientBoletos(client?.id || null);
 
@@ -150,6 +172,81 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
     const n = parseFloat(val);
     if (isNaN(n)) return val;
     return `${(n * 100).toFixed(n < 0.001 ? 4 : 1)}%`;
+  }
+
+  async function openAssignDialog() {
+    setAssignForm({
+      lot_id: "", purchase_date: new Date().toISOString().split("T")[0],
+      total_value: 0, installments: 12, first_due: "",
+      down_payment: undefined, penalty_rate: undefined, daily_interest_rate: undefined,
+      adjustment_index: undefined, adjustment_frequency: undefined,
+      adjustment_custom_rate: undefined, annual_adjustment_rate: undefined,
+    });
+    setAssignFinExpanded(false);
+    setAssignDialogOpen(true);
+    setLoadingAvailableLots(true);
+    try {
+      const res = await api.get<PaginatedResponse<LotResponse>>("/admin/lots/?status=available&per_page=100");
+      setAvailableLots(res.items || []);
+    } catch {
+      toast.error("Erro ao carregar lotes disponíveis");
+      setAvailableLots([]);
+    } finally {
+      setLoadingAvailableLots(false);
+    }
+  }
+
+  async function handleAssignLot() {
+    if (!client || !assignForm.lot_id) {
+      toast.error("Selecione um lote");
+      return;
+    }
+    if (assignForm.total_value <= 0) {
+      toast.error("Valor total deve ser maior que 0");
+      return;
+    }
+    setAssigningLot(true);
+    try {
+      const payload: Record<string, unknown> = {
+        client_id: client.id,
+        lot_id: assignForm.lot_id,
+        purchase_date: assignForm.purchase_date,
+        total_value: assignForm.total_value,
+        payment_plan: {
+          installments: assignForm.installments,
+          first_due: assignForm.first_due || undefined,
+          down_payment: assignForm.down_payment,
+        },
+      };
+      if (assignForm.penalty_rate !== undefined) payload.penalty_rate = assignForm.penalty_rate;
+      if (assignForm.daily_interest_rate !== undefined) payload.daily_interest_rate = assignForm.daily_interest_rate;
+      if (assignForm.adjustment_index !== undefined) payload.adjustment_index = assignForm.adjustment_index;
+      if (assignForm.adjustment_frequency !== undefined) payload.adjustment_frequency = assignForm.adjustment_frequency;
+      if (assignForm.adjustment_custom_rate !== undefined) payload.adjustment_custom_rate = assignForm.adjustment_custom_rate;
+      if (assignForm.annual_adjustment_rate !== undefined) payload.annual_adjustment_rate = assignForm.annual_adjustment_rate;
+
+      await api.post("/admin/lots/assign", payload);
+      toast.success("Lote atrelado com sucesso! Faturas geradas automaticamente.");
+      setAssignDialogOpen(false);
+      // Reload lots
+      const updatedLots = await api.get<ClientLotResponse[]>(`/admin/clients/${client.id}/lots`).catch(() => []);
+      setLots(updatedLots);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        toast.error(typeof error.detail === "string" ? error.detail : "Erro ao atrelar lote");
+      }
+    } finally {
+      setAssigningLot(false);
+    }
+  }
+
+  function onSelectLot(lotId: string) {
+    const lot = availableLots.find((l) => l.id === lotId);
+    setAssignForm((prev) => ({
+      ...prev,
+      lot_id: lotId,
+      total_value: lot ? parseFloat(lot.price) : prev.total_value,
+    }));
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -229,9 +326,19 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                 {loading ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
                 ) : lots.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">Nenhum lote associado</p>
+                  <div className="text-center py-8 space-y-3">
+                    <p className="text-sm text-muted-foreground">Nenhum lote associado a este cliente</p>
+                    <Button variant="outline" onClick={openAssignDialog}>
+                      <Plus className="mr-2 h-4 w-4" /> Atrelar Lote
+                    </Button>
+                  </div>
                 ) : (
                   <div className="space-y-4">
+                    <div className="flex justify-end">
+                      <Button variant="outline" size="sm" onClick={openAssignDialog}>
+                        <Plus className="mr-2 h-4 w-4" /> Atrelar Lote
+                      </Button>
+                    </div>
                     {lots.map((lot) => {
                       const penEff = getEffective(lot.penalty_rate, "penalty_rate");
                       const intEff = getEffective(lot.daily_interest_rate, "daily_interest_rate");
@@ -705,6 +812,200 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
             <Button variant="outline" onClick={() => setRulesDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSaveRules} disabled={savingRules}>
               {savingRules ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : "Salvar Regras"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Lot Assignment Dialog */}
+    <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Atrelar Lote ao Cliente</DialogTitle>
+          <DialogDescription>
+            Selecione um lote disponível e defina as condições de venda para {client?.full_name}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {/* Lot selection */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Lote *</label>
+            {loadingAvailableLots ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando lotes disponíveis...
+              </div>
+            ) : availableLots.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">Nenhum lote disponível. Crie lotes primeiro na página de Lotes.</p>
+            ) : (
+              <Select value={assignForm.lot_id || "__none__"} onValueChange={(v) => v !== "__none__" && onSelectLot(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um lote" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__" disabled>Selecione um lote</SelectItem>
+                  {availableLots.map((lot) => (
+                    <SelectItem key={lot.id} value={lot.id}>
+                      {lot.lot_number}{lot.block ? ` / Quadra ${lot.block}` : ""} — {lot.area_m2}m² — {formatCurrency(lot.price)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* Purchase details */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Valor Total (R$) *</label>
+              <Input
+                type="number"
+                step="0.01"
+                value={assignForm.total_value || ""}
+                onChange={(e) => setAssignForm((p) => ({ ...p, total_value: parseFloat(e.target.value) || 0 }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Data da Compra *</label>
+              <Input
+                type="date"
+                value={assignForm.purchase_date}
+                onChange={(e) => setAssignForm((p) => ({ ...p, purchase_date: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          {/* Payment plan */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Plano de Pagamento</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Parcelas</label>
+                <Input
+                  type="number"
+                  value={assignForm.installments}
+                  onChange={(e) => setAssignForm((p) => ({ ...p, installments: parseInt(e.target.value) || 12 }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Primeiro Vencimento</label>
+                <Input
+                  type="date"
+                  value={assignForm.first_due}
+                  onChange={(e) => setAssignForm((p) => ({ ...p, first_due: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Expandable Financial Rules */}
+          <div className="rounded-lg border">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setAssignFinExpanded(!assignFinExpanded)}
+            >
+              <span>{assignFinExpanded ? "Regras Financeiras" : "Usando regras padrão da empresa"}</span>
+              <ChevronDown className={cn("h-4 w-4 transition-transform", assignFinExpanded && "rotate-180")} />
+            </button>
+            {assignFinExpanded && (
+              <div className="border-t px-4 pb-4 pt-3 space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Deixe em branco para usar os padrões da empresa. Preencha apenas os campos que deseja sobrescrever.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Entrada (R$)</label>
+                    <Input
+                      type="number" step="0.01" placeholder="Sem entrada"
+                      value={assignForm.down_payment ?? ""}
+                      onChange={(e) => setAssignForm((p) => ({ ...p, down_payment: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Reajuste Anual</label>
+                    <Input
+                      type="number" step="0.001" placeholder="0.05 = 5%"
+                      value={assignForm.annual_adjustment_rate ?? ""}
+                      onChange={(e) => setAssignForm((p) => ({ ...p, annual_adjustment_rate: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Multa (decimal)</label>
+                    <Input
+                      type="number" step="0.001"
+                      placeholder={companyDefaults ? String(companyDefaults.penalty_rate) : "0.02"}
+                      value={assignForm.penalty_rate ?? ""}
+                      onChange={(e) => setAssignForm((p) => ({ ...p, penalty_rate: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Juros/dia (decimal)</label>
+                    <Input
+                      type="number" step="0.00001"
+                      placeholder={companyDefaults ? String(companyDefaults.daily_interest_rate) : "0.00033"}
+                      value={assignForm.daily_interest_rate ?? ""}
+                      onChange={(e) => setAssignForm((p) => ({ ...p, daily_interest_rate: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Índice de Reajuste</label>
+                    <Select
+                      value={assignForm.adjustment_index ?? "__default__"}
+                      onValueChange={(v) => setAssignForm((p) => ({ ...p, adjustment_index: v === "__default__" ? undefined : v as AdjustmentIndex }))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Padrão" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__default__">Padrão ({companyDefaults?.adjustment_index ?? "IPCA"})</SelectItem>
+                        <SelectItem value="IPCA">IPCA</SelectItem>
+                        <SelectItem value="IGPM">IGP-M</SelectItem>
+                        <SelectItem value="CUB">CUB</SelectItem>
+                        <SelectItem value="INPC">INPC</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Frequência</label>
+                    <Select
+                      value={assignForm.adjustment_frequency ?? "__default__"}
+                      onValueChange={(v) => setAssignForm((p) => ({ ...p, adjustment_frequency: v === "__default__" ? undefined : v as AdjustmentFrequency }))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Padrão" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__default__">Padrão ({companyDefaults?.adjustment_frequency ?? "ANNUAL"})</SelectItem>
+                        <SelectItem value="MONTHLY">Mensal</SelectItem>
+                        <SelectItem value="QUARTERLY">Trimestral</SelectItem>
+                        <SelectItem value="SEMIANNUAL">Semestral</SelectItem>
+                        <SelectItem value="ANNUAL">Anual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Taxa Fixa Adicional (decimal)</label>
+                  <Input
+                    type="number" step="0.001"
+                    placeholder={companyDefaults ? String(companyDefaults.adjustment_custom_rate) : "0.05"}
+                    value={assignForm.adjustment_custom_rate ?? ""}
+                    onChange={(e) => setAssignForm((p) => ({ ...p, adjustment_custom_rate: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAssignLot} disabled={assigningLot || !assignForm.lot_id}>
+              {assigningLot ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</>
+              ) : (
+                <><Plus className="mr-2 h-4 w-4" />Confirmar Venda</>
+              )}
             </Button>
           </div>
         </div>
