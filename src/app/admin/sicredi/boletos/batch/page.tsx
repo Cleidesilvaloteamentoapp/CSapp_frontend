@@ -270,14 +270,25 @@ export default function BatchCreatePage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Duração (meses)</Label>
+                <div className="flex items-center gap-2">
+                  <Label>Duração (meses)</Label>
+                  <Badge variant="outline" className="text-xs">Máx 12/ciclo</Badge>
+                </div>
                 <Input
                   type="number"
                   min="1"
-                  max="120"
+                  max="12"
                   value={durationMonths}
-                  onChange={(e) => setDurationMonths(e.target.value)}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    if (val <= 12) {
+                      setDurationMonths(e.target.value);
+                    }
+                  }}
                 />
+                <p className="text-xs text-muted-foreground">
+                  ⚠️ Máximo de 12 boletos por lote (1 ciclo de 12 meses)
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Primeiro Vencimento</Label>

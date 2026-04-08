@@ -13,6 +13,9 @@ import type {
   CompanyFinancialSettingsUpdate,
   ClientLotResponse,
   ClientLotFinancialRulesUpdate,
+  InstallmentInfo,
+  GenerateNextBatchResponse,
+  AdminNotification,
 } from "@/types";
 import type { Boleto } from "@/types/sicredi";
 
@@ -232,4 +235,61 @@ export async function updateClientLotFinancialRules(
     `/admin/lots/client-lots/${clientLotId}/financial-rules`,
     data
   );
+}
+
+// ===================== Installment Management (12x12 Cycle) =====================
+
+export async function getInstallmentInfo(
+  clientLotId: string
+): Promise<InstallmentInfo> {
+  return api.get<InstallmentInfo>(`/admin/lots/client-lots/${clientLotId}/installments`);
+}
+
+export async function generateNextBatch(
+  clientLotId: string,
+  adjustmentRate: number
+): Promise<GenerateNextBatchResponse> {
+  const query = new URLSearchParams();
+  query.set("adjustment_rate", String(adjustmentRate));
+  return api.post<GenerateNextBatchResponse>(
+    `/admin/lots/client-lots/${clientLotId}/generate-next-batch?${query.toString()}`,
+    null
+  );
+}
+
+// ===================== Admin Notifications =====================
+
+export async function listAdminNotifications(params?: {
+  is_read?: boolean;
+  notification_type?: string;
+  page?: number;
+  per_page?: number;
+}): Promise<AdminNotification[]> {
+  const query = new URLSearchParams();
+  if (params?.is_read !== undefined)
+    query.set("is_read", String(params.is_read));
+  if (params?.notification_type)
+    query.set("notification_type", params.notification_type);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.per_page) query.set("per_page", String(params.per_page));
+  const qs = query.toString();
+  return api.get<AdminNotification[]>(
+    `/admin/notifications${qs ? `?${qs}` : ""}`
+  );
+}
+
+export async function getAdminUnreadCount(): Promise<{ unread_count: number }> {
+  return api.get<{ unread_count: number }>("/admin/notifications/unread-count");
+}
+
+export async function markAdminNotificationRead(
+  notificationId: string
+): Promise<AdminNotification> {
+  return api.patch<AdminNotification>(
+    `/admin/notifications/${notificationId}/read`
+  );
+}
+
+export async function markAllAdminNotificationsRead(): Promise<void> {
+  await api.patch("/admin/notifications/read-all");
 }

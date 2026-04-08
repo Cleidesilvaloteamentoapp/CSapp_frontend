@@ -547,5 +547,59 @@ export interface ManualWriteoffRequest {
   data_liquidacao?: string;
 }
 
+// ===================== Installment Management (12x12 Cycle) =====================
+export interface InstallmentInfo {
+  client_lot_id: string;
+  total_installments: number;
+  paid_installments: number;
+  remaining_installments: number;
+  current_cycle: number;
+  next_cycle_number: number;
+  installments_in_current_cycle: number;
+  is_legacy_client: boolean;
+  current_installment_value: number | null;
+}
+
+export interface GenerateNextBatchResponse {
+  status: "ready_for_batch";
+  client_lot_id: string;
+  current_cycle: number;
+  previous_installment_value: number;
+  new_installment_value: number;
+  adjustment_rate: number;
+  remaining_installments: number;
+  message: string;
+}
+
+// ===================== Admin Notifications =====================
+export type AdminNotificationType =
+  | "CICLO_PENDENTE"
+  | "TRANSFERENCIA_SOLICITADA"
+  | "ANTECIPACAO_SOLICITADA"
+  | "DOCUMENTO_PENDENTE"
+  | "BOLETO_VENCIDO"
+  | "GERAL";
+
+export interface AdminNotification {
+  id: string;
+  company_id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: AdminNotificationType;
+  is_read: boolean;
+  data: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export const ADMIN_NOTIFICATION_TYPE_LABELS: Record<AdminNotificationType, string> = {
+  CICLO_PENDENTE: "Ciclo Pendente",
+  TRANSFERENCIA_SOLICITADA: "Transferência Solicitada",
+  ANTECIPACAO_SOLICITADA: "Antecipação Solicitada",
+  DOCUMENTO_PENDENTE: "Documento Pendente",
+  BOLETO_VENCIDO: "Boleto Vencido",
+  GERAL: "Geral",
+};
+
 // ===================== Sicredi =====================
 export * from "./sicredi";

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
-import { CheckCircle, XCircle, Loader2, Eye, Clock } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Eye, Clock, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -28,9 +28,13 @@ import {
   getCycleApprovalDetail,
   approveCycle,
   rejectCycle,
+  getInstallmentInfo,
+  generateNextBatch,
 } from "@/services/admin";
-import type { CycleApprovalResponse, CycleApprovalStatus } from "@/types";
+import { createBatchBoletos } from "@/services/sicredi";
+import type { CycleApprovalResponse, CycleApprovalStatus, InstallmentInfo } from "@/types";
 import { WORKFLOW_STATUS_CONFIG } from "@/types";
+import { InstallmentInfoCard } from "@/components/shared/installment-info-card";
 
 export default function CycleApprovalsPage() {
   const [approvals, setApprovals] = useState<CycleApprovalResponse[]>([]);
@@ -55,6 +59,21 @@ export default function CycleApprovalsPage() {
   const [rejectNotes, setRejectNotes] = useState("");
   const [rejecting, setRejecting] = useState(false);
 
+  // New Cycle Management (12x12)
+  const [selectedClientLotId, setSelectedClientLotId] = useState<string | null>(null);
+  const [installmentInfo, setInstallmentInfo] = useState<InstallmentInfo | null>(null);
+  const [infoLoading, setInfoLoading] = useState(false);
+  
+  // Renew Cycle Dialog
+  const [renewDialogOpen, setRenewDialogOpen] = useState(false);
+  const [renewClientLotId, setRenewClientLotId] = useState<string | null>(null);
+  const [renewClientName, setRenewClientName] = useState<string>("");
+  const [renewInstallmentInfo, setRenewInstallmentInfo] = useState<InstallmentInfo | null>(null);
+  const [adjustmentRate, setAdjustmentRate] = useState<string>("5.00");
+  const [renewLoading, setRenewLoading] = useState(false);
+  const [renewStep, setRenewStep] = useState<"prepare" | "create">("prepare");
+  const [prepareResult, setPrepareResult] = useState<{ new_installment_value: number; remaining_installments: number } | null>(null);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -76,11 +95,17 @@ export default function CycleApprovalsPage() {
   async function handleViewDetail(item: CycleApprovalResponse) {
     setDetailLoading(true);
     setDetailOpen(true);
+    setSelectedClientLotId(item.client_lot_id);
     try {
-      const data = await getCycleApprovalDetail(item.id);
+      const [data, installmentData] = await Promise.all([
+        getCycleApprovalDetail(item.id),
+        getInstallmentInfo(item.client_lot_id).catch(() => null),
+      ]);
       setDetail(data);
+      setInstallmentInfo(installmentData);
     } catch {
       setDetail(item);
+      setInstallmentInfo(null);
     } finally {
       setDetailLoading(false);
     }
@@ -125,6 +150,84 @@ export default function CycleApprovalsPage() {
       }
     } finally {
       setRejecting(false);
+    }
+  }
+
+  async function loadInstallmentInfo(clientLotId: string) {
+    setInfoLoading(true);
+    try {
+      const info = await getInstallmentInfo(clientLotId);
+      setInstallmentInfo(info);
+      setSelectedClientLotId(clientLotId);
+    } catch (err) {
+      toast.error("Erro ao carregar informações de parcelas");
+    } finally {
+      setInfoLoading(false);
+    }
+  }
+
+  function openRenewDialog(clientLotId: string, clientName: string) {
+    setRenewClientLotId(clientLotId);
+    setRenewClientName(clientName);
+    setRenewStep("prepare");
+    setAdjustmentRate("5.00");
+    setPrepareResult(null);
+    setRenewDialogOpen(true);
+    // Load installment info
+    getInstallmentInfo(clientLotId)
+      .then((info) => setRenewInstallmentInfo(info))
+      .catch(() => toast.error("Erro ao carregar informações do contrato"));
+  }
+
+  async function handlePrepareRenew() {
+    if (!renewClientLotId) return;
+    setRenewLoading(true);
+    try {
+      const rate = parseFloat(adjustmentRate) / 100;
+      const result = await generateNextBatch(renewClientLotId, rate);
+      setPrepareResult({
+        new_installment_value: result.new_installment_value,
+        remaining_installments: result.remaining_installments,
+      });
+      setRenewStep("create");
+      toast.success(result.message);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(typeof err.detail === "string" ? err.detail : "Erro ao preparar ciclo");
+      }
+    } finally {
+      setRenewLoading(false);
+    }
+  }
+
+  async function handleCreateBatch() {
+    if (!renewClientLotId || !prepareResult) return;
+    setRenewLoading(true);
+    try {
+      const duration = Math.min(12, prepareResult.remaining_installments);
+      // Calculate first due date (next month from today)
+      const nextDue = new Date();
+      nextDue.setMonth(nextDue.getMonth() + 1);
+      nextDue.setDate(10); // Due on 10th of each month
+      
+      await createBatchBoletos({
+        client_id: renewInstallmentInfo?.client_lot_id || "",
+        pagador: {} as any, // Will be filled from client data
+        valor: prepareResult.new_installment_value,
+        frequency: "MENSAL",
+        duration_months: duration,
+        data_primeiro_vencimento: nextDue.toISOString().split("T")[0],
+      });
+      
+      toast.success(`✅ ${duration} boletos gerados para o ciclo ${(renewInstallmentInfo?.current_cycle || 0) + 1}`);
+      setRenewDialogOpen(false);
+      loadData();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(typeof err.detail === "string" ? err.detail : "Erro ao criar boletos");
+      }
+    } finally {
+      setRenewLoading(false);
     }
   }
 
@@ -217,6 +320,17 @@ export default function CycleApprovalsPage() {
                           </Button>
                           {item.status === "PENDING" && (
                             <>
+                              {/* New Cycle Management Button */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-blue-600 hover:text-blue-700"
+                                onClick={() => openRenewDialog(item.client_lot_id, item.client_name || "Cliente")}
+                                title="Gerar Próximo Ciclo (12x12)"
+                              >
+                                <Bell className="h-3.5 w-3.5 mr-1" />
+                                Renovar
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -270,6 +384,13 @@ export default function CycleApprovalsPage() {
             </div>
           ) : detail ? (
             <div className="space-y-4">
+              {/* Installment Info Card */}
+              {installmentInfo && (
+                <InstallmentInfoCard 
+                  info={installmentInfo}
+                  showActions={false}
+                />
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-muted-foreground">Ciclo</p>
@@ -415,6 +536,149 @@ export default function CycleApprovalsPage() {
                 Rejeitar Ciclo
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Renew Cycle Dialog */}
+      <Dialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-yellow-500" />
+              {renewStep === "prepare" 
+                ? `Ciclo ${renewInstallmentInfo?.current_cycle || 1} Completo — ${renewClientName}`
+                : `Confirmar Geração do Ciclo ${(renewInstallmentInfo?.current_cycle || 1) + 1}`
+              }
+            </DialogTitle>
+            <DialogDescription>
+              {renewStep === "prepare" 
+                ? "Defina o percentual de reajuste para o próximo ciclo."
+                : "Verifique os dados antes de gerar os boletos."
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {renewStep === "prepare" ? (
+              <>
+                {/* Current Info */}
+                {renewInstallmentInfo && (
+                  <div className="rounded-lg bg-muted p-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Parcelas restantes:</span>
+                      <span className="font-medium">
+                        {renewInstallmentInfo.remaining_installments} de {renewInstallmentInfo.total_installments}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Valor atual:</span>
+                      <span className="font-medium">
+                        {renewInstallmentInfo.current_installment_value 
+                          ? formatCurrency(renewInstallmentInfo.current_installment_value)
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Adjustment Rate Input */}
+                <div>
+                  <label className="text-sm font-medium">Reajuste para o ciclo {renewInstallmentInfo ? renewInstallmentInfo.current_cycle + 1 : 2} (%)</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={adjustmentRate}
+                      onChange={(e) => setAdjustmentRate(e.target.value)}
+                      className="w-32"
+                    />
+                    <span className="text-muted-foreground">%</span>
+                  </div>
+                </div>
+
+                {/* Real-time calculation */}
+                {renewInstallmentInfo?.current_installment_value && (
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                    <p className="text-sm text-green-800">
+                      <span className="font-medium">Novo valor estimado: </span>
+                      {formatCurrency(
+                        renewInstallmentInfo.current_installment_value * 
+                        (1 + (parseFloat(adjustmentRate) || 0) / 100)
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button variant="outline" onClick={() => setRenewDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handlePrepareRenew}
+                    disabled={renewLoading}
+                  >
+                    {renewLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Preparar Próximo Ciclo
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Create Step */}
+                {prepareResult && (
+                  <div className="rounded-lg bg-muted p-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Novo valor da parcela:</span>
+                      <span className="font-semibold text-green-600">
+                        {formatCurrency(prepareResult.new_installment_value)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Quantidade de boletos:</span>
+                      <span className="font-medium">
+                        {Math.min(12, prepareResult.remaining_installments)} boletos
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Primeiro vencimento:</span>
+                      <span className="font-medium">
+                        {(() => {
+                          const nextDue = new Date();
+                          nextDue.setMonth(nextDue.getMonth() + 1);
+                          nextDue.setDate(10);
+                          return nextDue.toLocaleDateString("pt-BR");
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                  <p className="font-medium">⚠️ Atenção</p>
+                  <p className="mt-1">
+                    Os boletos serão criados no Sicredi com o valor reajustado. 
+                    Esta ação não pode ser desfeita.
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button variant="outline" onClick={() => setRenewStep("prepare")}>
+                    Voltar
+                  </Button>
+                  <Button
+                    onClick={handleCreateBatch}
+                    disabled={renewLoading}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {renewLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Confirmar e Gerar Lote
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>

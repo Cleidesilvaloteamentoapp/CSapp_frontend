@@ -24,6 +24,7 @@ import {
   FileSpreadsheet,
   Cog,
   MessageSquare,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -32,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
+import { useAdminNotifications } from "@/hooks/use-admin-notifications";
 
 type NavItem = {
   href: string;
@@ -67,6 +69,7 @@ export function AdminSidebar() {
   const pathname = usePathname();
   const { user, logout, isSuperAdmin } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const { unreadCount } = useAdminNotifications();
 
   const visibleNavItems = NAV_ITEMS.filter(
     (item) => !item.superAdminOnly || isSuperAdmin
@@ -98,19 +101,38 @@ export function AdminSidebar() {
               <span className="text-[11px] text-sidebar-foreground/60">Loteamentos</span>
             </div>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "ml-auto h-7 w-7 p-0 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent",
-              collapsed && "ml-0"
-            )}
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            <ChevronLeft
-              className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")}
-            />
-          </Button>
+          <div className="flex items-center gap-1 ml-auto">
+            {/* Notifications Bell */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/admin/notifications"
+                  className="relative flex h-7 w-7 items-center justify-center rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                >
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Notificações</TooltipContent>
+            </Tooltip>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "h-7 w-7 p-0 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent",
+                collapsed && "ml-0"
+              )}
+              onClick={() => setCollapsed(!collapsed)}
+            >
+              <ChevronLeft
+                className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")}
+              />
+            </Button>
+          </div>
         </div>
 
         <Separator className="bg-sidebar-border" />

@@ -30,12 +30,15 @@ import type {
   CycleApprovalResponse, ContractTransferResponse, EarlyPayoffResponse,
   CompanyFinancialSettingsResponse, AdjustmentIndex, AdjustmentFrequency,
   ClientLotFinancialRulesUpdate, LotResponse, PaginatedResponse,
+  InstallmentInfo,
 } from "@/types";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import {
   getFinancialSettings, getClientLotDetail, updateClientLotFinancialRules,
+  getInstallmentInfo,
 } from "@/services/admin";
+import { InstallmentInfoCard } from "@/components/shared/installment-info-card";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   active: { label: "Ativo", variant: "default" },
@@ -92,6 +95,11 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
   const [loadingAvailableLots, setLoadingAvailableLots] = useState(false);
   const [assigningLot, setAssigningLot] = useState(false);
   const [assignFinExpanded, setAssignFinExpanded] = useState(false);
+  
+  // Installment info for selected lot
+  const [selectedLotForInfo, setSelectedLotForInfo] = useState<ClientLotResponse | null>(null);
+  const [installmentInfo, setInstallmentInfo] = useState<InstallmentInfo | null>(null);
+  const [loadingInstallmentInfo, setLoadingInstallmentInfo] = useState(false);
   const [assignForm, setAssignForm] = useState({
     lot_id: "",
     purchase_date: new Date().toISOString().split("T")[0],
@@ -105,6 +113,8 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
     adjustment_frequency: undefined as AdjustmentFrequency | undefined,
     adjustment_custom_rate: undefined as number | undefined,
     annual_adjustment_rate: undefined as number | undefined,
+    is_legacy_client: false,
+    paid_installments: 0,
   });
   
   const { boletos, loading: boletosLoading, error: boletosError } = useClientBoletos(client?.id || null);
@@ -144,6 +154,19 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
     setRulesDialogOpen(true);
   }
 
+  async function loadInstallmentInfoForLot(lot: ClientLotResponse) {
+    setSelectedLotForInfo(lot);
+    setLoadingInstallmentInfo(true);
+    try {
+      const info = await getInstallmentInfo(lot.id);
+      setInstallmentInfo(info);
+    } catch {
+      setInstallmentInfo(null);
+    } finally {
+      setLoadingInstallmentInfo(false);
+    }
+  }
+
   async function handleSaveRules() {
     if (!editingLot) return;
     setSavingRules(true);
@@ -181,6 +204,7 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
       down_payment: undefined, penalty_rate: undefined, daily_interest_rate: undefined,
       adjustment_index: undefined, adjustment_frequency: undefined,
       adjustment_custom_rate: undefined, annual_adjustment_rate: undefined,
+      is_legacy_client: false, paid_installments: 0,
     });
     setAssignFinExpanded(false);
     setAssignDialogOpen(true);
@@ -224,6 +248,18 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
       if (assignForm.adjustment_frequency !== undefined) payload.adjustment_frequency = assignForm.adjustment_frequency;
       if (assignForm.adjustment_custom_rate !== undefined) payload.adjustment_custom_rate = assignForm.adjustment_custom_rate;
       if (assignForm.annual_adjustment_rate !== undefined) payload.annual_adjustment_rate = assignForm.annual_adjustment_rate;
+      
+      // Legacy client fields
+      if (assignForm.is_legacy_client) {
+        payload.is_legacy_client = true;
+        payload.paid_installments = assignForm.paid_installments;
+        // Validation
+        if (assignForm.paid_installments >= assignForm.installments) {
+          toast.error("Parcelas pagas devem ser menores que o total de parcelas");
+          setAssigningLot(false);
+          return;
+        }
+      }
 
       await api.post("/admin/lots/assign", payload);
       toast.success("Lote atrelado com sucesso! Faturas geradas automaticamente.");
@@ -334,6 +370,13 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {/* Installment Info Card */}
+                    {installmentInfo && selectedLotForInfo && (
+                      <InstallmentInfoCard 
+                        info={installmentInfo}
+                        showActions={false}
+                      />
+                    )}
                     <div className="flex justify-end">
                       <Button variant="outline" size="sm" onClick={openAssignDialog}>
                         <Plus className="mr-2 h-4 w-4" /> Atrelar Lote
@@ -345,11 +388,24 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                       const idxEff = getEffective(lot.adjustment_index, "adjustment_index");
                       const freqEff = getEffective(lot.adjustment_frequency, "adjustment_frequency");
                       const custEff = getEffective(lot.adjustment_custom_rate, "adjustment_custom_rate");
+                      const isSelected = selectedLotForInfo?.id === lot.id;
                       return (
-                        <div key={lot.id} className="rounded-lg border p-4 space-y-3">
+                        <div 
+                          key={lot.id} 
+                          className={cn(
+                            "rounded-lg border p-4 space-y-3 cursor-pointer transition-colors",
+                            isSelected ? "border-primary bg-primary/5" : "hover:border-gray-300"
+                          )}
+                          onClick={() => loadInstallmentInfoForLot(lot)}
+                        >
                           <div className="flex justify-between items-center">
                             <p className="font-medium text-sm">Lote {lot.lot_id.slice(0, 8)}...</p>
-                            <Badge variant="secondary">{lot.status}</Badge>
+                            <div className="flex items-center gap-2">
+                              {isSelected && loadingInstallmentInfo && (
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                              )}
+                              <Badge variant="secondary">{lot.status}</Badge>
+                            </div>
                           </div>
                           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
                             <p>Valor: <span className="font-medium text-foreground">{formatCurrency(lot.total_value)}</span></p>
@@ -896,6 +952,47 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                 />
               </div>
             </div>
+          </div>
+
+          {/* Legacy client checkbox */}
+          <div className="space-y-3 rounded-lg border p-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="is_legacy_client"
+                checked={assignForm.is_legacy_client}
+                onChange={(e) => setAssignForm((p) => ({
+                  ...p,
+                  is_legacy_client: e.target.checked,
+                  paid_installments: e.target.checked ? p.paid_installments : 0,
+                }))}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <label htmlFor="is_legacy_client" className="text-sm font-medium">
+                Cliente já tinha parcelas pagas antes do sistema
+              </label>
+            </div>
+            {assignForm.is_legacy_client && (
+              <div className="space-y-1.5 pl-6">
+                <label className="text-sm font-medium">Número de parcelas já pagas</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={assignForm.installments - 1}
+                  value={assignForm.paid_installments}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    if (val < assignForm.installments) {
+                      setAssignForm((p) => ({ ...p, paid_installments: val }));
+                    }
+                  }}
+                  className="w-32"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Deve ser menor que o total de parcelas ({assignForm.installments})
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Expandable Financial Rules */}
