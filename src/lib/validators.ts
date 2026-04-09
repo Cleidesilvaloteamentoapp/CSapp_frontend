@@ -33,7 +33,17 @@ export const clientCreateSchema = z.object({
     })
     .optional(),
   create_access: z.boolean().default(false),
-  password: z.string().min(8).max(128).optional(),
+  password: z.string().max(128).optional(),
+}).superRefine((data, ctx) => {
+  if (data.create_access) {
+    if (!data.password || data.password.length < 8) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Senha deve ter no mínimo 8 caracteres quando o acesso ao portal está ativado",
+        path: ["password"],
+      });
+    }
+  }
 });
 
 export const propertyTypeSchema = z.enum(["LOT", "HOUSE", "APARTMENT", "COMMERCIAL", "RURAL"], {

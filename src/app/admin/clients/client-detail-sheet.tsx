@@ -131,12 +131,22 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
       getFinancialSettings().catch(() => null),
     ])
       .then(([lotsData, invoicesData, cyclesData, transfersData, payoffData, defaults]) => {
-        setLots(lotsData);
+        const loadedLots = lotsData || [];
+        setLots(loadedLots);
         setInvoices(invoicesData);
         setCycles(Array.isArray(cyclesData) ? cyclesData : []);
         setTransfers(Array.isArray(transfersData) ? transfersData : []);
         setEarlyPayoffs(Array.isArray(payoffData) ? payoffData : []);
         setCompanyDefaults(defaults as CompanyFinancialSettingsResponse | null);
+        
+        // Auto-load installment info for the first lot
+        if (loadedLots.length > 0) {
+          const firstLot = loadedLots[0];
+          setSelectedLotForInfo(firstLot);
+          getInstallmentInfo(firstLot.id)
+            .then((info) => setInstallmentInfo(info))
+            .catch(() => setInstallmentInfo(null));
+        }
       })
       .finally(() => setLoading(false));
   }, [client]);
@@ -377,6 +387,29 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                         showActions={false}
                       />
                     )}
+                    
+                    {/* Summary Stats */}
+                    {lots.length > 0 && (
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-lg bg-muted p-3 text-center">
+                          <p className="text-2xl font-bold">{lots.length}</p>
+                          <p className="text-xs text-muted-foreground">Imóveis</p>
+                        </div>
+                        <div className="rounded-lg bg-blue-50 p-3 text-center">
+                          <p className="text-2xl font-bold text-blue-600">
+                            {lots.reduce((sum, l) => sum + (l.total_installments || 0), 0)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Total Parcelas</p>
+                        </div>
+                        <div className="rounded-lg bg-green-50 p-3 text-center">
+                          <p className="text-2xl font-bold text-green-600">
+                            {installmentInfo ? installmentInfo.paid_installments : '-'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Parcelas Pagas</p>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="flex justify-end">
                       <Button variant="outline" size="sm" onClick={openAssignDialog}>
                         <Plus className="mr-2 h-4 w-4" /> Atrelar Lote
@@ -423,6 +456,34 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                               <p>Entrada: <span className="font-medium text-foreground">{formatCurrency(lot.down_payment)}</span></p>
                             )}
                           </div>
+                          
+                          {/* Progress bar for installments */}
+                          {isSelected && installmentInfo && (
+                            <div className="mt-3 space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Progresso: {installmentInfo.paid_installments} de {installmentInfo.total_installments} parcelas</span>
+                                <span className="font-medium">
+                                  {Math.round((installmentInfo.paid_installments / installmentInfo.total_installments) * 100)}%
+                                </span>
+                              </div>
+                              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                                <div 
+                                  className="h-full rounded-full bg-green-500 transition-all"
+                                  style={{ 
+                                    width: `${(installmentInfo.paid_installments / installmentInfo.total_installments) * 100}%` 
+                                  }}
+                                />
+                              </div>
+                              {installmentInfo.remaining_installments > 0 && (
+                                <p className="text-xs text-muted-foreground">
+                                  {installmentInfo.remaining_installments} parcelas restantes
+                                  {installmentInfo.installments_in_current_cycle >= 12 && (
+                                    <span className="ml-2 text-yellow-600 font-medium">⚠ Ciclo completo</span>
+                                  )}
+                                </p>
+                              )}
+                            </div>
+                          )}
 
                           <Separator />
                           <div className="space-y-1.5">
