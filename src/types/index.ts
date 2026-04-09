@@ -96,11 +96,44 @@ export interface ClientResponse {
   updated_at: string;
 }
 
+// ===================== Property Types =====================
+export type PropertyType = "LOT" | "HOUSE" | "APARTMENT" | "COMMERCIAL" | "RURAL";
+
+export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
+  LOT: "Lote",
+  HOUSE: "Casa",
+  APARTMENT: "Apartamento", 
+  COMMERCIAL: "Comercial",
+  RURAL: "Rural",
+};
+
+export const PROPERTY_TYPE_ICONS: Record<PropertyType, string> = {
+  LOT: "🏗️",
+  HOUSE: "🏠",
+  APARTMENT: "🏢",
+  COMMERCIAL: "🏪",
+  RURAL: "🌾",
+};
+
 // ===================== Development =====================
 export interface DevelopmentCreate {
   name: string;
   description?: string;
   location?: string;
+  property_type: PropertyType;
+  // Campos específicos para lotes
+  block?: string;
+  lot_number?: string;
+  area_m2?: number;
+  // Campos específicos para casas/apartamentos
+  bedrooms?: number;
+  bathrooms?: number;
+  suites?: number;
+  parking_spaces?: number;
+  construction_area_m2?: number;
+  total_area_m2?: number;
+  // Campos para imóveis em geral
+  price?: number;
   documents?: Record<string, unknown>;
 }
 
@@ -108,6 +141,17 @@ export interface DevelopmentUpdate {
   name?: string;
   description?: string;
   location?: string;
+  property_type?: PropertyType;
+  block?: string;
+  lot_number?: string;
+  area_m2?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  suites?: number;
+  parking_spaces?: number;
+  construction_area_m2?: number;
+  total_area_m2?: number;
+  price?: number;
   documents?: Record<string, unknown>;
 }
 
@@ -117,6 +161,17 @@ export interface DevelopmentResponse {
   name: string;
   description: string | null;
   location: string | null;
+  property_type: PropertyType;
+  block: string | null;
+  lot_number: string | null;
+  area_m2: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  suites: number | null;
+  parking_spaces: number | null;
+  construction_area_m2: string | null;
+  total_area_m2: string | null;
+  price: string | null;
   documents: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;

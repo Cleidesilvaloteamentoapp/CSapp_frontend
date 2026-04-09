@@ -36,10 +36,70 @@ export const clientCreateSchema = z.object({
   password: z.string().min(8).max(128).optional(),
 });
 
+export const propertyTypeSchema = z.enum(["LOT", "HOUSE", "APARTMENT", "COMMERCIAL", "RURAL"], {
+  message: "Selecione o tipo de imóvel",
+});
+
 export const developmentCreateSchema = z.object({
   name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
   description: z.string().optional(),
   location: z.string().optional(),
+  property_type: propertyTypeSchema,
+  // Campos específicos para lotes
+  block: z.string().optional(),
+  lot_number: z.string().optional(),
+  area_m2: z.coerce.number().positive("Área deve ser maior que 0").optional(),
+  // Campos específicos para casas/apartamentos
+  bedrooms: z.coerce.number().int().min(0).optional(),
+  bathrooms: z.coerce.number().int().min(0).optional(),
+  suites: z.coerce.number().int().min(0).optional(),
+  parking_spaces: z.coerce.number().int().min(0).optional(),
+  construction_area_m2: z.coerce.number().positive().optional(),
+  total_area_m2: z.coerce.number().positive().optional(),
+  // Campos para imóveis em geral
+  price: z.coerce.number().positive("Preço deve ser maior que 0").optional(),
+}).superRefine((data, ctx) => {
+  // Validações específicas para lotes
+  if (data.property_type === "LOT") {
+    if (!data.lot_number) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Número do lote é obrigatório para lotes",
+        path: ["lot_number"],
+      });
+    }
+    if (!data.area_m2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Área é obrigatória para lotes",
+        path: ["area_m2"],
+      });
+    }
+  }
+  // Validações específicas para casas/apartamentos
+  if (["HOUSE", "APARTMENT"].includes(data.property_type)) {
+    if (!data.bedrooms) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Número de quartos é obrigatório",
+        path: ["bedrooms"],
+      });
+    }
+    if (!data.bathrooms) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Número de banheiros é obrigatório",
+        path: ["bathrooms"],
+      });
+    }
+    if (!data.construction_area_m2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Área construída é obrigatória",
+        path: ["construction_area_m2"],
+      });
+    }
+  }
 });
 
 export const lotCreateSchema = z.object({

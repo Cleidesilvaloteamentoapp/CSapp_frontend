@@ -47,8 +47,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/clients", label: "Clientes", icon: Users },
-  { href: "/admin/developments", label: "Empreendimentos", icon: MapPin },
-  { href: "/admin/lots", label: "Lotes", icon: LandPlot },
+  { href: "/admin/developments", label: "Imóveis", icon: MapPin },
   { href: "/admin/financial", label: "Financeiro", icon: DollarSign, separator: true },
   { href: "/admin/financial-settings", label: "Config. Financeiras", icon: Cog },
   { href: "/admin/economic-indices", label: "Índices Econômicos", icon: TrendingUp, superAdminOnly: true },
