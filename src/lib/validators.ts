@@ -18,33 +18,36 @@ export const signupSchema = z.object({
   phone: z.string().min(10, "Telefone inválido").max(20),
 });
 
-export const clientCreateSchema = z.object({
-  email: z.string().email("E-mail inválido"),
-  full_name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres").max(255),
-  cpf_cnpj: z.string().min(11, "CPF/CNPJ inválido").max(20),
-  phone: z.string().min(10, "Telefone inválido").max(20),
-  address: z
-    .object({
-      street: z.string().optional(),
-      number: z.string().optional(),
-      city: z.string().optional(),
-      state: z.string().optional(),
-      zip: z.string().optional(),
-    })
-    .optional(),
-  create_access: z.boolean().default(false),
-  password: z.string().max(128).optional(),
-}).superRefine((data, ctx) => {
-  if (data.create_access) {
-    if (!data.password || data.password.length < 8) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Senha deve ter no mínimo 8 caracteres quando o acesso ao portal está ativado",
-        path: ["password"],
-      });
+export const clientCreateSchema = z
+  .object({
+    email: z.string().email("E-mail inválido"),
+    full_name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres").max(255),
+    cpf_cnpj: z.string().min(11, "CPF/CNPJ inválido").max(20),
+    phone: z.string().min(10, "Telefone inválido").max(20),
+    address: z
+      .object({
+        street: z.string().optional(),
+        number: z.string().optional(),
+        city: z.string().optional(),
+        state: z.string().optional(),
+        zip: z.string().optional(),
+      })
+      .optional(),
+    create_access: z.boolean().default(false),
+    password: z.string().max(128).optional(),
+  })
+  .superRefine((data, ctx) => {
+    // Só valida senha quando create_access é true
+    if (data.create_access === true) {
+      if (!data.password || data.password.length < 8) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Senha deve ter no mínimo 8 caracteres",
+          path: ["password"],
+        });
+      }
     }
-  }
-});
+  });
 
 export const propertyTypeSchema = z.enum(["LOT", "HOUSE", "APARTMENT", "COMMERCIAL", "RURAL"], {
   message: "Selecione o tipo de imóvel",

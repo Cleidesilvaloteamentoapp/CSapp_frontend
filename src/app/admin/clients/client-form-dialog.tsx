@@ -101,10 +101,21 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
       onSuccess();
     } catch (error) {
       if (error instanceof ApiError) {
-        if (error.status === 409) {
-          toast.error("E-mail ou CPF/CNPJ já cadastrado");
+        // Erro 409 ou mensagem de violação de unicidade (CPF/email duplicado)
+        const errorMessage = typeof error.detail === "string" ? error.detail : "";
+        const isDuplicateError =
+          error.status === 409 ||
+          errorMessage.toLowerCase().includes("cpf_cnpj") ||
+          errorMessage.toLowerCase().includes("unique") ||
+          errorMessage.toLowerCase().includes("duplicate") ||
+          errorMessage.toLowerCase().includes("already exists") ||
+          errorMessage.toLowerCase().includes("já cadastrado") ||
+          errorMessage.toLowerCase().includes("já existe");
+
+        if (isDuplicateError) {
+          toast.error("CPF/CNPJ ou e-mail já cadastrado. Verifique se o cliente já existe.");
         } else {
-          toast.error(typeof error.detail === "string" ? error.detail : "Erro ao salvar cliente");
+          toast.error(errorMessage || "Erro ao salvar cliente");
         }
       } else {
         toast.error("Erro de conexão");
