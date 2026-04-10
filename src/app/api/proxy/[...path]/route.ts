@@ -55,9 +55,17 @@ async function proxyRequest(
 
   const headers: Record<string, string> = {};
   
-  // Forward important headers
+  // Get token from cookies
+  const token = request.cookies.get("access_token")?.value;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+    console.log(`[Proxy] Token from cookie: ${token.substring(0, 20)}...`);
+  } else {
+    console.log(`[Proxy] WARNING: No access_token cookie found`);
+  }
+  
+  // Forward other important headers
   const headersToForward = [
-    "authorization",
     "content-type",
     "accept",
     "user-agent",
@@ -67,7 +75,6 @@ async function proxyRequest(
     const value = request.headers.get(headerName);
     if (value) {
       headers[headerName] = value;
-      console.log(`[Proxy] Forwarding header ${headerName}: ${headerName === 'authorization' ? value.substring(0, 20) + '...' : value}`);
     }
   });
 

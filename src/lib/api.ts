@@ -43,26 +43,16 @@ async function fetchWithAuth(
     endpoint = endpoint.slice(0, -1);
   }
 
-  const token = getTokenFromCookies();
-
   const reqHeaders: Record<string, string> = {
     ...headers,
   };
-
-  if (token) {
-    reqHeaders["Authorization"] = `Bearer ${token}`;
-  }
 
   if (body && !(body instanceof FormData)) {
     reqHeaders["Content-Type"] = "application/json";
   }
 
   const url = `${API_URL}${endpoint}`;
-  console.log(`[API] ${method} ${url}`, {
-    token: token ? 'present' : 'missing',
-    tokenPreview: token ? `${token.substring(0, 20)}...` : null,
-    headers: reqHeaders
-  });
+  console.log(`[API] ${method} ${url}`);
 
   let response: Response;
   try {
@@ -70,6 +60,7 @@ async function fetchWithAuth(
       method,
       headers: reqHeaders,
       body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+      credentials: 'include',
       ...rest,
     });
   } catch (networkError) {
@@ -82,14 +73,12 @@ async function fetchWithAuth(
   if (response.status === 401) {
     const refreshed = await tryRefreshToken();
     if (refreshed) {
-      const newToken = getTokenFromCookies();
-      if (newToken) {
-        reqHeaders["Authorization"] = `Bearer ${newToken}`;
-      }
+      // Retry the request - the proxy will pick up the new token from cookies
       const retryResponse = await fetch(`${API_URL}${endpoint}`, {
         method,
         headers: reqHeaders,
         body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+        credentials: 'include',
         ...rest,
       });
 
