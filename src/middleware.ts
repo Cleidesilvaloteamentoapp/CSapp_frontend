@@ -35,7 +35,7 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' " + (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000") + " https:",
+    "connect-src 'self' https: http://localhost:8000",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -74,6 +74,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icons|manifest.json|sw.js|workbox|api).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icons|manifest.json|sw.js|workbox|api|backend).*)",
   ],
 };
