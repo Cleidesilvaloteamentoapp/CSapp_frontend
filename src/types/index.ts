@@ -20,7 +20,7 @@ export interface TokenResponse {
   token_type: "bearer";
 }
 
-export type UserRole = "super_admin" | "company_admin" | "client";
+export type UserRole = "super_admin" | "company_admin" | "staff" | "client";
 
 export interface MeResponse {
   id: string;
@@ -30,6 +30,65 @@ export interface MeResponse {
   email: string;
   phone: string;
   cpf_cnpj: string;
+  is_active: boolean;
+}
+
+// ===================== Staff =====================
+export interface StaffPermissions {
+  view_clients: boolean;
+  manage_clients: boolean;
+  view_lots: boolean;
+  manage_lots: boolean;
+  view_financial: boolean;
+  manage_financial: boolean;
+  view_renegotiations: boolean;
+  manage_renegotiations: boolean;
+  view_rescissions: boolean;
+  manage_rescissions: boolean;
+  view_reports: boolean;
+  view_service_requests: boolean;
+  manage_service_requests: boolean;
+  view_documents: boolean;
+  manage_documents: boolean;
+  view_sicredi: boolean;
+  manage_sicredi: boolean;
+  view_whatsapp: boolean;
+  manage_whatsapp: boolean;
+  view_financial_settings: boolean;
+  manage_financial_settings: boolean;
+}
+
+export interface StaffResponse {
+  id: string;
+  company_id: string;
+  full_name: string;
+  email: string;
+  cpf_cnpj: string;
+  phone: string;
+  is_active: boolean;
+  permissions: StaffPermissions | null;
+}
+
+export interface StaffCreateRequest {
+  full_name: string;
+  email: string;
+  cpf_cnpj: string;
+  phone: string;
+  password: string;
+  permissions?: StaffPermissions;
+}
+
+export interface StaffUpdateRequest {
+  full_name?: string;
+  phone?: string;
+  password?: string;
+  permissions?: StaffPermissions;
+}
+
+export interface StaffToggleResponse {
+  id: string;
+  is_active: boolean;
+  message: string;
 }
 
 // ===================== Company =====================

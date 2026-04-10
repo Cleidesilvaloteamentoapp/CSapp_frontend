@@ -19,6 +19,7 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { PageHeader } from "@/components/layout/page-header";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 import { StatsCardsSkeleton } from "@/components/shared/loading-skeleton";
 import { PropertyTypeQuiz } from "@/components/shared/property-type-quiz";
 import { PropertyForm } from "@/components/shared/property-form";
@@ -143,9 +144,11 @@ export default function DevelopmentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Imóveis e Empreendimentos" description="Gerencie seus imóveis, lotes e empreendimentos">
-        <Button onClick={() => openForm()}>
-          <Plus className="mr-2 h-4 w-4" /> Novo Imóvel
-        </Button>
+        <PermissionGuard permission="manage_lots">
+          <Button onClick={() => openForm()}>
+            <Plus className="mr-2 h-4 w-4" /> Novo Imóvel
+          </Button>
+        </PermissionGuard>
       </PageHeader>
 
       {/* Tabs */}
@@ -226,14 +229,16 @@ export default function DevelopmentsPage() {
                           </div>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => openForm(dev)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <PermissionGuard permission="manage_lots">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => openForm(dev)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </PermissionGuard>
                     </div>
                   </CardHeader>
                   <CardContent>

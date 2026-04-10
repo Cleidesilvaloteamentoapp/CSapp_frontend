@@ -102,6 +102,13 @@ async function fetchWithAuth(
     } catch {
       detail = `Erro ${response.status}: ${response.statusText}`;
     }
+    if (response.status === 403) {
+      const msg = typeof detail === "string" ? detail : "Acesso negado";
+      if (msg.toLowerCase().includes("missing permission")) {
+        throw new ApiError(403, `Permissão insuficiente: ${msg}`);
+      }
+      throw new ApiError(403, "Você não tem permissão para esta ação.");
+    }
     throw new ApiError(response.status, detail);
   }
 

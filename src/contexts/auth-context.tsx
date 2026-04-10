@@ -1,14 +1,17 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import type { MeResponse } from "@/types";
-import { getMe, logout as authLogout, canAccessAdmin, getDefaultRedirect } from "@/lib/auth";
+import type { MeResponse, StaffPermissions } from "@/types";
+import { getMe, logout as authLogout, canAccessAdmin, getStaffPermissions } from "@/lib/auth";
 
 interface AuthContextType {
   user: MeResponse | null;
   loading: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  isCompanyAdmin: boolean;
+  staffPermissions: StaffPermissions | null;
+  can: (perm: keyof StaffPermissions) => boolean;
   refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -18,13 +21,21 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [staffPermissions, setStaffPermissions] = useState<StaffPermissions | null>(null);
 
   const refreshUser = useCallback(async () => {
     try {
       const me = await getMe();
       setUser(me);
+      if (me?.role === "staff" && me.id) {
+        const perms = await getStaffPermissions(me.id);
+        setStaffPermissions(perms);
+      } else {
+        setStaffPermissions(null);
+      }
     } catch {
       setUser(null);
+      setStaffPermissions(null);
     } finally {
       setLoading(false);
     }
@@ -36,11 +47,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleLogout = useCallback(async () => {
     setUser(null);
+    setStaffPermissions(null);
     await authLogout();
   }, []);
 
   const isAdmin = user ? canAccessAdmin(user.role) : false;
   const isSuperAdmin = user?.role === "super_admin";
+  const isCompanyAdmin = user?.role === "company_admin";
+
+  const can = useCallback(
+    (perm: keyof StaffPermissions): boolean => {
+      if (!user) return false;
+      if (user.role === "super_admin" || user.role === "company_admin") return true;
+      if (user.role !== "staff") return false;
+      return staffPermissions?.[perm] === true;
+    },
+    [user, staffPermissions]
+  );
 
   return (
     <AuthContext.Provider
@@ -49,6 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         isAdmin,
         isSuperAdmin,
+        isCompanyAdmin,
+        staffPermissions,
+        can,
         refreshUser,
         logout: handleLogout,
       }}

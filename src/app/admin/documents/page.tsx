@@ -30,6 +30,7 @@ import {
   DOCUMENT_STATUS_CONFIG,
 } from "@/types/portal";
 import type { ClientDocument, DocumentType, DocumentStatus } from "@/types/portal";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 
 const DOC_TYPES: DocumentType[] = [
   "RG", "CPF", "COMPROVANTE_RESIDENCIA", "CNH", "CONTRATO", "OUTROS",
@@ -222,24 +223,26 @@ export default function AdminDocumentsPage() {
                       </a>
                     </Button>
                     {isPending && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-green-600 hover:text-green-700"
-                          onClick={() => openReview(doc, "APPROVED")}
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => openReview(doc, "REJECTED")}
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                      </>
+                      <PermissionGuard permission="manage_documents">
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-green-600 hover:text-green-700"
+                            onClick={() => openReview(doc, "APPROVED")}
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => openReview(doc, "REJECTED")}
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </>
+                      </PermissionGuard>
                     )}
                   </div>
                 </CardContent>

@@ -35,6 +35,7 @@ import { createBatchBoletos } from "@/services/sicredi";
 import type { CycleApprovalResponse, CycleApprovalStatus, InstallmentInfo } from "@/types";
 import { WORKFLOW_STATUS_CONFIG } from "@/types";
 import { InstallmentInfoCard } from "@/components/shared/installment-info-card";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 
 export default function CycleApprovalsPage() {
   const [approvals, setApprovals] = useState<CycleApprovalResponse[]>([]);
@@ -319,44 +320,46 @@ export default function CycleApprovalsPage() {
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
                           {item.status === "PENDING" && (
-                            <>
-                              {/* New Cycle Management Button */}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 px-2 text-blue-600 hover:text-blue-700"
-                                onClick={() => openRenewDialog(item.client_lot_id, item.client_name || "Cliente")}
-                                title="Gerar Próximo Ciclo (12x12)"
-                              >
-                                <Bell className="h-3.5 w-3.5 mr-1" />
-                                Renovar
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
-                                onClick={() => {
-                                  setApproveTarget(item);
-                                  setNewValue(String(item.previous_installment_value));
-                                  setApproveNotes("");
-                                  setApproveOpen(true);
-                                }}
-                              >
-                                <CheckCircle className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                onClick={() => {
-                                  setRejectTarget(item);
-                                  setRejectNotes("");
-                                  setRejectOpen(true);
-                                }}
-                              >
-                                <XCircle className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
+                            <PermissionGuard permission="manage_financial">
+                              <>
+                                {/* New Cycle Management Button */}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 px-2 text-blue-600 hover:text-blue-700"
+                                  onClick={() => openRenewDialog(item.client_lot_id, item.client_name || "Cliente")}
+                                  title="Gerar Próximo Ciclo (12x12)"
+                                >
+                                  <Bell className="h-3.5 w-3.5 mr-1" />
+                                  Renovar
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                                  onClick={() => {
+                                    setApproveTarget(item);
+                                    setNewValue(String(item.previous_installment_value));
+                                    setApproveNotes("");
+                                    setApproveOpen(true);
+                                  }}
+                                >
+                                  <CheckCircle className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                  onClick={() => {
+                                    setRejectTarget(item);
+                                    setRejectNotes("");
+                                    setRejectOpen(true);
+                                  }}
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            </PermissionGuard>
                           )}
                         </div>
                       </TableCell>

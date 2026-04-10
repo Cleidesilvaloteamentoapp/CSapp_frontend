@@ -44,9 +44,11 @@ function LoginForm() {
         !requestedRedirect.includes("://")
       ) {
         const isAdmin = canAccessAdmin(me.role);
+        const isStaff = me.role === "staff";
         const isAdminRoute = requestedRedirect.startsWith("/admin");
+        const isStaffRoute = requestedRedirect.startsWith("/staff");
         const isPortalRoute = requestedRedirect.startsWith("/portal");
-        if ((isAdmin && isAdminRoute) || (!isAdmin && isPortalRoute)) {
+        if ((isAdmin && isAdminRoute) || (isStaff && isStaffRoute) || (!isAdmin && !isStaff && isPortalRoute)) {
           redirect = requestedRedirect;
         }
       }
@@ -55,6 +57,12 @@ function LoginForm() {
       if (error instanceof ApiError) {
         if (error.status === 401) {
           toast.error("E-mail ou senha incorretos");
+        } else if (
+          error.status === 400 &&
+          typeof error.detail === "string" &&
+          error.detail.toLowerCase().includes("inactive")
+        ) {
+          toast.error("Conta desativada. Contate o administrador.");
         } else {
           toast.error(typeof error.detail === "string" ? error.detail : "Erro ao fazer login");
         }

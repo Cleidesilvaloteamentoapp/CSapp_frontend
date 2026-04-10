@@ -45,6 +45,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/layout/page-header";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { BoletoStatsCards } from "@/components/sicredi/boleto-stats-cards";
@@ -449,17 +450,21 @@ export default function BoletosListPage() {
             <RefreshCw className={`mr-2 h-4 w-4 ${pageLoading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => router.push("/admin/sicredi/boletos/batch")}
-          >
-            <Layers className="mr-2 h-4 w-4" />
-            Criar em Lote
-          </Button>
-          <Button onClick={() => router.push("/admin/sicredi/boletos/new")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Boleto
-          </Button>
+          <PermissionGuard permission="manage_sicredi">
+            <Button
+              variant="outline"
+              onClick={() => router.push("/admin/sicredi/boletos/batch")}
+            >
+              <Layers className="mr-2 h-4 w-4" />
+              Criar em Lote
+            </Button>
+          </PermissionGuard>
+          <PermissionGuard permission="manage_sicredi">
+            <Button onClick={() => router.push("/admin/sicredi/boletos/new")}>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Boleto
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 

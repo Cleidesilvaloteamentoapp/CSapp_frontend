@@ -20,6 +20,7 @@ import { StatsCardsSkeleton } from "@/components/shared/loading-skeleton";
 import { ApiError } from "@/lib/api";
 import { financialSettingsSchema, type FinancialSettingsFormData } from "@/lib/validators";
 import { getFinancialSettings, updateFinancialSettings } from "@/services/admin";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 import type { CompanyFinancialSettingsResponse } from "@/types";
 
 const INDEX_LABELS: Record<string, string> = {
@@ -250,15 +251,17 @@ export default function FinancialSettingsPage() {
                   </FormItem>
                 )} />
 
-                <div className="flex justify-end pt-2">
-                  <Button type="submit" disabled={form.formState.isSubmitting}>
-                    {form.formState.isSubmitting ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</>
-                    ) : (
-                      <><Save className="mr-2 h-4 w-4" />Salvar Configurações</>
-                    )}
-                  </Button>
-                </div>
+                <PermissionGuard permission="manage_financial_settings">
+                  <div className="flex justify-end pt-2">
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                      {form.formState.isSubmitting ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</>
+                      ) : (
+                        <><Save className="mr-2 h-4 w-4" />Salvar Configurações</>
+                      )}
+                    </Button>
+                  </div>
+                </PermissionGuard>
               </form>
             </Form>
           </CardContent>

@@ -38,6 +38,7 @@ import {
 } from "@/services/admin";
 import type { ContractTransferResponse, TransferStatus } from "@/types";
 import { WORKFLOW_STATUS_CONFIG } from "@/types";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 
 const STATUS_FLOW: Record<TransferStatus, { next: string; color: string }> = {
   PENDING: { next: "APPROVED", color: "bg-yellow-500" },
@@ -229,10 +230,12 @@ export default function TransfersPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Transferências de Contrato" description="Gerencie transferências de lotes entre clientes">
-        <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nova Transferência
-        </Button>
+        <PermissionGuard permission="manage_clients">
+          <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nova Transferência
+          </Button>
+        </PermissionGuard>
       </PageHeader>
 
       {/* Filters */}
@@ -309,35 +312,41 @@ export default function TransfersPage() {
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
-                          {t.status === "PENDING" && isSuperAdmin && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
-                              onClick={() => setConfirmAction({ type: "approve", transfer: t })}
-                            >
-                              <CheckCircle className="h-3.5 w-3.5" />
-                            </Button>
+                          {t.status === "PENDING" && (
+                            <PermissionGuard permission="manage_clients">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                                onClick={() => setConfirmAction({ type: "approve", transfer: t })}
+                              >
+                                <CheckCircle className="h-3.5 w-3.5" />
+                              </Button>
+                            </PermissionGuard>
                           )}
-                          {t.status === "APPROVED" && isSuperAdmin && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
-                              onClick={() => setConfirmAction({ type: "complete", transfer: t })}
-                            >
-                              <PlayCircle className="h-3.5 w-3.5" />
-                            </Button>
+                          {t.status === "APPROVED" && (
+                            <PermissionGuard permission="manage_clients">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                                onClick={() => setConfirmAction({ type: "complete", transfer: t })}
+                              >
+                                <PlayCircle className="h-3.5 w-3.5" />
+                              </Button>
+                            </PermissionGuard>
                           )}
                           {(t.status === "PENDING" || t.status === "APPROVED") && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              onClick={() => setConfirmAction({ type: "cancel", transfer: t })}
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                            </Button>
+                            <PermissionGuard permission="manage_clients">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                onClick={() => setConfirmAction({ type: "cancel", transfer: t })}
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                              </Button>
+                            </PermissionGuard>
                           )}
                         </div>
                       </TableCell>

@@ -1,6 +1,49 @@
-# Backend Fix: Tratamento de CPF/CNPJ Duplicado
+# Backend Fix: Tratamento de CPF/CNPJ Duplicado + Validação Condicional de Senha
 
-## Problema
+## Problema 1: Validação de Senha
+O schema Pydantic está exigindo senha de 8 caracteres **sempre**, mesmo quando `create_access=false`. Deve exigir senha apenas quando `create_access=true`.
+
+### Erro Atual
+```json
+{
+    "detail": [
+        {
+            "type": "string_too_short",
+            "loc": ["body", "password"],
+            "msg": "String should have at least 8 characters",
+            "input": ""
+        }
+    ]
+}
+```
+
+### Solução - Schema Pydantic
+Arquivo: `/app/app/schemas/client.py` (ou onde estiver o `ClientCreate`)
+
+```python
+from pydantic import BaseModel, Field, model_validator
+from typing import Optional
+
+class ClientCreate(BaseModel):
+    email: str
+    full_name: str
+    cpf_cnpj: str
+    phone: str
+    address: Optional[dict] = None
+    create_access: bool = False
+    password: Optional[str] = None  # Sem min_length aqui!
+    
+    @model_validator(mode='after')
+    def validate_password(self):
+        # Só valida senha quando create_access é True
+        if self.create_access and (not self.password or len(self.password) < 8):
+            raise ValueError("Senha deve ter no mínimo 8 caracteres quando o acesso ao portal está ativado")
+        return self
+```
+
+---
+
+## Problema 2: CPF/CNPJ Duplicado
 O endpoint `POST /admin/clients` está retornando erro 500 (IntegrityError) quando tenta cadastrar um cliente com CPF/CNPJ já existente. Deveria retornar 409 Conflict.
 
 ## Logs do Erro Atual

@@ -38,6 +38,7 @@ import type {
   ServiceRequestStatus,
   ServiceRequestPriority,
 } from "@/types/portal";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "ALL", label: "Todas" },
@@ -343,43 +344,45 @@ export default function AdminServiceRequestsPage() {
                           </div>
 
                           {/* New message */}
-                          <div className="space-y-2">
-                            <div className="flex gap-2">
-                              <Input
-                                value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                                placeholder="Escreva sua resposta..."
-                                className="flex-1"
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSendMessage();
-                                  }
-                                }}
-                              />
-                              <Button
-                                size="sm"
-                                onClick={handleSendMessage}
-                                disabled={sendingMessage || !newMessage.trim()}
-                              >
-                                {sendingMessage ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Send className="h-4 w-4" />
-                                )}
-                              </Button>
+                          <PermissionGuard permission="manage_service_requests">
+                            <div className="space-y-2">
+                              <div className="flex gap-2">
+                                <Input
+                                  value={newMessage}
+                                  onChange={(e) => setNewMessage(e.target.value)}
+                                  placeholder="Escreva sua resposta..."
+                                  className="flex-1"
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                      e.preventDefault();
+                                      handleSendMessage();
+                                    }
+                                  }}
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={handleSendMessage}
+                                  disabled={sendingMessage || !newMessage.trim()}
+                                >
+                                  {sendingMessage ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Send className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  id="internal"
+                                  checked={isInternal}
+                                  onCheckedChange={(v: boolean | "indeterminate") => setIsInternal(!!v)}
+                                />
+                                <label htmlFor="internal" className="text-xs text-muted-foreground cursor-pointer">
+                                  Nota interna (não visível para o cliente)
+                                </label>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                id="internal"
-                                checked={isInternal}
-                                onCheckedChange={(v: boolean | "indeterminate") => setIsInternal(!!v)}
-                              />
-                              <label htmlFor="internal" className="text-xs text-muted-foreground cursor-pointer">
-                                Nota interna (não visível para o cliente)
-                              </label>
-                            </div>
-                          </div>
+                          </PermissionGuard>
                         </>
                       ) : null}
                     </div>
@@ -426,12 +429,14 @@ export default function AdminServiceRequestsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setUpdateDialog(null)}>Cancelar</Button>
-            <Button onClick={handleUpdate} disabled={updating}>
-              {updating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Salvar
-            </Button>
+            <PermissionGuard permission="manage_service_requests">
+              <Button onClick={handleUpdate} disabled={updating}>
+                {updating ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Salvar
+              </Button>
+            </PermissionGuard>
           </DialogFooter>
         </DialogContent>
       </Dialog>

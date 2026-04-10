@@ -1,5 +1,29 @@
 import { api, setTokenCookies, clearTokenCookies } from "./api";
-import type { LoginRequest, SignupRequest, TokenResponse, MeResponse } from "@/types";
+import type { LoginRequest, SignupRequest, TokenResponse, MeResponse, StaffPermissions, StaffResponse } from "@/types";
+
+const ALL_FALSE_PERMISSIONS: StaffPermissions = {
+  view_clients: false,
+  manage_clients: false,
+  view_lots: false,
+  manage_lots: false,
+  view_financial: false,
+  manage_financial: false,
+  view_renegotiations: false,
+  manage_renegotiations: false,
+  view_rescissions: false,
+  manage_rescissions: false,
+  view_reports: false,
+  view_service_requests: false,
+  manage_service_requests: false,
+  view_documents: false,
+  manage_documents: false,
+  view_sicredi: false,
+  manage_sicredi: false,
+  view_whatsapp: false,
+  manage_whatsapp: false,
+  view_financial_settings: false,
+  manage_financial_settings: false,
+};
 
 export async function login(credentials: LoginRequest): Promise<MeResponse> {
   const tokens = await api.post<TokenResponse>("/auth/login", credentials);
@@ -44,6 +68,16 @@ export function canAccessSuperAdmin(role: string): boolean {
 }
 
 export function getDefaultRedirect(role: string): string {
+  if (role.toLowerCase() === "staff") return "/staff/dashboard";
   if (canAccessAdmin(role)) return "/admin/dashboard";
   return "/portal/dashboard";
+}
+
+export async function getStaffPermissions(staffId: string): Promise<StaffPermissions> {
+  try {
+    const staff = await api.get<StaffResponse>(`/admin/staff/${staffId}`);
+    return staff.permissions ?? ALL_FALSE_PERMISSIONS;
+  } catch {
+    return ALL_FALSE_PERMISSIONS;
+  }
 }

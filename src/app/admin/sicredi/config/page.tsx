@@ -33,6 +33,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { PageHeader } from "@/components/layout/page-header";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 import { PageSkeleton } from "@/components/shared/loading-skeleton";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useSicrediCredentials } from "@/hooks/use-sicredi";
@@ -361,18 +362,20 @@ export default function SicrediConfigPage() {
                 />
               </div>
 
-              <div className="flex justify-end">
-                <Button type="submit" disabled={saving}>
-                  {saving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    "Salvar Credenciais"
-                  )}
-                </Button>
-              </div>
+              <PermissionGuard permission="manage_sicredi">
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={saving}>
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Salvar Credenciais"
+                    )}
+                  </Button>
+                </div>
+              </PermissionGuard>
             </form>
           </Form>
         </CardContent>

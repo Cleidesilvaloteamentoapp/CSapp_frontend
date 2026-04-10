@@ -22,6 +22,7 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { PageHeader } from "@/components/layout/page-header";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { api, ApiError } from "@/lib/api";
 import { lotCreateSchema, lotAssignSchema, type LotCreateFormData, type LotAssignFormData } from "@/lib/validators";
@@ -137,9 +138,11 @@ export default function LotsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Lotes" description="Gerencie os lotes dos empreendimentos">
-        <Button onClick={() => { createForm.reset(); setCreateOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Novo Lote
-        </Button>
+        <PermissionGuard permission="manage_lots">
+          <Button onClick={() => { createForm.reset(); setCreateOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" /> Novo Lote
+          </Button>
+        </PermissionGuard>
       </PageHeader>
 
       <div className="flex flex-col gap-3 sm:flex-row">

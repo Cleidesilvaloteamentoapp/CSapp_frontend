@@ -32,6 +32,7 @@ import {
 } from "@/services/admin";
 import type { EconomicIndexResponse, IndexType } from "@/types";
 import { useAuth } from "@/contexts/auth-context";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 
 const INDEX_TYPE_LABELS: Record<IndexType, string> = {
   IPCA: "IPCA",
@@ -172,10 +173,12 @@ export default function EconomicIndicesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Índices Econômicos" description="Gerencie os índices de correção monetária">
-        <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Índice
-        </Button>
+        <PermissionGuard permission="manage_financial_settings">
+          <Button onClick={() => { resetForm(); setCreateOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Índice
+          </Button>
+        </PermissionGuard>
       </PageHeader>
 
       {/* Filters */}
@@ -314,30 +317,32 @@ export default function EconomicIndicesPage() {
                         {formatDate(idx.created_at)}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => {
-                              setEditId(idx.id);
-                              setEditValue(String(idx.value));
-                            }}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                            onClick={() => {
-                              setDeleteTarget(idx);
-                              setDeleteOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        <PermissionGuard permission="manage_financial_settings">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                setEditId(idx.id);
+                                setEditValue(String(idx.value));
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              onClick={() => {
+                                setDeleteTarget(idx);
+                                setDeleteOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </PermissionGuard>
                       </TableCell>
                     </TableRow>
                   ))}

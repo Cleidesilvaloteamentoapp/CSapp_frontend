@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/layout/page-header";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 import { PageSkeleton } from "@/components/shared/loading-skeleton";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import {
@@ -350,10 +351,12 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
           Configure um provedor de WhatsApp para enviar notificações automáticas
           aos seus clientes, como alertas de vencimento de boletos e atualizações de contratos.
         </p>
-        <Button onClick={onAdd}>
-          <Plus className="h-4 w-4 mr-2" />
-          Adicionar Provedor
-        </Button>
+        <PermissionGuard permission="manage_whatsapp">
+          <Button onClick={onAdd}>
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar Provedor
+          </Button>
+        </PermissionGuard>
       </CardContent>
     </Card>
   );
@@ -1149,10 +1152,12 @@ export default function WhatsAppSettingsPage() {
       >
         {credentials.length > 0 &&
           existingProviders.length < 2 && (
-            <Button onClick={handleAdd}>
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Provedor
-            </Button>
+            <PermissionGuard permission="manage_whatsapp">
+              <Button onClick={handleAdd}>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Provedor
+              </Button>
+            </PermissionGuard>
           )}
       </PageHeader>
 

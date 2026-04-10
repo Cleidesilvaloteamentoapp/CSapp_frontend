@@ -35,6 +35,7 @@ import { formatPhone, formatCpfCnpj, formatDate } from "@/lib/format";
 import type { ClientResponse, PaginatedResponse } from "@/types";
 import { ClientFormDialog } from "./client-form-dialog";
 import { ClientDetailSheet } from "./client-detail-sheet";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   active: { label: "Ativo", variant: "default" },
@@ -103,10 +104,12 @@ export default function ClientsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Clientes" description="Gerencie os clientes da sua empresa">
-        <Button onClick={() => { setEditingClient(null); setFormOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Cliente
-        </Button>
+        <PermissionGuard permission="manage_clients">
+          <Button onClick={() => { setEditingClient(null); setFormOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Cliente
+          </Button>
+        </PermissionGuard>
       </PageHeader>
 
       {/* Filters */}
@@ -189,15 +192,19 @@ export default function ClientsPage() {
                               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDetailClient(client); }}>
                                 <Eye className="mr-2 h-4 w-4" /> Ver detalhes
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(client); }}>
-                                <Pencil className="mr-2 h-4 w-4" /> Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={(e) => { e.stopPropagation(); handleDelete(client.id); }}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" /> Desativar
-                              </DropdownMenuItem>
+                              <PermissionGuard permission="manage_clients">
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(client); }}>
+                                  <Pencil className="mr-2 h-4 w-4" /> Editar
+                                </DropdownMenuItem>
+                              </PermissionGuard>
+                              <PermissionGuard permission="manage_clients">
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={(e) => { e.stopPropagation(); handleDelete(client.id); }}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Desativar
+                                </DropdownMenuItem>
+                              </PermissionGuard>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Users,
   MapPin,
-  LandPlot,
   DollarSign,
   Wrench,
   Barcode,
@@ -25,15 +24,18 @@ import {
   Cog,
   MessageSquare,
   Bell,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
 import { useAdminNotifications } from "@/hooks/use-admin-notifications";
+import type { StaffPermissions } from "@/types";
 
 type NavItem = {
   href: string;
@@ -41,38 +43,48 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
   badge?: "pending" | "coming-soon";
   separator?: boolean;
-  superAdminOnly?: boolean;
+  permission?: keyof StaffPermissions | "adminOnly";
 };
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/clients", label: "Clientes", icon: Users },
-  { href: "/admin/developments", label: "Imóveis", icon: MapPin },
-  { href: "/admin/financial", label: "Financeiro", icon: DollarSign, separator: true },
-  { href: "/admin/financial-settings", label: "Config. Financeiras", icon: Cog },
-  { href: "/admin/economic-indices", label: "Índices Econômicos", icon: TrendingUp, superAdminOnly: true },
-  { href: "/admin/cycle-approvals", label: "Aprovação de Ciclos", icon: CheckCircle, badge: "pending" },
-  { href: "/admin/transfers", label: "Transferências", icon: ArrowLeftRight, superAdminOnly: true },
-  { href: "/admin/early-payoff-requests", label: "Antecipações", icon: FastForward },
-  { href: "/admin/bank-statements", label: "Extratos Bancários", icon: FileSpreadsheet, badge: "coming-soon", superAdminOnly: true },
-  { href: "/admin/services", label: "Serviços", icon: Wrench, separator: true },
-  { href: "/admin/sicredi/boletos", label: "Boletos", icon: Barcode },
-  { href: "/admin/sicredi/boletos/batch", label: "Lote Boletos", icon: ListChecks },
-  { href: "/admin/sicredi/config", label: "Config Sicredi", icon: Settings },
-  { href: "/admin/documents", label: "Documentos", icon: FolderOpen },
-  { href: "/admin/service-requests", label: "Solicitações", icon: TicketCheck },
-  { href: "/admin/settings/whatsapp", label: "WhatsApp", icon: MessageSquare, separator: true },
+  { href: "/admin/clients", label: "Clientes", icon: Users, permission: "view_clients" },
+  { href: "/admin/developments", label: "Imóveis", icon: MapPin, permission: "view_lots" },
+  { href: "/admin/financial", label: "Financeiro", icon: DollarSign, permission: "view_financial", separator: true },
+  { href: "/admin/financial-settings", label: "Config. Financeiras", icon: Cog, permission: "view_financial_settings" },
+  { href: "/admin/economic-indices", label: "Índices Econômicos", icon: TrendingUp, permission: "view_financial_settings" },
+  { href: "/admin/cycle-approvals", label: "Aprovação de Ciclos", icon: CheckCircle, badge: "pending", permission: "manage_financial" },
+  { href: "/admin/transfers", label: "Transferências", icon: ArrowLeftRight, permission: "manage_clients" },
+  { href: "/admin/early-payoff-requests", label: "Antecipações", icon: FastForward, permission: "manage_financial" },
+  { href: "/admin/bank-statements", label: "Extratos Bancários", icon: FileSpreadsheet, badge: "coming-soon", permission: "view_financial" },
+  { href: "/admin/services", label: "Serviços", icon: Wrench, permission: "view_service_requests", separator: true },
+  { href: "/admin/sicredi/boletos", label: "Boletos", icon: Barcode, permission: "manage_sicredi" },
+  { href: "/admin/sicredi/boletos/batch", label: "Lote Boletos", icon: ListChecks, permission: "manage_sicredi" },
+  { href: "/admin/sicredi/config", label: "Config Sicredi", icon: Settings, permission: "manage_sicredi" },
+  { href: "/admin/documents", label: "Documentos", icon: FolderOpen, permission: "view_documents" },
+  { href: "/admin/service-requests", label: "Solicitações", icon: TicketCheck, permission: "view_service_requests" },
+  { href: "/admin/settings/whatsapp", label: "WhatsApp", icon: MessageSquare, permission: "manage_whatsapp", separator: true },
+  { href: "/admin/staff", label: "Funcionários", icon: UserCog, permission: "adminOnly", separator: true },
 ];
+
+const ROLE_LABEL: Record<string, string> = {
+  super_admin: "SUPER ADMIN",
+  company_admin: "ADMINISTRADOR",
+  staff: "STAFF",
+  client: "CLIENTE",
+};
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const { user, logout, isSuperAdmin } = useAuth();
+  const { user, logout, isAdmin, can } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const { unreadCount } = useAdminNotifications();
 
-  const visibleNavItems = NAV_ITEMS.filter(
-    (item) => !item.superAdminOnly || isSuperAdmin
-  );
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (!item.permission) return true;
+    if (item.permission === "adminOnly") return isAdmin;
+    return can(item.permission);
+  });
 
   const initials = user?.full_name
     ?.split(" ")
@@ -212,9 +224,13 @@ export function AdminSidebar() {
               </AvatarFallback>
             </Avatar>
             {!collapsed && (
-              <div className="flex flex-1 flex-col overflow-hidden">
+              <div className="flex flex-1 flex-col overflow-hidden gap-1">
                 <span className="truncate text-sm font-medium">{user?.full_name}</span>
-                <span className="truncate text-[11px] text-sidebar-foreground/60">{user?.email}</span>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-bold uppercase">
+                    {user?.role ? ROLE_LABEL[user.role] ?? user.role : ""}
+                  </Badge>
+                </div>
               </div>
             )}
             <Tooltip>

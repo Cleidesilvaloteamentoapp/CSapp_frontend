@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/layout/page-header";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { api, ApiError } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -189,9 +190,11 @@ export default function ServicesPage() {
                   <CardTitle className="text-base">Tipos de Serviço</CardTitle>
                   <CardDescription>Serviços oferecidos aos clientes</CardDescription>
                 </div>
-                <Button size="sm" onClick={() => setTypeFormOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" /> Novo Tipo
-                </Button>
+                <PermissionGuard permission="manage_service_requests">
+                  <Button size="sm" onClick={() => setTypeFormOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" /> Novo Tipo
+                  </Button>
+                </PermissionGuard>
               </div>
             </CardHeader>
             <CardContent>
@@ -231,9 +234,11 @@ export default function ServicesPage() {
             <div><label className="text-sm font-medium">Preço Base (R$)</label><Input type="number" step="0.01" value={typePrice} onChange={(e) => setTypePrice(e.target.value)} placeholder="0.00" className="mt-1" /></div>
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setTypeFormOpen(false)}>Cancelar</Button>
-              <Button onClick={handleCreateType} disabled={saving || !typeName.trim()}>
-                {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : "Criar"}
-              </Button>
+              <PermissionGuard permission="manage_service_requests">
+                <Button onClick={handleCreateType} disabled={saving || !typeName.trim()}>
+                  {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : "Criar"}
+                </Button>
+              </PermissionGuard>
             </div>
           </div>
         </DialogContent>

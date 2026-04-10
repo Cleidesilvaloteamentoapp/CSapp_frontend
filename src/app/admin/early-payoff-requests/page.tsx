@@ -19,6 +19,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/layout/page-header";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { formatDate } from "@/lib/format";
 import { ApiError } from "@/lib/api";
@@ -255,13 +256,15 @@ export default function EarlyPayoffRequestsPage() {
               <Button variant="outline" onClick={() => setUpdateOpen(false)}>
                 Cancelar
               </Button>
-              <Button
-                onClick={handleUpdateStatus}
-                disabled={updating || !newStatus}
-              >
-                {updating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Atualizar Status
-              </Button>
+              <PermissionGuard permission="manage_financial">
+                <Button
+                  onClick={handleUpdateStatus}
+                  disabled={updating || !newStatus}
+                >
+                  {updating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Atualizar Status
+                </Button>
+              </PermissionGuard>
             </div>
           </div>
         </DialogContent>
