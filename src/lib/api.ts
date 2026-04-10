@@ -1,6 +1,6 @@
 const API_URL =
   typeof window !== "undefined"
-    ? "/backend"
+    ? "/api/proxy"
     : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1");
 
 type RequestOptions = {
@@ -58,7 +58,11 @@ async function fetchWithAuth(
   }
 
   const url = `${API_URL}${endpoint}`;
-  console.log(`[API] ${method} ${url}`, { token: token ? 'present' : 'missing' });
+  console.log(`[API] ${method} ${url}`, {
+    token: token ? 'present' : 'missing',
+    tokenPreview: token ? `${token.substring(0, 20)}...` : null,
+    headers: reqHeaders
+  });
 
   let response: Response;
   try {
