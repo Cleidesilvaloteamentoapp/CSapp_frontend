@@ -49,8 +49,7 @@ async function proxyRequest(
 ) {
   const path = pathParts.join("/");
   const searchParams = request.nextUrl.searchParams.toString();
-  // Always add trailing slash before query params - FastAPI requires it
-  const url = `${BACKEND_URL}/${path}/${searchParams ? `?${searchParams}` : ""}`;
+  const url = `${BACKEND_URL}/${path}${searchParams ? `?${searchParams}` : ""}`;
 
   console.log(`[Proxy] ${method} ${url}`);
 
