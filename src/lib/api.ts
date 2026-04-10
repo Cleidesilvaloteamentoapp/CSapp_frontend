@@ -57,12 +57,18 @@ async function fetchWithAuth(
   const url = `${API_URL}${endpoint}`;
   console.log(`[API] ${method} ${url}`, { token: token ? 'present' : 'missing' });
 
-  const response = await fetch(url, {
-    method,
-    headers: reqHeaders,
-    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
-    ...rest,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers: reqHeaders,
+      body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+      ...rest,
+    });
+  } catch (networkError) {
+    console.error(`[API] Network/CORS error ${method} ${endpoint}:`, networkError);
+    throw new ApiError(0, "Erro de conexão. Verifique se o backend está online ou problema de CORS.");
+  }
 
   console.log(`[API] Response ${method} ${endpoint}:`, response.status, response.statusText);
 

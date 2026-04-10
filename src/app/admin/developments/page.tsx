@@ -54,7 +54,7 @@ export default function DevelopmentsPage() {
     try {
       const [devsData, lotsData] = await Promise.all([
         api.get<DevelopmentResponse[]>("/admin/developments/"),
-        api.get<PaginatedResponse<LotResponse>>("/admin/lots/?per_page=100").catch(() => null)
+        api.get<PaginatedResponse<LotResponse>>("/admin/lots?per_page=100").catch(() => null)
       ]);
       setDevelopments(devsData);
       setLots(lotsData);
