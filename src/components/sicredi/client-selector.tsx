@@ -41,7 +41,7 @@ export function ClientSelector({ value, onChange, onCreateNew }: ClientSelectorP
       if (searchTerm) params.set("search", searchTerm);
 
       const data = await api.get<PaginatedResponse<ClientResponse>>(
-        `/admin/clients/?${params}`
+        `/admin/clients?${params}`
       );
       setClients(data.items || []);
     } catch (error) {

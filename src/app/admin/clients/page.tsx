@@ -61,7 +61,7 @@ export default function ClientsPage() {
       if (statusFilter !== "all") params.set("status", statusFilter);
 
       const data = await api.get<PaginatedResponse<ClientResponse>>(
-        `/admin/clients/?${params}`
+        `/admin/clients?${params}`
       );
       setClients(data);
     } catch (error) {
