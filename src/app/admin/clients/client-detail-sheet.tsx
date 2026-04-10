@@ -35,8 +35,17 @@ import type {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import {
+  DOCUMENT_TYPE_LABELS,
+  DOCUMENT_TYPE_CATEGORIES,
+  DOCUMENT_CATEGORY_LABELS,
+  DOCUMENT_TYPES_BY_CATEGORY,
+  type DocumentType,
+  type DocumentCategory,
+} from "@/types/portal";
+import type { ClientDocument } from "@/types/portal";
+import {
   getFinancialSettings, getClientLotDetail, updateClientLotFinancialRules,
-  getInstallmentInfo,
+  getInstallmentInfo, getClientDocuments,
 } from "@/services/admin";
 import { InstallmentInfoCard } from "@/components/shared/installment-info-card";
 
@@ -100,6 +109,15 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
   const [selectedLotForInfo, setSelectedLotForInfo] = useState<ClientLotResponse | null>(null);
   const [installmentInfo, setInstallmentInfo] = useState<InstallmentInfo | null>(null);
   const [loadingInstallmentInfo, setLoadingInstallmentInfo] = useState(false);
+  // Documents
+  const [documents, setDocuments] = useState<ClientDocument[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+
+  // Document upload
+  const [uploadDocType, setUploadDocType] = useState<DocumentType>("OUTROS");
+  const [uploadDocDialogOpen, setUploadDocDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   const [assignForm, setAssignForm] = useState({
     lot_id: "",
     purchase_date: new Date().toISOString().split("T")[0],
@@ -122,6 +140,7 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
   useEffect(() => {
     if (!client) return;
     setLoading(true);
+    setDocumentsLoading(true);
     Promise.all([
       api.get<ClientLotResponse[]>(`/admin/clients/${client.id}/lots`).catch(() => []),
       api.get<InvoiceResponse[]>(`/admin/clients/${client.id}/invoices`).catch(() => []),
@@ -129,8 +148,9 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
       api.get<ContractTransferResponse[]>(`/admin/transfers?client_id=${client.id}`).catch(() => []),
       api.get<EarlyPayoffResponse[]>(`/admin/early-payoff-requests?client_id=${client.id}`).catch(() => []),
       getFinancialSettings().catch(() => null),
+      getClientDocuments(client.id).catch(() => []),
     ])
-      .then(([lotsData, invoicesData, cyclesData, transfersData, payoffData, defaults]) => {
+      .then(([lotsData, invoicesData, cyclesData, transfersData, payoffData, defaults, docsData]) => {
         const loadedLots = lotsData || [];
         setLots(loadedLots);
         setInvoices(invoicesData);
@@ -138,6 +158,7 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
         setTransfers(Array.isArray(transfersData) ? transfersData : []);
         setEarlyPayoffs(Array.isArray(payoffData) ? payoffData : []);
         setCompanyDefaults(defaults as CompanyFinancialSettingsResponse | null);
+        setDocuments(Array.isArray(docsData) ? docsData : []);
         
         // Auto-load installment info for the first lot
         if (loadedLots.length > 0) {
@@ -148,7 +169,10 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
             .catch(() => setInstallmentInfo(null));
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setDocumentsLoading(false);
+      });
   }, [client]);
 
   function openFinancialRules(lot: ClientLotResponse) {
@@ -295,20 +319,63 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
     }));
   }
 
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!client || !e.target.files?.[0]) return;
+  function openUploadDialog() {
+    setSelectedFile(null);
+    setUploadDocType("OUTROS");
+    setUploadDocDialogOpen(true);
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files?.[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  }
+
+  async function handleUpload() {
+    if (!client || !selectedFile) return;
     setUploading(true);
     try {
-      await api.upload(`/admin/clients/${client.id}/documents`, e.target.files[0]);
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("document_type", uploadDocType);
+      await api.post(`/admin/clients/${client.id}/documents`, formData);
       toast.success("Documento enviado com sucesso");
+      setUploadDocDialogOpen(false);
+      setSelectedFile(null);
+      setUploadDocType("OUTROS");
+      // Refresh documents list
+      const updatedDocs = await getClientDocuments(client.id).catch(() => []);
+      setDocuments(Array.isArray(updatedDocs) ? updatedDocs : []);
     } catch (error) {
       if (error instanceof ApiError) {
         toast.error(typeof error.detail === "string" ? error.detail : "Erro ao enviar documento");
       }
     } finally {
       setUploading(false);
-      e.target.value = "";
     }
+  }
+
+  // Document card component
+  function DocumentCard({ doc }: { doc: any }) {
+    const docType = (doc.document_type || "OUTROS") as DocumentType;
+    const typeLabel = DOCUMENT_TYPE_LABELS[docType] || "Documento";
+    const fileName = doc.file_name || doc.path || doc.url || "Documento";
+    const fileUrl = doc.file_url || doc.url || "#";
+
+    return (
+      <div className="flex items-center gap-3 rounded-lg border px-4 py-3">
+        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{fileName}</p>
+          <Badge variant="secondary" className="text-[10px] mt-1">{typeLabel}</Badge>
+        </div>
+        <Button variant="ghost" size="sm" asChild className="flex-shrink-0">
+          <a href={fileUrl} target="_blank" rel="noopener noreferrer" download>
+            <Download className="h-4 w-4" />
+          </a>
+        </Button>
+      </div>
+    );
   }
 
   async function handleDownloadBoletoPdf(linhaDigitavel: string, nossoNumero: string) {
@@ -805,26 +872,89 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
 
               <TabsContent value="docs" className="mt-4">
                 <div className="space-y-4">
-                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors">
-                    {uploading ? (
-                      <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
-                    ) : (
-                      <><Upload className="h-4 w-4" /> Clique para enviar documento</>
-                    )}
-                    <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
-                  </label>
-                  {client.documents && client.documents.length > 0 ? (
-                    <div className="space-y-2">
-                      {client.documents.map((doc: any, i: number) => (
-                        <div key={i} className="flex items-center gap-3 rounded-lg border px-4 py-3">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm flex-1 truncate">{doc.path || doc.url || `Documento ${i + 1}`}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center">Nenhum documento</p>
-                  )}
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-2"
+                    onClick={openUploadDialog}
+                  >
+                    <Upload className="h-4 w-4" /> Enviar Documento
+                  </Button>
+
+                  {documentsLoading ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+                      Carregando documentos...
+                    </p>
+                  ) : (() => {
+                    // Group documents by category
+                    const docsByCategory: Record<DocumentCategory, any[]> = {
+                      COMPRADOR: [],
+                      IMOVEL: [],
+                      OUTROS: [],
+                    };
+
+                    (documents || []).forEach((doc: any) => {
+                      const docType = (doc.document_type || "OUTROS") as DocumentType;
+                      const category = DOCUMENT_TYPE_CATEGORIES[docType] || "OUTROS";
+                      docsByCategory[category].push(doc);
+                    });
+
+                    const hasDocuments = Object.values(docsByCategory).some(arr => arr.length > 0);
+
+                    if (!hasDocuments) {
+                      return (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          Nenhum documento enviado
+                        </p>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-6">
+                        {/* Documentos do Comprador */}
+                        {docsByCategory.COMPRADOR.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                              {DOCUMENT_CATEGORY_LABELS.COMPRADOR}
+                            </h4>
+                            <div className="space-y-2">
+                              {docsByCategory.COMPRADOR.map((doc: any, i: number) => (
+                                <DocumentCard key={doc.id || i} doc={doc} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Documentos do Imóvel */}
+                        {docsByCategory.IMOVEL.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                              {DOCUMENT_CATEGORY_LABELS.IMOVEL}
+                            </h4>
+                            <div className="space-y-2">
+                              {docsByCategory.IMOVEL.map((doc: any, i: number) => (
+                                <DocumentCard key={doc.id || i} doc={doc} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Outros Documentos */}
+                        {docsByCategory.OUTROS.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                              {DOCUMENT_CATEGORY_LABELS.OUTROS}
+                            </h4>
+                            <div className="space-y-2">
+                              {docsByCategory.OUTROS.map((doc: any, i: number) => (
+                                <DocumentCard key={doc.id || i} doc={doc} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </TabsContent>
             </Tabs>
@@ -1163,6 +1293,77 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</>
               ) : (
                 <><Plus className="mr-2 h-4 w-4" />Confirmar Venda</>
+              )}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Document Upload Dialog */}
+    <Dialog open={uploadDocDialogOpen} onOpenChange={setUploadDocDialogOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Enviar Documento</DialogTitle>
+          <DialogDescription>Selecione o tipo de documento e o arquivo para envio</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium">Tipo de Documento *</label>
+            <Select value={uploadDocType} onValueChange={(v) => setUploadDocType(v as DocumentType)}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="OUTROS" disabled className="font-semibold text-muted-foreground">
+                  Selecione um tipo...
+                </SelectItem>
+                {/* Documentos do Comprador */}
+                <SelectItem value="__comprador__" disabled className="font-semibold text-muted-foreground bg-muted">
+                  Documentos do Comprador
+                </SelectItem>
+                {DOCUMENT_TYPES_BY_CATEGORY.COMPRADOR.map((t) => (
+                  <SelectItem key={t} value={t} className="pl-6">{DOCUMENT_TYPE_LABELS[t]}</SelectItem>
+                ))}
+                {/* Documentos do Imóvel */}
+                <SelectItem value="__imovel__" disabled className="font-semibold text-muted-foreground bg-muted">
+                  Documentos do Imóvel
+                </SelectItem>
+                {DOCUMENT_TYPES_BY_CATEGORY.IMOVEL.map((t) => (
+                  <SelectItem key={t} value={t} className="pl-6">{DOCUMENT_TYPE_LABELS[t]}</SelectItem>
+                ))}
+                {/* Outros */}
+                <SelectItem value="__outros__" disabled className="font-semibold text-muted-foreground bg-muted">
+                  Outros
+                </SelectItem>
+                {DOCUMENT_TYPES_BY_CATEGORY.OUTROS.map((t) => (
+                  <SelectItem key={t} value={t} className="pl-6">{DOCUMENT_TYPE_LABELS[t]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Arquivo *</label>
+            <Input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              className="mt-1"
+              onChange={handleFileSelect}
+            />
+            <p className="text-xs text-muted-foreground mt-1">PDF, JPG ou PNG (máx 10MB)</p>
+            {selectedFile && (
+              <p className="text-xs text-green-600 mt-1">
+                Arquivo selecionado: {selectedFile.name}
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setUploadDocDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleUpload} disabled={uploading || !selectedFile}>
+              {uploading ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
+              ) : (
+                "Enviar"
               )}
             </Button>
           </div>

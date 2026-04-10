@@ -33,12 +33,23 @@ export type ClientStatus = "ACTIVE" | "INACTIVE" | "DEFAULTER" | "RESCINDED";
 
 // ===================== Documents =====================
 export type DocumentType =
+  // Documentos do Comprador
   | "RG"
   | "CPF"
   | "COMPROVANTE_RESIDENCIA"
   | "CNH"
+  | "CERTIDAO_ESTADO_CIVIL"
+  | "COMPROVANTE_RENDA"
+  // Documentos do Imóvel
+  | "MATRICULA"
+  | "GUIA_INFORMACAO"
+  | "IPTU"
+  | "FOTOS_IMOVEL"
+  // Outros
   | "CONTRATO"
   | "OUTROS";
+
+export type DocumentCategory = "COMPRADOR" | "IMOVEL" | "OUTROS";
 
 export type DocumentStatus =
   | "PENDING_REVIEW"
@@ -65,12 +76,52 @@ export interface ClientDocument {
 }
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  // Comprador
   RG: "RG",
   CPF: "CPF",
   COMPROVANTE_RESIDENCIA: "Comprovante de Residência",
   CNH: "CNH",
+  CERTIDAO_ESTADO_CIVIL: "Certidão de Estado Civil",
+  COMPROVANTE_RENDA: "Comprovante de Renda",
+  // Imóvel
+  MATRICULA: "Matrícula",
+  GUIA_INFORMACAO: "Guia de Informação",
+  IPTU: "IPTU",
+  FOTOS_IMOVEL: "Fotos do Imóvel",
+  // Outros
   CONTRATO: "Contrato",
   OUTROS: "Outros",
+};
+
+export const DOCUMENT_TYPE_CATEGORIES: Record<DocumentType, DocumentCategory> = {
+  // Comprador
+  RG: "COMPRADOR",
+  CPF: "COMPRADOR",
+  COMPROVANTE_RESIDENCIA: "COMPRADOR",
+  CNH: "COMPRADOR",
+  CERTIDAO_ESTADO_CIVIL: "COMPRADOR",
+  COMPROVANTE_RENDA: "COMPRADOR",
+  // Imóvel
+  MATRICULA: "IMOVEL",
+  GUIA_INFORMACAO: "IMOVEL",
+  IPTU: "IMOVEL",
+  FOTOS_IMOVEL: "IMOVEL",
+  // Outros
+  CONTRATO: "OUTROS",
+  OUTROS: "OUTROS",
+};
+
+export const DOCUMENT_CATEGORY_LABELS: Record<DocumentCategory, string> = {
+  COMPRADOR: "Documentos do Comprador",
+  IMOVEL: "Documentos do Imóvel",
+  OUTROS: "Outros Documentos",
+};
+
+// Tipos de documentos por categoria para selects organizados
+export const DOCUMENT_TYPES_BY_CATEGORY: Record<DocumentCategory, DocumentType[]> = {
+  COMPRADOR: ["RG", "CPF", "COMPROVANTE_RESIDENCIA", "CNH", "CERTIDAO_ESTADO_CIVIL", "COMPROVANTE_RENDA"],
+  IMOVEL: ["MATRICULA", "GUIA_INFORMACAO", "IPTU", "FOTOS_IMOVEL"],
+  OUTROS: ["CONTRATO", "OUTROS"],
 };
 
 export const DOCUMENT_STATUS_CONFIG: Record<

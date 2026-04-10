@@ -18,6 +18,7 @@ import type {
   AdminNotification,
 } from "@/types";
 import type { Boleto } from "@/types/sicredi";
+import type { ClientDocument } from "@/types/portal";
 
 // ===================== Economic Indices =====================
 
@@ -292,4 +293,10 @@ export async function markAdminNotificationRead(
 
 export async function markAllAdminNotificationsRead(): Promise<void> {
   await api.patch("/admin/notifications/read-all");
+}
+
+// ===================== Client Documents =====================
+
+export async function getClientDocuments(clientId: string): Promise<ClientDocument[]> {
+  return api.get<ClientDocument[]>(`/admin/clients/${clientId}/documents`);
 }
