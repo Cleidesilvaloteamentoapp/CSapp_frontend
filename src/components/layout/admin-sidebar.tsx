@@ -76,13 +76,15 @@ const ROLE_LABEL: Record<string, string> = {
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const { user, logout, isAdmin, can } = useAuth();
+  const { user, logout, isAdmin, loading, can } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const { unreadCount } = useAdminNotifications();
 
   const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (loading) return true;
     if (!item.permission) return true;
     if (item.permission === "adminOnly") return isAdmin;
+    if (isAdmin) return true;
     return can(item.permission);
   });
 
