@@ -65,8 +65,11 @@ export default function ClientsPage() {
       );
       setClients(data);
     } catch (error) {
+      console.error("[Clients] Erro ao carregar clientes:", error);
       if (error instanceof ApiError) {
         toast.error(typeof error.detail === "string" ? error.detail : "Erro ao carregar clientes");
+      } else {
+        toast.error("Erro de conexão com o servidor");
       }
     } finally {
       setLoading(false);
