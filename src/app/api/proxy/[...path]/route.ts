@@ -49,7 +49,11 @@ async function proxyRequest(
 ) {
   const path = pathParts.join("/");
   const searchParams = request.nextUrl.searchParams.toString();
-  const url = `${BACKEND_URL}/${path}${searchParams ? `?${searchParams}` : ""}`;
+  
+  // Preserve trailing slash from original URL
+  const hasTrailingSlash = request.nextUrl.pathname.endsWith("/");
+  const finalPath = hasTrailingSlash ? `${path}/` : path;
+  const url = `${BACKEND_URL}/${finalPath}${searchParams ? `?${searchParams}` : ""}`;
 
   console.log(`[Proxy] ${method} ${url}`);
 
