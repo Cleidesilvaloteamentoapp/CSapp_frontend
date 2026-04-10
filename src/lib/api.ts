@@ -38,13 +38,13 @@ async function fetchWithAuth(
 ): Promise<Response> {
   const { method = "GET", headers = {}, body, ...rest } = options;
 
-  // Strip trailing slash — backend uses redirect_slashes=False
+  // Add trailing slash — backend routes use "/" in decorators
   if (endpoint.includes("?")) {
     const [path, query] = endpoint.split("?");
-    const cleanPath = path.endsWith("/") ? path.slice(0, -1) : path;
-    endpoint = `${cleanPath}?${query}`;
-  } else if (endpoint.length > 1 && endpoint.endsWith("/")) {
-    endpoint = endpoint.slice(0, -1);
+    const pathWithSlash = path.endsWith("/") ? path : path + "/";
+    endpoint = `${pathWithSlash}?${query}`;
+  } else if (!endpoint.endsWith("/")) {
+    endpoint = endpoint + "/";
   }
 
   const reqHeaders: Record<string, string> = {
