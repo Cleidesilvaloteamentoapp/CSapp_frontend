@@ -12,6 +12,13 @@ const withPWA = withPWAInit({
     skipWaiting: true,
     clientsClaim: true,
     disableDevLogs: true,
+    navigateFallbackDenylist: [/^\/api\//],
+    runtimeCaching: [
+      {
+        urlPattern: /^\/api\//,
+        handler: "NetworkOnly",
+      },
+    ],
   },
 });
 

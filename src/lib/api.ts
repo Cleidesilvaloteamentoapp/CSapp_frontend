@@ -38,9 +38,16 @@ async function fetchWithAuth(
 ): Promise<Response> {
   const { method = "GET", headers = {}, body, ...rest } = options;
 
-  // Strip trailing slash — backend routes are defined without trailing slashes
-  if (endpoint.length > 1 && endpoint.endsWith("/")) {
-    endpoint = endpoint.slice(0, -1);
+  // Normalize trailing slash - FastAPI routes require it, but not before query params
+  // Handles cases like: /admin/lots?q=1 -> /admin/lots/?q=1
+  //                     /admin/lots/?q=1 -> /admin/lots/?q=1 (unchanged)
+  //                     /admin/lots -> /admin/lots/
+  if (endpoint.includes("?")) {
+    const [path, query] = endpoint.split("?");
+    const normalizedPath = path.endsWith("/") ? path : path + "/";
+    endpoint = `${normalizedPath}?${query}`;
+  } else if (!endpoint.endsWith("/")) {
+    endpoint = endpoint + "/";
   }
 
   const reqHeaders: Record<string, string> = {
