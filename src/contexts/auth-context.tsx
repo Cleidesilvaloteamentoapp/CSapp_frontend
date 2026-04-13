@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const me = await getMe();
       setUser(me);
-      if (me?.role === "staff" && me.id) {
+      if (me?.role?.toLowerCase() === "staff" && me.id) {
         const perms = await getStaffPermissions(me.id);
         setStaffPermissions(perms);
       } else {
@@ -52,14 +52,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isAdmin = user ? canAccessAdmin(user.role) : false;
-  const isSuperAdmin = user?.role === "super_admin";
-  const isCompanyAdmin = user?.role === "company_admin";
+  const isSuperAdmin = user?.role?.toLowerCase() === "super_admin";
+  const isCompanyAdmin = user?.role?.toLowerCase() === "company_admin";
 
   const can = useCallback(
     (perm: keyof StaffPermissions): boolean => {
       if (!user) return false;
-      if (user.role === "super_admin" || user.role === "company_admin") return true;
-      if (user.role !== "staff") return false;
+      if (["super_admin", "company_admin"].includes(user.role?.toLowerCase())) return true;
+      if (user.role?.toLowerCase() !== "staff") return false;
       return staffPermissions?.[perm] === true;
     },
     [user, staffPermissions]

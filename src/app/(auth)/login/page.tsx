@@ -44,7 +44,7 @@ function LoginForm() {
         !requestedRedirect.includes("://")
       ) {
         const isAdmin = canAccessAdmin(me.role);
-        const isStaff = me.role === "staff";
+        const isStaff = me.role?.toLowerCase() === "staff";
         const isAdminRoute = requestedRedirect.startsWith("/admin");
         const isStaffRoute = requestedRedirect.startsWith("/staff");
         const isPortalRoute = requestedRedirect.startsWith("/portal");
