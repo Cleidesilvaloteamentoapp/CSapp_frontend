@@ -35,9 +35,10 @@ import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { ApiError } from "@/lib/api";
 import { formatPhone } from "@/lib/format";
-import type { StaffResponse } from "@/types";
+import type { StaffResponse, SuperadminResponse } from "@/types";
 import {
   listStaff,
+  listSuperadmins,
   toggleStaffActive,
   deleteStaff,
 } from "@/services/staff";
@@ -54,7 +55,9 @@ export default function StaffPage() {
   const [deactivateTarget, setDeactivateTarget] = useState<StaffResponse | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [superadminFormOpen, setSuperadminFormOpen] = useState(false);
-  const { isSuperAdmin } = useAuth();
+  const [editingSuperadmin, setEditingSuperadmin] = useState<SuperadminResponse | null>(null);
+  const [superadminList, setSuperadminList] = useState<SuperadminResponse[]>([]);
+  const { isSuperAdmin, loading: authLoading, user } = useAuth();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,9 +73,22 @@ export default function StaffPage() {
     }
   }, []);
 
+  const loadSuperadmins = useCallback(async () => {
+    try {
+      const data = await listSuperadmins();
+      setSuperadminList(data.filter((s) => s.id !== user?.id));
+    } catch {
+      // endpoint may not exist; silently ignore
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!authLoading && isSuperAdmin) loadSuperadmins();
+  }, [authLoading, isSuperAdmin, loadSuperadmins]);
 
   async function handleToggleActive(staff: StaffResponse) {
     if (staff.is_active) {
@@ -139,8 +155,8 @@ export default function StaffPage() {
         description="Gerencie as contas de funcionários e suas permissões"
       >
         <div className="flex gap-2">
-          {isSuperAdmin && (
-            <Button variant="outline" onClick={() => setSuperadminFormOpen(true)}>
+          {!authLoading && isSuperAdmin && (
+            <Button variant="outline" onClick={() => { setEditingSuperadmin(null); setSuperadminFormOpen(true); }}>
               <ShieldCheck className="mr-2 h-4 w-4" />
               Novo Superadmin
             </Button>
@@ -151,6 +167,59 @@ export default function StaffPage() {
           </Button>
         </div>
       </PageHeader>
+
+      {!authLoading && isSuperAdmin && superadminList.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              Outros Superadmins
+            </p>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead className="hidden md:table-cell">E-mail</TableHead>
+                  <TableHead className="hidden sm:table-cell">Telefone</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[50px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {superadminList.map((sa) => (
+                  <TableRow key={sa.id} className={sa.is_active ? undefined : "opacity-50"}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{sa.full_name}</p>
+                        <p className="text-xs text-muted-foreground md:hidden">{sa.email}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm">{sa.email}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-sm">{formatPhone(sa.phone)}</TableCell>
+                    <TableCell>
+                      {sa.is_active ? (
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Ativo</Badge>
+                      ) : (
+                        <Badge variant="secondary">Inativo</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => { setEditingSuperadmin(sa); setSuperadminFormOpen(true); }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="pt-6">
@@ -290,10 +359,15 @@ export default function StaffPage() {
 
       <SuperadminFormDialog
         open={superadminFormOpen}
-        onOpenChange={setSuperadminFormOpen}
+        onOpenChange={(open) => {
+          setSuperadminFormOpen(open);
+          if (!open) setEditingSuperadmin(null);
+        }}
+        superadmin={editingSuperadmin}
         onSuccess={() => {
           setSuperadminFormOpen(false);
-          load();
+          setEditingSuperadmin(null);
+          loadSuperadmins();
         }}
       />
 

@@ -4,6 +4,7 @@ import type {
   StaffCreateRequest,
   StaffUpdateRequest,
   StaffToggleResponse,
+  SuperadminResponse,
 } from "@/types";
 
 export async function listStaff(): Promise<StaffResponse[]> {
@@ -31,4 +32,8 @@ export async function toggleStaffActive(staffId: string): Promise<StaffToggleRes
 
 export async function deleteStaff(staffId: string): Promise<void> {
   await api.delete(`/admin/staff/${staffId}`);
+}
+
+export async function listSuperadmins(): Promise<SuperadminResponse[]> {
+  return api.get<SuperadminResponse[]>("/admin/superadmins");
 }

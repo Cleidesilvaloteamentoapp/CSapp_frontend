@@ -95,6 +95,18 @@ export interface StaffResponse {
   phone: string;
   is_active: boolean;
   permissions: StaffPermissions | null;
+  role?: UserRole;
+}
+
+export interface SuperadminResponse {
+  id: string;
+  company_id: string;
+  full_name: string;
+  email: string;
+  cpf_cnpj: string;
+  phone: string;
+  is_active: boolean;
+  role: UserRole;
 }
 
 export interface StaffCreateRequest {
