@@ -1,5 +1,17 @@
 import { api, setTokenCookies, clearTokenCookies } from "./api";
-import type { LoginRequest, SignupRequest, TokenResponse, MeResponse, StaffPermissions, StaffResponse } from "@/types";
+import type {
+  LoginRequest,
+  SignupRequest,
+  TokenResponse,
+  MeResponse,
+  StaffPermissions,
+  StaffResponse,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+  ChangePasswordRequest,
+  PasswordResetResponse,
+  SuperadminCreateRequest,
+} from "@/types";
 
 const ALL_FALSE_PERMISSIONS: StaffPermissions = {
   view_clients: false,
@@ -80,4 +92,20 @@ export async function getStaffPermissions(staffId: string): Promise<StaffPermiss
   } catch {
     return ALL_FALSE_PERMISSIONS;
   }
+}
+
+export async function forgotPassword(data: ForgotPasswordRequest): Promise<PasswordResetResponse> {
+  return api.post<PasswordResetResponse>("/auth/forgot-password", data);
+}
+
+export async function resetPassword(data: ResetPasswordRequest): Promise<PasswordResetResponse> {
+  return api.post<PasswordResetResponse>("/auth/reset-password", data);
+}
+
+export async function changePassword(data: ChangePasswordRequest): Promise<PasswordResetResponse> {
+  return api.post<PasswordResetResponse>("/auth/change-password", data);
+}
+
+export async function createSuperadmin(data: SuperadminCreateRequest): Promise<MeResponse> {
+  return api.post<MeResponse>("/admin/superadmins", data);
 }

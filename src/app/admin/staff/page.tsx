@@ -42,6 +42,8 @@ import {
   deleteStaff,
 } from "@/services/staff";
 import { StaffFormDialog } from "./staff-form-dialog";
+import { SuperadminFormDialog } from "./superadmin-form-dialog";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function StaffPage() {
   const [staffList, setStaffList] = useState<StaffResponse[]>([]);
@@ -51,6 +53,8 @@ export default function StaffPage() {
   const [deleteTarget, setDeleteTarget] = useState<StaffResponse | null>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<StaffResponse | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [superadminFormOpen, setSuperadminFormOpen] = useState(false);
+  const { isSuperAdmin } = useAuth();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -134,10 +138,18 @@ export default function StaffPage() {
         title="Funcionários (Staff)"
         description="Gerencie as contas de funcionários e suas permissões"
       >
-        <Button onClick={() => { setEditingStaff(null); setFormOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Funcionário
-        </Button>
+        <div className="flex gap-2">
+          {isSuperAdmin && (
+            <Button variant="outline" onClick={() => setSuperadminFormOpen(true)}>
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              Novo Superadmin
+            </Button>
+          )}
+          <Button onClick={() => { setEditingStaff(null); setFormOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Funcionário
+          </Button>
+        </div>
       </PageHeader>
 
       <Card>
@@ -274,6 +286,15 @@ export default function StaffPage() {
         confirmLabel="Desativar"
         destructive
         onConfirm={handleConfirmDeactivate}
+      />
+
+      <SuperadminFormDialog
+        open={superadminFormOpen}
+        onOpenChange={setSuperadminFormOpen}
+        onSuccess={() => {
+          setSuperadminFormOpen(false);
+          load();
+        }}
       />
 
       <ConfirmationDialog

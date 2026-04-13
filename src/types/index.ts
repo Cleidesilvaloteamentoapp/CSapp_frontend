@@ -33,6 +33,34 @@ export interface MeResponse {
   is_active: boolean;
 }
 
+// ===================== Auth - Password =====================
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  new_password: string;
+}
+
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
+export interface PasswordResetResponse {
+  message: string;
+}
+
+// ===================== Superadmin =====================
+export interface SuperadminCreateRequest {
+  full_name: string;
+  email: string;
+  cpf_cnpj: string;
+  phone: string;
+  password: string;
+}
+
 // ===================== Staff =====================
 export interface StaffPermissions {
   view_clients: boolean;
