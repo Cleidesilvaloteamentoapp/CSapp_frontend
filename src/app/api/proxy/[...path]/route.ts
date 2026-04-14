@@ -4,52 +4,49 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/ap
 
 console.log("[Proxy Route] Inicializado com BACKEND_URL:", BACKEND_URL);
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   console.log("[Proxy Route] GET handler chamado");
-  const params = await context.params;
-  return proxyRequest(request, params.path, "GET");
+  const resolvedParams = await params;
+  return proxyRequest(request, resolvedParams.path, "GET");
 }
 
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   console.log("[Proxy Route] POST handler chamado");
-  const params = await context.params;
-  return proxyRequest(request, params.path, "POST");
+  const resolvedParams = await params;
+  return proxyRequest(request, resolvedParams.path, "POST");
 }
 
 export async function PUT(
   request: NextRequest,
-  context: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   console.log("[Proxy Route] PUT handler chamado");
-  const params = await context.params;
-  return proxyRequest(request, params.path, "PUT");
+  const resolvedParams = await params;
+  return proxyRequest(request, resolvedParams.path, "PUT");
 }
 
 export async function PATCH(
   request: NextRequest,
-  context: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   console.log("[Proxy Route] PATCH handler chamado");
-  const params = await context.params;
-  return proxyRequest(request, params.path, "PATCH");
+  const resolvedParams = await params;
+  return proxyRequest(request, resolvedParams.path, "PATCH");
 }
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   console.log("[Proxy Route] DELETE handler chamado");
-  const params = await context.params;
-  return proxyRequest(request, params.path, "DELETE");
+  const resolvedParams = await params;
+  return proxyRequest(request, resolvedParams.path, "DELETE");
 }
 
 async function proxyRequest(
