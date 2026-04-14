@@ -2,122 +2,85 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
-console.log("[Proxy Route] Inicializado com BACKEND_URL:", BACKEND_URL);
+type RouteContext = {
+  params: Promise<{ path: string[] }>;
+};
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  console.log("[Proxy Route] GET handler chamado");
-  const resolvedParams = await params;
-  return proxyRequest(request, resolvedParams.path, "GET");
+export async function GET(request: NextRequest, context: RouteContext) {
+  const { path } = await context.params;
+  return proxyRequest(request, path, "GET");
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  console.log("[Proxy Route] POST handler chamado");
-  const resolvedParams = await params;
-  return proxyRequest(request, resolvedParams.path, "POST");
+export async function POST(request: NextRequest, context: RouteContext) {
+  const { path } = await context.params;
+  return proxyRequest(request, path, "POST");
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  console.log("[Proxy Route] PUT handler chamado");
-  const resolvedParams = await params;
-  return proxyRequest(request, resolvedParams.path, "PUT");
+export async function PUT(request: NextRequest, context: RouteContext) {
+  const { path } = await context.params;
+  return proxyRequest(request, path, "PUT");
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  console.log("[Proxy Route] PATCH handler chamado");
-  const resolvedParams = await params;
-  return proxyRequest(request, resolvedParams.path, "PATCH");
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  const { path } = await context.params;
+  return proxyRequest(request, path, "PATCH");
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  console.log("[Proxy Route] DELETE handler chamado");
-  const resolvedParams = await params;
-  return proxyRequest(request, resolvedParams.path, "DELETE");
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const { path } = await context.params;
+  return proxyRequest(request, path, "DELETE");
 }
 
 async function proxyRequest(
   request: NextRequest,
   pathParts: string[],
   method: string
-) {
+): Promise<NextResponse> {
   const path = pathParts.join("/");
   const searchParams = request.nextUrl.searchParams.toString();
   
-  // Preserve trailing slash from original URL
+  // Preserve trailing slash
   const hasTrailingSlash = request.nextUrl.pathname.endsWith("/");
   const finalPath = hasTrailingSlash ? `${path}/` : path;
   const url = `${BACKEND_URL}/${finalPath}${searchParams ? `?${searchParams}` : ""}`;
 
-  console.log(`[Proxy] ===== INÍCIO REQUEST =====`);
-  console.log(`[Proxy] Método: ${method}`);
-  console.log(`[Proxy] Path original: ${request.nextUrl.pathname}`);
-  console.log(`[Proxy] Path parts: ${pathParts.join(", ")}`);
-  console.log(`[Proxy] URL final: ${url}`);
-  console.log(`[Proxy] Backend URL base: ${BACKEND_URL}`);
-
+  // Headers to forward
   const headers: Record<string, string> = {};
   
   // Get token from cookies
   const token = request.cookies.get("access_token")?.value;
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
-    console.log(`[Proxy] Token from cookie: ${token.substring(0, 20)}...`);
-  } else {
-    console.log(`[Proxy] WARNING: No access_token cookie found`);
   }
   
-  // Forward other important headers
-  const headersToForward = [
-    "content-type",
-    "accept",
-    "user-agent",
-  ];
-
+  // Forward important headers
+  const headersToForward = ["content-type", "accept", "user-agent"];
   headersToForward.forEach((headerName) => {
     const value = request.headers.get(headerName);
-    if (value) {
-      headers[headerName] = value;
-    }
+    if (value) headers[headerName] = value;
   });
 
   try {
-    const body = ["POST", "PUT", "PATCH"].includes(method) ? await request.text() : undefined;
-    
-    if (body) {
-      console.log(`[Proxy] Body enviado (${body.length} bytes):`, body.substring(0, 200));
-    }
+    // Get body for POST, PUT, PATCH
+    const body = ["POST", "PUT", "PATCH"].includes(method) 
+      ? await request.text() 
+      : undefined;
 
-    console.log(`[Proxy] Executando fetch para: ${url}`);
+    console.log(`[Proxy] ${method} ${url}`);
+
     const response = await fetch(url, {
       method,
       headers,
       body,
     });
 
-    console.log(`[Proxy] Response ${method} ${path}: ${response.status} ${response.statusText}`);
+    console.log(`[Proxy] ${method} ${path} → ${response.status}`);
 
-    const responseHeaders = new Headers();
-    
     // Forward response headers
+    const responseHeaders = new Headers();
     ["content-type", "cache-control", "etag"].forEach((headerName) => {
       const value = response.headers.get(headerName);
-      if (value) {
-        responseHeaders.set(headerName, value);
-      }
+      if (value) responseHeaders.set(headerName, value);
     });
 
     const responseBody = await response.text();
@@ -128,23 +91,12 @@ async function proxyRequest(
       headers: responseHeaders,
     });
   } catch (error) {
-    console.error(`[Proxy] ===== ERRO =====`);
-    console.error(`[Proxy] Método: ${method}`);
-    console.error(`[Proxy] Path: ${path}`);
-    console.error(`[Proxy] URL tentada: ${url}`);
-    console.error(`[Proxy] Tipo de erro:`, error instanceof Error ? error.constructor.name : typeof error);
-    console.error(`[Proxy] Mensagem de erro:`, error);
-    console.error(`[Proxy] Stack:`, error instanceof Error ? error.stack : "N/A");
+    console.error(`[Proxy] ERROR ${method} ${url}:`, error);
     
     return NextResponse.json(
       { 
         detail: "Erro de conexão com o backend",
-        debug: {
-          url,
-          method,
-          path,
-          error: error instanceof Error ? error.message : String(error)
-        }
+        error: error instanceof Error ? error.message : String(error)
       },
       { status: 502 }
     );
