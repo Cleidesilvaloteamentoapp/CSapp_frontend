@@ -29,13 +29,16 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   );
 
   // CSP — Content Security Policy
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const backendDomain = backendUrl.replace(/\/api\/v1$/, "");
+  
   const cspDirectives = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https: http://localhost:8000",
+    `connect-src 'self' ${backendDomain} https: http://localhost:8000`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

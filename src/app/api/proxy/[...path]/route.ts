@@ -2,10 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
+console.log("[Proxy Route] Inicializado com BACKEND_URL:", BACKEND_URL);
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> }
 ) {
+  console.log("[Proxy Route] GET handler chamado");
   const params = await context.params;
   return proxyRequest(request, params.path, "GET");
 }
@@ -14,6 +20,7 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> }
 ) {
+  console.log("[Proxy Route] POST handler chamado");
   const params = await context.params;
   return proxyRequest(request, params.path, "POST");
 }
@@ -22,6 +29,7 @@ export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> }
 ) {
+  console.log("[Proxy Route] PUT handler chamado");
   const params = await context.params;
   return proxyRequest(request, params.path, "PUT");
 }
@@ -30,6 +38,7 @@ export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> }
 ) {
+  console.log("[Proxy Route] PATCH handler chamado");
   const params = await context.params;
   return proxyRequest(request, params.path, "PATCH");
 }
@@ -38,6 +47,7 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> }
 ) {
+  console.log("[Proxy Route] DELETE handler chamado");
   const params = await context.params;
   return proxyRequest(request, params.path, "DELETE");
 }
@@ -55,7 +65,12 @@ async function proxyRequest(
   const finalPath = hasTrailingSlash ? `${path}/` : path;
   const url = `${BACKEND_URL}/${finalPath}${searchParams ? `?${searchParams}` : ""}`;
 
-  console.log(`[Proxy] ${method} ${url}`);
+  console.log(`[Proxy] ===== INÍCIO REQUEST =====`);
+  console.log(`[Proxy] Método: ${method}`);
+  console.log(`[Proxy] Path original: ${request.nextUrl.pathname}`);
+  console.log(`[Proxy] Path parts: ${pathParts.join(", ")}`);
+  console.log(`[Proxy] URL final: ${url}`);
+  console.log(`[Proxy] Backend URL base: ${BACKEND_URL}`);
 
   const headers: Record<string, string> = {};
   
@@ -84,14 +99,19 @@ async function proxyRequest(
 
   try {
     const body = ["POST", "PUT", "PATCH"].includes(method) ? await request.text() : undefined;
+    
+    if (body) {
+      console.log(`[Proxy] Body enviado (${body.length} bytes):`, body.substring(0, 200));
+    }
 
+    console.log(`[Proxy] Executando fetch para: ${url}`);
     const response = await fetch(url, {
       method,
       headers,
       body,
     });
 
-    console.log(`[Proxy] Response ${method} ${path}: ${response.status}`);
+    console.log(`[Proxy] Response ${method} ${path}: ${response.status} ${response.statusText}`);
 
     const responseHeaders = new Headers();
     
@@ -111,9 +131,24 @@ async function proxyRequest(
       headers: responseHeaders,
     });
   } catch (error) {
-    console.error(`[Proxy] Error ${method} ${path}:`, error);
+    console.error(`[Proxy] ===== ERRO =====`);
+    console.error(`[Proxy] Método: ${method}`);
+    console.error(`[Proxy] Path: ${path}`);
+    console.error(`[Proxy] URL tentada: ${url}`);
+    console.error(`[Proxy] Tipo de erro:`, error instanceof Error ? error.constructor.name : typeof error);
+    console.error(`[Proxy] Mensagem de erro:`, error);
+    console.error(`[Proxy] Stack:`, error instanceof Error ? error.stack : "N/A");
+    
     return NextResponse.json(
-      { detail: "Erro de conexão com o backend" },
+      { 
+        detail: "Erro de conexão com o backend",
+        debug: {
+          url,
+          method,
+          path,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      },
       { status: 502 }
     );
   }
