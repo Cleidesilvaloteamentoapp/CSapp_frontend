@@ -3,17 +3,28 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, FileText, Wrench, FolderOpen, Users, Barcode,
-  Building2, LogOut, ChevronLeft, Bell, TicketCheck, User, FastForward,
+  LayoutDashboard, Wrench, FolderOpen, Users, Barcode,
+  Building2, LogOut, Bell, TicketCheck, User, FastForward,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useState } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useNotifications } from "@/hooks/use-notifications";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 
 const NAV_ITEMS = [
   { href: "/portal/dashboard", label: "Meu Painel", icon: LayoutDashboard },
@@ -30,75 +41,103 @@ const NAV_ITEMS = [
 export function PortalSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
   const { unreadCount } = useNotifications();
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
 
   const initials = user?.full_name?.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase() || "?";
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <aside className={cn("flex h-screen flex-col bg-sidebar text-sidebar-foreground transition-all duration-300 border-r border-sidebar-border", collapsed ? "w-[68px]" : "w-64")}>
-        <div className="flex h-16 items-center gap-3 px-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
-          </div>
-          {!collapsed && (
-            <div className="flex flex-col">
-              <span className="text-sm font-bold tracking-tight text-sidebar-foreground">CSApp</span>
-              <span className="text-[11px] text-sidebar-foreground/60">Portal do Cliente</span>
-            </div>
-          )}
-          <Button variant="ghost" size="sm" className={cn("ml-auto h-7 w-7 p-0 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent", collapsed && "ml-0")} onClick={() => setCollapsed(!collapsed)}>
-            <ChevronLeft className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")} />
-          </Button>
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <SidebarHeader className="flex h-16 items-center gap-3 px-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
+          <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
         </div>
-        <Separator className="bg-sidebar-border" />
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {NAV_ITEMS.map((item) => {
-            const isActive = pathname.startsWith(item.href);
-            const showBadge = (item as any).badge && unreadCount > 0;
-            const linkContent = (
-              <Link key={item.href} href={item.href} className={cn("flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative", isActive ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground")}>
-                <div className="relative shrink-0">
-                  <item.icon className={cn("h-5 w-5", isActive && "text-sidebar-primary")} />
-                  {showBadge && collapsed && (
-                    <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
-                </div>
-                {!collapsed && (
-                  <span className="flex-1 flex items-center justify-between">
-                    {item.label}
-                    {showBadge && (
-                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
-                        {unreadCount > 99 ? "99+" : unreadCount}
-                      </span>
-                    )}
-                  </span>
-                )}
-              </Link>
-            );
-            if (collapsed) {
-              return (<Tooltip key={item.href}><TooltipTrigger asChild>{linkContent}</TooltipTrigger><TooltipContent side="right" className="font-medium">{item.label}</TooltipContent></Tooltip>);
-            }
-            return linkContent;
-          })}
-        </nav>
-        <Separator className="bg-sidebar-border" />
-        <div className="p-3">
-          <div className={cn("flex items-center gap-3 rounded-lg px-3 py-2", collapsed && "justify-center px-0")}>
-            <Avatar className="h-8 w-8 shrink-0"><AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-bold">{initials}</AvatarFallback></Avatar>
-            {!collapsed && (
-              <div className="flex flex-1 flex-col overflow-hidden">
-                <span className="truncate text-sm font-medium">{user?.full_name}</span>
-                <span className="truncate text-[11px] text-sidebar-foreground/60">{user?.email}</span>
-              </div>
-            )}
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-7 w-7 shrink-0 p-0 text-sidebar-foreground/60 hover:text-red-400 hover:bg-sidebar-accent" onClick={logout}><LogOut className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent side="right">Sair</TooltipContent></Tooltip>
-          </div>
+        <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+          <span className="text-sm font-bold tracking-tight text-sidebar-foreground">CSApp</span>
+          <span className="text-[11px] text-sidebar-foreground/60">Portal do Cliente</span>
         </div>
-      </aside>
-    </TooltipProvider>
+        <div className="ml-auto">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <SidebarTrigger className="h-9 w-9 bg-sidebar-accent hover:bg-sidebar-accent/80" />
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <span className="group-data-[collapsible=icon]:hidden">Recolher menu</span>
+              <span className="hidden group-data-[collapsible=icon]:inline">Expandir menu</span>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </SidebarHeader>
+
+      <SidebarSeparator />
+
+      <SidebarContent className="px-2 py-2">
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {NAV_ITEMS.map((item) => {
+                const isActive = pathname.startsWith(item.href);
+                const showBadge = (item as any).badge && unreadCount > 0;
+
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
+                      <Link href={item.href}>
+                        <div className="relative">
+                          <item.icon className="h-5 w-5" />
+                          {showBadge && collapsed && (
+                            <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
+                              {unreadCount > 9 ? "9+" : unreadCount}
+                            </span>
+                          )}
+                        </div>
+                        <span className="flex-1 flex items-center justify-between">
+                          {item.label}
+                          {showBadge && !collapsed && (
+                            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                          )}
+                        </span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarSeparator />
+
+      <SidebarFooter className="p-3">
+        <div className="flex items-center gap-3 rounded-lg px-3 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+          <Avatar className="h-8 w-8 shrink-0">
+            <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-bold">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-1 flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
+            <span className="truncate text-sm font-medium">{user?.full_name}</span>
+            <span className="truncate text-[11px] text-sidebar-foreground/60">{user?.email}</span>
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 shrink-0 p-0 text-sidebar-foreground/60 hover:text-red-400 hover:bg-sidebar-accent"
+                onClick={logout}
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Sair</TooltipContent>
+          </Tooltip>
+        </div>
+      </SidebarFooter>
+    </Sidebar>
   );
 }

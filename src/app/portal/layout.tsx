@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { PortalSidebar } from "@/components/layout/portal-sidebar";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -24,9 +26,16 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <SidebarProvider defaultOpen={true}>
       <PortalSidebar />
-      <main className="flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
-    </div>
+      <SidebarInset>
+        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 md:hidden">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="h-6" />
+          <span className="text-sm font-semibold">CSApp — Portal do Cliente</span>
+        </header>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

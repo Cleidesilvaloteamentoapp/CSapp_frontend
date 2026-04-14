@@ -1,13 +1,16 @@
 {
   "name": "CSApp — Gestão de Loteamentos",
   "short_name": "CSApp",
-  "description": "Sistema de gestão imobiliária com foco em loteamentos",
+  "description": "Sistema completo de gestão imobiliária com foco em loteamentos, clientes, financeiro e serviços",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0f172a",
+  "background_color": "#F8F9FA",
+  "theme_color": "#2C3E50",
   "orientation": "portrait-primary",
   "scope": "/",
+  "categories": ["business", "productivity", "finance"],
+  "lang": "pt-BR",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
@@ -32,6 +35,60 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Acesso rápido ao painel principal",
+      "url": "/admin/dashboard",
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Clientes",
+      "short_name": "Clientes",
+      "description": "Gerenciar clientes",
+      "url": "/admin/clients",
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Financeiro",
+      "short_name": "Financeiro",
+      "description": "Visualizar financeiro",
+      "url": "/admin/financial",
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Boletos",
+      "short_name": "Boletos",
+      "description": "Gerenciar boletos",
+      "url": "/admin/sicredi/boletos",
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

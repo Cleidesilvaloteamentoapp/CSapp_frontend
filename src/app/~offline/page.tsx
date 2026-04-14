@@ -1,27 +1,47 @@
 "use client";
 
+import { Building2, WifiOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+
 export default function OfflinePage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-center">
-      <div className="mx-auto max-w-md space-y-6">
-        <div className="flex items-center justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-900 text-3xl font-bold text-white">
-            CS
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8">
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex flex-col items-center space-y-2">
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
+            <Building2 className="h-7 w-7 text-primary-foreground" />
           </div>
+          <h1 className="text-2xl font-bold tracking-tight">CSApp</h1>
+          <p className="text-sm text-muted-foreground">Gestão de Loteamentos</p>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Você está offline
-        </h1>
-        <p className="text-muted-foreground">
-          Parece que você perdeu a conexão com a internet. Verifique sua conexão
-          e tente novamente.
+
+        <Card>
+          <CardContent className="flex flex-col items-center gap-6 py-8 text-center">
+            <div className="rounded-full bg-muted p-4">
+              <WifiOff className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-foreground">
+                Você está offline
+              </h2>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Parece que você perdeu a conexão com a internet. Verifique sua conexão
+                e tente novamente.
+              </p>
+            </div>
+            <Button
+              onClick={() => window.location.reload()}
+              className="w-full"
+            >
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+
+        <p className="text-center text-xs text-muted-foreground">
+          Esta página ficará disponível automaticamente quando a conexão for restaurada.
         </p>
-        <button
-          onClick={() => window.location.reload()}
-          className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          Tentar novamente
-        </button>
       </div>
     </div>
   );

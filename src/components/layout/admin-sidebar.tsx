@@ -33,11 +33,25 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
 import { ChangePasswordDialog } from "@/components/shared/change-password-dialog";
 import { useAdminNotifications } from "@/hooks/use-admin-notifications";
 import type { StaffPermissions } from "@/types";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 
 type NavItem = {
   href: string;
@@ -79,9 +93,10 @@ const ROLE_LABEL: Record<string, string> = {
 export function AdminSidebar() {
   const pathname = usePathname();
   const { user, logout, isAdmin, loading, can } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const { unreadCount } = useAdminNotifications();
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
 
   const visibleNavItems = NAV_ITEMS.filter((item) => {
     if (loading) return true;
@@ -99,31 +114,22 @@ export function AdminSidebar() {
     .toUpperCase() || "?";
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <aside
-        className={cn(
-          "flex h-screen flex-col bg-sidebar text-sidebar-foreground transition-all duration-300 border-r border-sidebar-border",
-          collapsed ? "w-[68px]" : "w-64"
-        )}
-      >
-        {/* Logo */}
-        <div className="flex h-16 items-center gap-3 px-4">
+    <>
+      <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+        <SidebarHeader className="flex h-16 items-center gap-3 px-4">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
             <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
           </div>
-          {!collapsed && (
-            <div className="flex flex-col">
-              <span className="text-sm font-bold tracking-tight text-sidebar-foreground">CSApp</span>
-              <span className="text-[11px] text-sidebar-foreground/60">Loteamentos</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1 ml-auto">
-            {/* Notifications Bell */}
+          <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+            <span className="text-sm font-bold tracking-tight text-sidebar-foreground">CSApp</span>
+            <span className="text-[11px] text-sidebar-foreground/60">Loteamentos</span>
+          </div>
+          <div className="flex items-center gap-1 ml-auto group-data-[collapsible=icon]:ml-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link
                   href="/admin/notifications"
-                  className="relative flex h-7 w-7 items-center justify-center rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                  className="relative flex h-7 w-7 items-center justify-center rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors group-data-[collapsible=icon]:hidden"
                 >
                   <Bell className="h-4 w-4" />
                   {unreadCount > 0 && (
@@ -135,109 +141,76 @@ export function AdminSidebar() {
               </TooltipTrigger>
               <TooltipContent side="bottom">Notificações</TooltipContent>
             </Tooltip>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-7 w-7 p-0 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent",
-                collapsed && "ml-0"
-              )}
-              onClick={() => setCollapsed(!collapsed)}
-            >
-              <ChevronLeft
-                className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")}
-              />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarTrigger className="h-9 w-9 bg-sidebar-accent hover:bg-sidebar-accent/80" />
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <span className="group-data-[collapsible=icon]:hidden">Recolher menu</span>
+                <span className="hidden group-data-[collapsible=icon]:inline">Expandir menu</span>
+              </TooltipContent>
+            </Tooltip>
           </div>
-        </div>
+        </SidebarHeader>
 
-        <Separator className="bg-sidebar-border" />
+        <SidebarSeparator />
 
-        {/* Nav */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {visibleNavItems.map((item, idx) => {
-            const isActive = pathname.startsWith(item.href);
-            const linkContent = (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                )}
-              >
-                <item.icon className={cn("h-5 w-5 shrink-0", isActive && "text-sidebar-primary")} />
-                {!collapsed && (
-                  <span className="flex-1 flex items-center justify-between">
-                    {item.label}
-                    {item.badge === "coming-soon" && (
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase text-muted-foreground">
-                        Em breve
-                      </span>
-                    )}
-                    {item.badge === "pending" && (
-                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-yellow-500 px-1.5 text-[10px] font-bold text-white">
-                        !
-                      </span>
-                    )}
-                  </span>
-                )}
-              </Link>
-            );
+        <SidebarContent className="px-2 py-2">
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleNavItems.map((item, idx) => {
+                  const isActive = pathname.startsWith(item.href);
+                  const showSeparator = item.separator && idx > 0;
 
-            const showSeparator = item.separator && idx > 0;
+                  return (
+                    <>
+                      {showSeparator && <SidebarSeparator className="my-1" />}
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
+                          <Link href={item.href}>
+                            <item.icon className="h-5 w-5" />
+                            <span className="flex-1 flex items-center justify-between">
+                              {item.label}
+                              {item.badge === "coming-soon" && (
+                                <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase text-muted-foreground">
+                                  Em breve
+                                </span>
+                              )}
+                              {item.badge === "pending" && (
+                                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-yellow-500 px-1.5 text-[10px] font-bold text-white">
+                                  !
+                                </span>
+                              )}
+                            </span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
 
-            if (collapsed) {
-              return (
-                <div key={item.href}>
-                  {showSeparator && <Separator className="my-2 bg-sidebar-border" />}
-                  <Tooltip>
-                    <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                    <TooltipContent side="right" className="font-medium">
-                      {item.label}
-                      {item.badge === "coming-soon" && " (em breve)"}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              );
-            }
+        <SidebarSeparator />
 
-            return (
-              <div key={item.href}>
-                {showSeparator && <Separator className="my-2 bg-sidebar-border" />}
-                {linkContent}
-              </div>
-            );
-          })}
-        </nav>
-
-        <Separator className="bg-sidebar-border" />
-
-        {/* User */}
-        <div className="p-3">
-          <div
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2",
-              collapsed && "justify-center px-0"
-            )}
-          >
+        <SidebarFooter className="p-3">
+          <div className="flex items-center gap-3 rounded-lg px-3 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
             <Avatar className="h-8 w-8 shrink-0">
               <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-bold">
                 {initials}
               </AvatarFallback>
             </Avatar>
-            {!collapsed && (
-              <div className="flex flex-1 flex-col overflow-hidden gap-1">
-                <span className="truncate text-sm font-medium">{user?.full_name}</span>
-                <div className="flex items-center gap-1.5">
-                  <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-bold uppercase">
-                    {user?.role ? ROLE_LABEL[user.role] ?? user.role : ""}
-                  </Badge>
-                </div>
+            <div className="flex flex-1 flex-col overflow-hidden gap-1 group-data-[collapsible=icon]:hidden">
+              <span className="truncate text-sm font-medium">{user?.full_name}</span>
+              <div className="flex items-center gap-1.5">
+                <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-bold uppercase">
+                  {user?.role ? ROLE_LABEL[user.role] ?? user.role : ""}
+                </Badge>
               </div>
-            )}
+            </div>
             <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -267,10 +240,10 @@ export function AdminSidebar() {
               </Tooltip>
             </div>
           </div>
-        </div>
-      </aside>
+        </SidebarFooter>
+      </Sidebar>
 
       <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
-    </TooltipProvider>
+    </>
   );
 }
