@@ -38,11 +38,14 @@ async function proxyRequest(
 ): Promise<NextResponse> {
   const path = pathParts.join("/");
   const searchParams = request.nextUrl.searchParams.toString();
+  const originalPath = request.nextUrl.pathname;
   
-  // Preserve trailing slash
-  const hasTrailingSlash = request.nextUrl.pathname.endsWith("/");
-  const finalPath = hasTrailingSlash ? `${path}/` : path;
+  // ALWAYS add trailing slash for backend routes
+  const finalPath = path.endsWith("/") ? path : `${path}/`;
   const url = `${BACKEND_URL}/${finalPath}${searchParams ? `?${searchParams}` : ""}`;
+
+  console.log(`[Proxy] Original: ${originalPath}${searchParams ? `?${searchParams}` : ""}`);
+  console.log(`[Proxy] Final URL: ${url}`);
 
   // Headers to forward
   const headers: Record<string, string> = {};
@@ -66,15 +69,13 @@ async function proxyRequest(
       ? await request.text() 
       : undefined;
 
-    console.log(`[Proxy] ${method} ${url}`);
-
     const response = await fetch(url, {
       method,
       headers,
       body,
     });
 
-    console.log(`[Proxy] ${method} ${path} → ${response.status}`);
+    console.log(`[Proxy] ${method} ${finalPath} → ${response.status}`);
 
     // Forward response headers
     const responseHeaders = new Headers();
