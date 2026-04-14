@@ -50,9 +50,8 @@ async function proxyRequest(
   const path = pathParts.join("/");
   const searchParams = request.nextUrl.searchParams.toString();
   
-  // Preserve trailing slash from original URL
-  const hasTrailingSlash = request.nextUrl.pathname.endsWith("/");
-  const finalPath = hasTrailingSlash ? `${path}/` : path;
+  // ALWAYS add trailing slash — backend routes require it and redirect_slashes=False
+  const finalPath = path.endsWith("/") ? path : `${path}/`;
   const url = `${BACKEND_URL}/${finalPath}${searchParams ? `?${searchParams}` : ""}`;
 
   console.log(`[Proxy] ${method} ${url}`);
