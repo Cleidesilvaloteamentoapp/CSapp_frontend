@@ -38,15 +38,6 @@ async function fetchWithAuth(
 ): Promise<Response> {
   const { method = "GET", headers = {}, body, ...rest } = options;
 
-  // Add trailing slash — backend routes use "/" in decorators
-  if (endpoint.includes("?")) {
-    const [path, query] = endpoint.split("?");
-    const pathWithSlash = path.endsWith("/") ? path : path + "/";
-    endpoint = `${pathWithSlash}?${query}`;
-  } else if (!endpoint.endsWith("/")) {
-    endpoint = endpoint + "/";
-  }
-
   const reqHeaders: Record<string, string> = {
     ...headers,
   };
