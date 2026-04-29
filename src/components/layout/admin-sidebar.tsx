@@ -26,6 +26,7 @@ import {
   Bell,
   UserCog,
   KeyRound,
+  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -65,6 +66,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/clients", label: "Clientes", icon: Users, permission: "view_clients" },
+  { href: "/admin/cadastro", label: "Cadastro Rápido", icon: UserPlus, permission: "view_clients" },
   { href: "/admin/developments", label: "Imóveis", icon: MapPin, permission: "view_lots" },
   { href: "/admin/financial", label: "Financeiro", icon: DollarSign, permission: "view_financial", separator: true },
   { href: "/admin/financial-settings", label: "Config. Financeiras", icon: Cog, permission: "view_financial_settings" },

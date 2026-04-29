@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,6 +45,7 @@ const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondar
 };
 
 export default function ClientsPage() {
+  const router = useRouter();
   const [clients, setClients] = useState<PaginatedResponse<ClientResponse> | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -111,6 +113,12 @@ export default function ClientsPage() {
           <Button onClick={() => { setEditingClient(null); setFormOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" />
             Novo Cliente
+          </Button>
+        </PermissionGuard>
+        <PermissionGuard permission="view_clients">
+          <Button variant="outline" onClick={() => router.push("/admin/cadastro")}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            Cadastro Rápido
           </Button>
         </PermissionGuard>
       </PageHeader>
