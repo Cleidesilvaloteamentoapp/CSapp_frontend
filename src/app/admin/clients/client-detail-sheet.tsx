@@ -76,8 +76,8 @@ const FREQ_LABELS: Record<string, string> = {
   MONTHLY: "Mensal", QUARTERLY: "Trimestral", SEMIANNUAL: "Semestral", ANNUAL: "Anual",
 };
 const HARDCODED: Record<string, number | string> = {
-  penalty_rate: 0.02, daily_interest_rate: 0.00033,
-  adjustment_index: "IPCA", adjustment_frequency: "ANNUAL", adjustment_custom_rate: 0.05,
+  penalty_rate: 2, daily_interest_rate: 0.033,
+  adjustment_index: "IPCA", adjustment_frequency: "ANNUAL", adjustment_custom_rate: 5,
 };
 
 export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheetProps) {
@@ -228,7 +228,7 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
   function formatRate(val: string): string {
     const n = parseFloat(val);
     if (isNaN(n)) return val;
-    return `${(n * 100).toFixed(n < 0.001 ? 4 : 1)}%`;
+    return `${n.toFixed(n < 0.1 ? 3 : 1)}%`;
   }
 
   async function openAssignDialog() {
@@ -974,20 +974,20 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
         </DialogHeader>
         <div className="space-y-4">
           <FinancialRuleField
-            label="Multa por Atraso"
+            label="Multa por Atraso (%)"
             value={rulesForm.penalty_rate}
             onChange={(v) => setRulesForm((p) => ({ ...p, penalty_rate: v }))}
             onClear={() => setRulesForm((p) => ({ ...p, penalty_rate: null }))}
-            step="0.001"
-            suffix={rulesForm.penalty_rate != null ? `= ${(rulesForm.penalty_rate * 100).toFixed(1)}%` : ""}
+            step="0.1"
+            suffix="%"
           />
           <FinancialRuleField
-            label="Juros Diários"
+            label="Juros Diários (%/dia)"
             value={rulesForm.daily_interest_rate}
             onChange={(v) => setRulesForm((p) => ({ ...p, daily_interest_rate: v }))}
             onClear={() => setRulesForm((p) => ({ ...p, daily_interest_rate: null }))}
-            step="0.00001"
-            suffix={rulesForm.daily_interest_rate != null ? `= ${(rulesForm.daily_interest_rate * 100).toFixed(4)}%/dia` : ""}
+            step="0.001"
+            suffix="%/dia"
           />
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -1040,20 +1040,20 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
             </Select>
           </div>
           <FinancialRuleField
-            label="Taxa Fixa Adicional"
+            label="Taxa Fixa Adicional (%)"
             value={rulesForm.adjustment_custom_rate}
             onChange={(v) => setRulesForm((p) => ({ ...p, adjustment_custom_rate: v }))}
             onClear={() => setRulesForm((p) => ({ ...p, adjustment_custom_rate: null }))}
-            step="0.001"
-            suffix={rulesForm.adjustment_custom_rate != null ? `= ${(rulesForm.adjustment_custom_rate * 100).toFixed(1)}%` : ""}
+            step="0.1"
+            suffix="%"
           />
           <FinancialRuleField
-            label="Taxa Reajuste Anual"
+            label="Taxa Reajuste Anual (%)"
             value={rulesForm.annual_adjustment_rate}
             onChange={(v) => setRulesForm((p) => ({ ...p, annual_adjustment_rate: v }))}
             onClear={() => setRulesForm((p) => ({ ...p, annual_adjustment_rate: null }))}
-            step="0.001"
-            suffix={rulesForm.annual_adjustment_rate != null ? `= ${(rulesForm.annual_adjustment_rate * 100).toFixed(1)}%` : ""}
+            step="0.1"
+            suffix="%"
           />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setRulesDialogOpen(false)}>Cancelar</Button>
@@ -1211,9 +1211,9 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Reajuste Anual</label>
+                    <label className="text-sm font-medium">Reajuste Anual (%)</label>
                     <Input
-                      type="number" step="0.001" placeholder="0.05 = 5%"
+                      type="number" step="0.1" placeholder="5"
                       value={assignForm.annual_adjustment_rate ?? ""}
                       onChange={(e) => setAssignForm((p) => ({ ...p, annual_adjustment_rate: e.target.value ? parseFloat(e.target.value) : undefined }))}
                     />
@@ -1221,19 +1221,19 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Multa (decimal)</label>
+                    <label className="text-sm font-medium">Multa (%)</label>
                     <Input
-                      type="number" step="0.001"
-                      placeholder={companyDefaults ? String(companyDefaults.penalty_rate) : "0.02"}
+                      type="number" step="0.1"
+                      placeholder={companyDefaults ? String(companyDefaults.penalty_rate) : "2"}
                       value={assignForm.penalty_rate ?? ""}
                       onChange={(e) => setAssignForm((p) => ({ ...p, penalty_rate: e.target.value ? parseFloat(e.target.value) : undefined }))}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Juros/dia (decimal)</label>
+                    <label className="text-sm font-medium">Juros/dia (%/dia)</label>
                     <Input
-                      type="number" step="0.00001"
-                      placeholder={companyDefaults ? String(companyDefaults.daily_interest_rate) : "0.00033"}
+                      type="number" step="0.001"
+                      placeholder={companyDefaults ? String(companyDefaults.daily_interest_rate) : "0.033"}
                       value={assignForm.daily_interest_rate ?? ""}
                       onChange={(e) => setAssignForm((p) => ({ ...p, daily_interest_rate: e.target.value ? parseFloat(e.target.value) : undefined }))}
                     />
@@ -1274,10 +1274,10 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Taxa Fixa Adicional (decimal)</label>
+                  <label className="text-sm font-medium">Taxa Fixa Adicional (%)</label>
                   <Input
-                    type="number" step="0.001"
-                    placeholder={companyDefaults ? String(companyDefaults.adjustment_custom_rate) : "0.05"}
+                    type="number" step="0.1"
+                    placeholder={companyDefaults ? String(companyDefaults.adjustment_custom_rate) : "5"}
                     value={assignForm.adjustment_custom_rate ?? ""}
                     onChange={(e) => setAssignForm((p) => ({ ...p, adjustment_custom_rate: e.target.value ? parseFloat(e.target.value) : undefined }))}
                   />

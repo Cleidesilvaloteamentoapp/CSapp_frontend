@@ -130,12 +130,12 @@ export const lotAssignSchema = z.object({
   total_value: z.coerce.number().positive("Valor deve ser maior que 0"),
   down_payment: z.coerce.number().min(0).optional(),
   total_installments: z.coerce.number().int().positive().optional(),
-  annual_adjustment_rate: z.coerce.number().min(0).optional(),
-  penalty_rate: z.coerce.number().min(0).optional(),
-  daily_interest_rate: z.coerce.number().min(0).optional(),
+  annual_adjustment_rate: z.coerce.number().min(0).max(100).optional(),
+  penalty_rate: z.coerce.number().min(0).max(100).optional(),
+  daily_interest_rate: z.coerce.number().min(0).max(1).optional(),
   adjustment_index: z.enum(["IPCA", "IGPM", "CUB", "INPC"]).optional(),
   adjustment_frequency: z.enum(["MONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"]).optional(),
-  adjustment_custom_rate: z.coerce.number().min(0).optional(),
+  adjustment_custom_rate: z.coerce.number().min(0).max(100).optional(),
   payment_plan: z
     .object({
       installments: z.coerce.number().int().positive().optional(),
@@ -217,11 +217,11 @@ export type EarlyPayoffRequestFormData = z.infer<typeof earlyPayoffRequestSchema
 export type ManualWriteoffFormData = z.infer<typeof manualWriteoffSchema>;
 
 export const financialSettingsSchema = z.object({
-  penalty_rate: z.coerce.number().min(0, "Multa não pode ser negativa").max(1, "Multa máxima 100%"),
-  daily_interest_rate: z.coerce.number().min(0, "Juros não pode ser negativo").max(0.01, "Juros diário máximo 1%"),
+  penalty_rate: z.coerce.number().min(0, "Multa não pode ser negativa").max(100, "Multa máxima 100%"),
+  daily_interest_rate: z.coerce.number().min(0, "Juros não pode ser negativo").max(1, "Juros diário máximo 1%"),
   adjustment_index: z.enum(["IPCA", "IGPM", "CUB", "INPC"], { message: "Selecione o índice" }),
   adjustment_frequency: z.enum(["MONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"], { message: "Selecione a frequência" }),
-  adjustment_custom_rate: z.coerce.number().min(0, "Taxa não pode ser negativa").max(1, "Taxa máxima 100%"),
+  adjustment_custom_rate: z.coerce.number().min(0, "Taxa não pode ser negativa").max(100, "Taxa máxima 100%"),
 });
 
 export type FinancialSettingsFormData = z.infer<typeof financialSettingsSchema>;

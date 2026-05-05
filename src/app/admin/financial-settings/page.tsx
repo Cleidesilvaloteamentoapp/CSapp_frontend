@@ -38,11 +38,11 @@ const FREQUENCY_LABELS: Record<string, string> = {
 };
 
 const HARDCODED_DEFAULTS = {
-  penalty_rate: 0.02,
-  daily_interest_rate: 0.00033,
+  penalty_rate: 2,
+  daily_interest_rate: 0.033,
   adjustment_index: "IPCA" as const,
   adjustment_frequency: "ANNUAL" as const,
-  adjustment_custom_rate: 0.05,
+  adjustment_custom_rate: 5,
 };
 
 export default function FinancialSettingsPage() {
@@ -149,41 +149,41 @@ export default function FinancialSettingsPage() {
                       <div className="relative">
                         <Input
                           type="number"
-                          step="0.001"
+                          step="0.1"
                           min="0"
-                          max="1"
-                          placeholder="0.02"
+                          max="100"
+                          placeholder="2"
                           {...field}
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                          = {((field.value || 0) * 100).toFixed(1)}%
+                          %
                         </span>
                       </div>
                     </FormControl>
-                    <FormDescription>Valor decimal. Ex: 0.02 = 2%</FormDescription>
+                    <FormDescription>Percentual direto. Ex: 2 = 2%</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )} />
 
                 <FormField control={form.control} name="daily_interest_rate" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Juros Diários (%)</FormLabel>
+                    <FormLabel>Juros Diários (% ao dia)</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Input
                           type="number"
-                          step="0.00001"
+                          step="0.001"
                           min="0"
-                          max="0.01"
-                          placeholder="0.00033"
+                          max="1"
+                          placeholder="0.033"
                           {...field}
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                          = {((field.value || 0) * 100).toFixed(4)}%/dia
+                          %/dia
                         </span>
                       </div>
                     </FormControl>
-                    <FormDescription>Ex: 0.00033 = 0.033%/dia (~1%/mês)</FormDescription>
+                    <FormDescription>Percentual direto. Ex: 0.033 = 0.033%/dia (~1%/mês)</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -235,18 +235,18 @@ export default function FinancialSettingsPage() {
                       <div className="relative">
                         <Input
                           type="number"
-                          step="0.001"
+                          step="0.1"
                           min="0"
-                          max="1"
-                          placeholder="0.05"
+                          max="100"
+                          placeholder="5"
                           {...field}
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                          = {((field.value || 0) * 100).toFixed(1)}%
+                          %
                         </span>
                       </div>
                     </FormControl>
-                    <FormDescription>Taxa fixa aplicada junto ao índice. Ex: 0.05 = 5%</FormDescription>
+                    <FormDescription>Taxa fixa aplicada junto ao índice. Ex: 5 = 5%</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -276,12 +276,12 @@ export default function FinancialSettingsPage() {
           <CardContent className="space-y-4">
             <SummaryRow
               label="Multa por Atraso"
-              value={`${((settings?.penalty_rate ?? HARDCODED_DEFAULTS.penalty_rate) * 100).toFixed(1)}%`}
+              value={`${(settings?.penalty_rate ?? HARDCODED_DEFAULTS.penalty_rate).toFixed(1)}%`}
               isDefault={!settings}
             />
             <SummaryRow
               label="Juros Diários"
-              value={`${((settings?.daily_interest_rate ?? HARDCODED_DEFAULTS.daily_interest_rate) * 100).toFixed(4)}%/dia`}
+              value={`${(settings?.daily_interest_rate ?? HARDCODED_DEFAULTS.daily_interest_rate).toFixed(3)}%/dia`}
               isDefault={!settings}
             />
             <SummaryRow
@@ -296,7 +296,7 @@ export default function FinancialSettingsPage() {
             />
             <SummaryRow
               label="Taxa Fixa Adicional"
-              value={`${((settings?.adjustment_custom_rate ?? HARDCODED_DEFAULTS.adjustment_custom_rate) * 100).toFixed(1)}%`}
+              value={`${(settings?.adjustment_custom_rate ?? HARDCODED_DEFAULTS.adjustment_custom_rate).toFixed(1)}%`}
               isDefault={!settings}
             />
 
@@ -321,7 +321,7 @@ export default function FinancialSettingsPage() {
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
             <div>
               <p className="text-xs text-muted-foreground">Multa</p>
-              <p className="font-mono font-medium">2.0%</p>
+              <p className="font-mono font-medium">2%</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Juros/dia</p>
@@ -337,7 +337,7 @@ export default function FinancialSettingsPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Taxa fixa</p>
-              <p className="font-mono font-medium">5.0%</p>
+              <p className="font-mono font-medium">5%</p>
             </div>
           </div>
         </CardContent>

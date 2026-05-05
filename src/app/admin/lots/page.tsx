@@ -353,18 +353,18 @@ export default function LotsPage() {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <FormField control={assignForm.control} name="penalty_rate" render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Multa (decimal)</FormLabel>
+                          <FormLabel>Multa (%)</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.001" placeholder={companyDefaults ? String(companyDefaults.penalty_rate) : "0.02"} {...field} value={field.value ?? ""} />
+                            <Input type="number" step="0.1" placeholder={companyDefaults ? String(companyDefaults.penalty_rate) : "2"} {...field} value={field.value ?? ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
                       <FormField control={assignForm.control} name="daily_interest_rate" render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Juros/dia (decimal)</FormLabel>
+                          <FormLabel>Juros/dia (%/dia)</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.00001" placeholder={companyDefaults ? String(companyDefaults.daily_interest_rate) : "0.00033"} {...field} value={field.value ?? ""} />
+                            <Input type="number" step="0.001" placeholder={companyDefaults ? String(companyDefaults.daily_interest_rate) : "0.033"} {...field} value={field.value ?? ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -407,18 +407,18 @@ export default function LotsPage() {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <FormField control={assignForm.control} name="adjustment_custom_rate" render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Taxa Fixa (decimal)</FormLabel>
+                          <FormLabel>Taxa Fixa (%)</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.001" placeholder={companyDefaults ? String(companyDefaults.adjustment_custom_rate) : "0.05"} {...field} value={field.value ?? ""} />
+                            <Input type="number" step="0.1" placeholder={companyDefaults ? String(companyDefaults.adjustment_custom_rate) : "5"} {...field} value={field.value ?? ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
                       <FormField control={assignForm.control} name="annual_adjustment_rate" render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Reajuste Anual (decimal)</FormLabel>
+                          <FormLabel>Reajuste Anual (%)</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.001" placeholder="0.05" {...field} value={field.value ?? ""} />
+                            <Input type="number" step="0.1" placeholder="5" {...field} value={field.value ?? ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
