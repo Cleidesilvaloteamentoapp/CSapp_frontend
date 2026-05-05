@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Home, Link2, Plus, Loader2, ChevronDown, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -183,7 +184,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <FormLabel>Empreendimento</FormLabel>
+                <Label>Empreendimento</Label>
                 <Select value={selectedDev} onValueChange={setSelectedDev}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um empreendimento..." />
@@ -198,10 +199,10 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
 
               {selectedDev && (
                 <div className="space-y-2">
-                  <FormLabel>
+                  <Label className="flex items-center gap-1">
                     Lote
                     <HelpHint text="Selecione o lote que será vinculado ao cliente. O valor será preenchido automaticamente." />
-                  </FormLabel>
+                  </Label>
                   {loadingLots ? (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground py-3">
                       <Loader2 className="h-4 w-4 animate-spin" /> Carregando lotes...
