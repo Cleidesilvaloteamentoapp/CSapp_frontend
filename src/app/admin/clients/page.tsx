@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Sparkles } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Ban, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -82,15 +82,28 @@ export default function ClientsPage() {
     loadClients();
   }, [loadClients]);
 
-  async function handleDelete(clientId: string) {
+  async function handleDeactivate(clientId: string) {
     if (!confirm("Tem certeza que deseja desativar este cliente?")) return;
     try {
-      await api.delete(`/admin/clients/${clientId}`);
+      await api.patch(`/admin/clients/${clientId}`, { status: "inactive" });
       toast.success("Cliente desativado com sucesso");
       loadClients();
     } catch (error) {
       if (error instanceof ApiError) {
         toast.error(typeof error.detail === "string" ? error.detail : "Erro ao desativar cliente");
+      }
+    }
+  }
+
+  async function handleDelete(clientId: string) {
+    if (!confirm("ATENÇÃO: Esta ação é irreversível!\n\nTem certeza que deseja EXCLUIR permanentemente este cliente e todos os seus dados?")) return;
+    try {
+      await api.delete(`/admin/clients/${clientId}`);
+      toast.success("Cliente excluído com sucesso");
+      loadClients();
+    } catch (error) {
+      if (error instanceof ApiError) {
+        toast.error(typeof error.detail === "string" ? error.detail : "Erro ao excluir cliente");
       }
     }
   }
@@ -210,10 +223,18 @@ export default function ClientsPage() {
                               </PermissionGuard>
                               <PermissionGuard permission="manage_clients">
                                 <DropdownMenuItem
+                                  className="text-yellow-600"
+                                  onClick={(e) => { e.stopPropagation(); handleDeactivate(client.id); }}
+                                >
+                                  <Ban className="mr-2 h-4 w-4" /> Desativar
+                                </DropdownMenuItem>
+                              </PermissionGuard>
+                              <PermissionGuard permission="manage_clients">
+                                <DropdownMenuItem
                                   className="text-destructive"
                                   onClick={(e) => { e.stopPropagation(); handleDelete(client.id); }}
                                 >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Desativar
+                                  <Trash2 className="mr-2 h-4 w-4" /> Excluir
                                 </DropdownMenuItem>
                               </PermissionGuard>
                             </DropdownMenuContent>

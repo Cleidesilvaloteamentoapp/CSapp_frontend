@@ -6,6 +6,7 @@ import { PropertyType, PROPERTY_TYPE_LABELS, DevelopmentResponse } from "@/types
 import { developmentCreateSchema, type DevelopmentCreateFormData } from "@/lib/validators";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -111,12 +112,10 @@ export function PropertyForm({
           <FormItem>
             <FormLabel>Valor (R$)</FormLabel>
             <FormControl>
-              <Input 
-                type="number" 
-                step="0.01" 
-                placeholder="Ex: 150000.00" 
-                {...field}
-                onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+              <CurrencyInput
+                placeholder="150.000,00"
+                value={field.value as number | undefined}
+                onChange={field.onChange}
               />
             </FormControl>
             <FormMessage />
@@ -226,12 +225,10 @@ export function PropertyForm({
         <FormItem>
           <FormLabel>Valor (R$)</FormLabel>
           <FormControl>
-            <Input 
-              type="number" 
-              step="0.01" 
-              placeholder="Ex: 450000.00" 
-              {...field}
-              onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+            <CurrencyInput
+              placeholder="450.000,00"
+              value={field.value as number | undefined}
+              onChange={field.onChange}
             />
           </FormControl>
           <FormMessage />
@@ -296,12 +293,10 @@ export function PropertyForm({
         <FormItem>
           <FormLabel>Valor (R$)</FormLabel>
           <FormControl>
-            <Input 
-              type="number" 
-              step="0.01" 
-              placeholder="Ex: 280000.00" 
-              {...field}
-              onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+            <CurrencyInput
+              placeholder="280.000,00"
+              value={field.value as number | undefined}
+              onChange={field.onChange}
             />
           </FormControl>
           <FormMessage />
@@ -352,12 +347,10 @@ export function PropertyForm({
         <FormItem>
           <FormLabel>Valor (R$)</FormLabel>
           <FormControl>
-            <Input 
-              type="number" 
-              step="0.01" 
-              placeholder="Ex: 320000.00" 
-              {...field}
-              onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+            <CurrencyInput
+              placeholder="320.000,00"
+              value={field.value as number | undefined}
+              onChange={field.onChange}
             />
           </FormControl>
           <FormMessage />

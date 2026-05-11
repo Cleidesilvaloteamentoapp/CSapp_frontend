@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -540,7 +541,7 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Valor (R$)</FormLabel>
-                            <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                            <FormControl><CurrencyInput value={field.value as number | undefined} onChange={(v) => field.onChange(v ?? 0)} /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -735,7 +736,7 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Valor por Parcela (R$)</Label>
-                        <Input type="number" step="0.01" value={batchValor} onChange={(e) => setBatchValor(e.target.value)} placeholder="500.00" />
+                        <CurrencyInput value={batchValor ? parseFloat(batchValor) : undefined} onChange={(v) => setBatchValor(v != null ? String(v) : "")} placeholder="500,00" />
                       </div>
                       <div className="space-y-2">
                         <Label>Frequência</Label>

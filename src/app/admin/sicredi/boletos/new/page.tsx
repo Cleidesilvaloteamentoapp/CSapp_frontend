@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -710,12 +711,10 @@ export default function CreateBoletoPage() {
                         <FormItem>
                           <FormLabel>Valor (R$)</FormLabel>
                           <FormControl>
-                            <Input
-                              {...field}
-                              type="number"
-                              step="0.01"
-                              min="0.01"
-                              placeholder="150.00"
+                            <CurrencyInput
+                              value={field.value as number | undefined}
+                              onChange={(v) => field.onChange(v ?? 0)}
+                              placeholder="150,00"
                             />
                           </FormControl>
                           <FormMessage />

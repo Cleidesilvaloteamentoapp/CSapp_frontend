@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -131,8 +132,6 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
     adjustment_frequency: undefined as AdjustmentFrequency | undefined,
     adjustment_custom_rate: undefined as number | undefined,
     annual_adjustment_rate: undefined as number | undefined,
-    is_legacy_client: false,
-    paid_installments: 0,
   });
   
   const { boletos, loading: boletosLoading, error: boletosError } = useClientBoletos(client?.id || null);
@@ -238,7 +237,6 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
       down_payment: undefined, penalty_rate: undefined, daily_interest_rate: undefined,
       adjustment_index: undefined, adjustment_frequency: undefined,
       adjustment_custom_rate: undefined, annual_adjustment_rate: undefined,
-      is_legacy_client: false, paid_installments: 0,
     });
     setAssignFinExpanded(false);
     setAssignDialogOpen(true);
@@ -283,18 +281,6 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
       if (assignForm.adjustment_custom_rate !== undefined) payload.adjustment_custom_rate = assignForm.adjustment_custom_rate;
       if (assignForm.annual_adjustment_rate !== undefined) payload.annual_adjustment_rate = assignForm.annual_adjustment_rate;
       
-      // Legacy client fields
-      if (assignForm.is_legacy_client) {
-        payload.is_legacy_client = true;
-        payload.paid_installments = assignForm.paid_installments;
-        // Validation
-        if (assignForm.paid_installments >= assignForm.installments) {
-          toast.error("Parcelas pagas devem ser menores que o total de parcelas");
-          setAssigningLot(false);
-          return;
-        }
-      }
-
       await api.post("/admin/lots/assign", payload);
       toast.success("Lote atrelado com sucesso! Faturas geradas automaticamente.");
       setAssignDialogOpen(false);
@@ -1105,11 +1091,9 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Valor Total (R$) *</label>
-              <Input
-                type="number"
-                step="0.01"
-                value={assignForm.total_value || ""}
-                onChange={(e) => setAssignForm((p) => ({ ...p, total_value: parseFloat(e.target.value) || 0 }))}
+              <CurrencyInput
+                value={assignForm.total_value || undefined}
+                onChange={(v) => setAssignForm((p) => ({ ...p, total_value: v ?? 0 }))}
               />
             </div>
             <div className="space-y-1.5">
@@ -1129,7 +1113,8 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Parcelas</label>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={assignForm.installments}
                   onChange={(e) => setAssignForm((p) => ({ ...p, installments: parseInt(e.target.value) || 12 }))}
                 />
@@ -1143,47 +1128,6 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                 />
               </div>
             </div>
-          </div>
-
-          {/* Legacy client checkbox */}
-          <div className="space-y-3 rounded-lg border p-4">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="is_legacy_client"
-                checked={assignForm.is_legacy_client}
-                onChange={(e) => setAssignForm((p) => ({
-                  ...p,
-                  is_legacy_client: e.target.checked,
-                  paid_installments: e.target.checked ? p.paid_installments : 0,
-                }))}
-                className="h-4 w-4 rounded border-gray-300"
-              />
-              <label htmlFor="is_legacy_client" className="text-sm font-medium">
-                Cliente já tinha parcelas pagas antes do sistema
-              </label>
-            </div>
-            {assignForm.is_legacy_client && (
-              <div className="space-y-1.5 pl-6">
-                <label className="text-sm font-medium">Número de parcelas já pagas</label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={assignForm.installments - 1}
-                  value={assignForm.paid_installments}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 0;
-                    if (val < assignForm.installments) {
-                      setAssignForm((p) => ({ ...p, paid_installments: val }));
-                    }
-                  }}
-                  className="w-32"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Deve ser menor que o total de parcelas ({assignForm.installments})
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Expandable Financial Rules */}
@@ -1204,10 +1148,10 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Entrada (R$)</label>
-                    <Input
-                      type="number" step="0.01" placeholder="Sem entrada"
-                      value={assignForm.down_payment ?? ""}
-                      onChange={(e) => setAssignForm((p) => ({ ...p, down_payment: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                    <CurrencyInput
+                      placeholder="Sem entrada"
+                      value={assignForm.down_payment}
+                      onChange={(v) => setAssignForm((p) => ({ ...p, down_payment: v }))}
                     />
                   </div>
                   <div className="space-y-1.5">

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Home, Link2, Plus, Loader2, ChevronDown, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -393,7 +394,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                           <HelpHint text="Pode ser diferente do preço do lote (ex: desconto a vista, acréscimo de obra etc)." />
                         </FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" {...field} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : 0)} />
+                          <CurrencyInput value={field.value as number | undefined} onChange={(v) => field.onChange(v ?? 0)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -414,7 +415,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                             <HelpHint text="Número de parcelas internas que serão geradas automaticamente." />
                           </FormLabel>
                           <FormControl>
-                            <Input type="number" {...field} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} />
+                            <Input type="text" inputMode="numeric" {...field} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -446,7 +447,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                             <HelpHint text="Valor pago à vista. Será descontado do total na geração das parcelas." />
                           </FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.01" placeholder="0" {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
+                            <CurrencyInput placeholder="0,00" value={field.value as number | undefined} onChange={field.onChange} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -462,7 +463,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                             <HelpHint text="Se preenchido, fixa o valor de cada parcela. Se deixar em branco, o sistema divide o restante pelo número de parcelas." />
                           </FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.01" placeholder="Automático" {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
+                            <CurrencyInput placeholder="Automático" value={field.value as number | undefined} onChange={field.onChange} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -494,7 +495,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                             <FormItem>
                               <FormLabel>Entrada (R$)</FormLabel>
                               <FormControl>
-                                <Input type="number" step="0.01" placeholder="Sem entrada" {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
+                                <CurrencyInput placeholder="Sem entrada" value={field.value as number | undefined} onChange={field.onChange} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -507,7 +508,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                             <FormItem>
                               <FormLabel>Total de Parcelas</FormLabel>
                               <FormControl>
-                                <Input type="number" placeholder={`Padrão`} {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} />
+                                <Input type="text" inputMode="numeric" placeholder={`Padrão`} {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>

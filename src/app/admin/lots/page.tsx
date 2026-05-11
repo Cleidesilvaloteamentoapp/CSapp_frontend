@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Plus, Search, Loader2, ShoppingCart, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -305,14 +306,14 @@ export default function LotsPage() {
                   <FormItem><FormLabel>Data da Compra</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={assignForm.control} name="total_value" render={({ field }) => (
-                  <FormItem><FormLabel>Valor Total (R$)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Valor Total (R$)</FormLabel><FormControl><CurrencyInput value={field.value as number | undefined} onChange={(v) => field.onChange(v ?? 0)} /></FormControl><FormMessage /></FormItem>
                 )} />
               </div>
               <div className="space-y-3 rounded-lg border p-4">
                 <h4 className="text-sm font-semibold text-muted-foreground">Plano de Pagamento</h4>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField control={assignForm.control} name="payment_plan.installments" render={({ field }) => (
-                    <FormItem><FormLabel>Parcelas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Parcelas</FormLabel><FormControl><Input type="text" inputMode="numeric" {...field} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={assignForm.control} name="payment_plan.first_due" render={({ field }) => (
                     <FormItem><FormLabel>Primeiro Vencimento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
@@ -338,14 +339,14 @@ export default function LotsPage() {
                       <FormField control={assignForm.control} name="down_payment" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Entrada (R$)</FormLabel>
-                          <FormControl><Input type="number" step="0.01" placeholder="Sem entrada" {...field} value={field.value ?? ""} /></FormControl>
+                          <FormControl><CurrencyInput placeholder="Sem entrada" value={field.value as number | undefined} onChange={field.onChange} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
                       <FormField control={assignForm.control} name="total_installments" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Total de Parcelas</FormLabel>
-                          <FormControl><Input type="number" placeholder={`Padrão`} {...field} value={field.value ?? ""} /></FormControl>
+                          <FormControl><Input type="text" inputMode="numeric" placeholder={`Padrão`} {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
