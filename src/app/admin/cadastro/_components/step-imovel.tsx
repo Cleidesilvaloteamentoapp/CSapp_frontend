@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Home, Link2, Plus, Loader2, ChevronDown, AlertTriangle } from "lucide-react";
+import { Home, Link2, Plus, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -55,7 +55,6 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
   const [loadingLots, setLoadingLots] = useState(false);
   const [selectedLot, setSelectedLot] = useState<LotResponse | null>(null);
   const [companyDefaults, setCompanyDefaults] = useState<CompanyFinancialSettingsResponse | null>(null);
-  const [financialExpanded, setFinancialExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [newLotId, setNewLotId] = useState<string | null>(null);
 
@@ -331,7 +330,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                         <FormItem>
                           <FormLabel>Preço (R$)</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.01" placeholder="150000" {...field} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
+                            <CurrencyInput value={field.value as number | undefined} onChange={(v) => field.onChange(v ?? 0)} placeholder="150.000,00" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -407,38 +406,6 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                       control={assignForm.control}
-                      name="payment_plan.installments"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            Parcelas
-                            <HelpHint text="Número de parcelas internas que serão geradas automaticamente." />
-                          </FormLabel>
-                          <FormControl>
-                            <Input type="text" inputMode="numeric" {...field} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={assignForm.control}
-                      name="payment_plan.first_due"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            Primeiro Vencimento
-                            <HelpHint text="Data de vencimento da primeira parcela gerada no sistema." />
-                          </FormLabel>
-                          <FormControl><Input type="date" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField
-                      control={assignForm.control}
                       name="payment_plan.down_payment"
                       render={({ field }) => (
                         <FormItem>
@@ -470,151 +437,164 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                       )}
                     />
                   </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField
+                      control={assignForm.control}
+                      name="payment_plan.installments"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Parcelas
+                            <HelpHint text="Total de parcelas do contrato (pode ser > 12). Os boletos bancários são gerados de 12 em 12." />
+                          </FormLabel>
+                          <FormControl>
+                            <Input type="text" inputMode="numeric" {...field} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={assignForm.control}
+                      name="payment_plan.first_due"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Primeiro Vencimento
+                            <HelpHint text="Data do primeiro vencimento. Parcelas seguintes serão mensais a partir dessa data." />
+                          </FormLabel>
+                          <FormControl><Input type="date" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
 
-                {/* Expandable Financial Rules */}
-                <div className="rounded-lg border">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => setFinancialExpanded(!financialExpanded)}
-                  >
-                    <span>{financialExpanded ? "Regras Financeiras" : "Usando regras padrão da empresa"}</span>
-                    <ChevronDown className={cn("h-4 w-4 transition-transform", financialExpanded && "rotate-180")} />
-                  </button>
-                  {financialExpanded && (
-                    <div className="border-t px-4 pb-4 pt-3 space-y-4">
-                      <p className="text-xs text-muted-foreground">
-                        Deixe em branco para usar os padrões da empresa. Preencha apenas os campos que deseja sobrescrever.
-                      </p>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <FormField
-                          control={assignForm.control}
-                          name="down_payment"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Entrada (R$)</FormLabel>
-                              <FormControl>
-                                <CurrencyInput placeholder="Sem entrada" value={field.value as number | undefined} onChange={field.onChange} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={assignForm.control}
-                          name="total_installments"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Total de Parcelas</FormLabel>
-                              <FormControl>
-                                <Input type="text" inputMode="numeric" placeholder={`Padrão`} {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <FormField
-                          control={assignForm.control}
-                          name="penalty_rate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Multa (%)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.1" placeholder={companyDefaults ? String(companyDefaults.penalty_rate) : "2"} {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={assignForm.control}
-                          name="daily_interest_rate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Juros/dia (%/dia)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.001" placeholder={companyDefaults ? String(companyDefaults.daily_interest_rate) : "0.033"} {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <FormField
-                          control={assignForm.control}
-                          name="adjustment_index"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Índice de Reajuste</FormLabel>
-                              <Select onValueChange={(v) => field.onChange(v === "__default__" ? undefined : v)} value={field.value ?? "__default__"}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Padrão" /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                  <SelectItem value="__default__">Padrão ({companyDefaults?.adjustment_index ?? "IPCA"})</SelectItem>
-                                  <SelectItem value="IPCA">IPCA</SelectItem>
-                                  <SelectItem value="IGPM">IGP-M</SelectItem>
-                                  <SelectItem value="CUB">CUB</SelectItem>
-                                  <SelectItem value="INPC">INPC</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={assignForm.control}
-                          name="adjustment_frequency"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Frequência</FormLabel>
-                              <Select onValueChange={(v) => field.onChange(v === "__default__" ? undefined : v)} value={field.value ?? "__default__"}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Padrão" /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                  <SelectItem value="__default__">Padrão ({companyDefaults?.adjustment_frequency ?? "ANNUAL"})</SelectItem>
-                                  <SelectItem value="MONTHLY">Mensal</SelectItem>
-                                  <SelectItem value="QUARTERLY">Trimestral</SelectItem>
-                                  <SelectItem value="SEMIANNUAL">Semestral</SelectItem>
-                                  <SelectItem value="ANNUAL">Anual</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <FormField
-                          control={assignForm.control}
-                          name="adjustment_custom_rate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Taxa Fixa (%)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.1" placeholder={companyDefaults ? String(companyDefaults.adjustment_custom_rate) : "5"} {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={assignForm.control}
-                          name="annual_adjustment_rate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Reajuste Anual (%)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.1" placeholder="5" {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-                  )}
+                {/* Financial Rules - Inline */}
+                <div className="space-y-3 rounded-lg border p-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-muted-foreground">Regras Financeiras</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Opcional — deixe em branco para usar os padrões da empresa.
+                    </p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField
+                      control={assignForm.control}
+                      name="penalty_rate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Multa (%)
+                            <HelpHint text="Multa por atraso. Ex: 2 = 2%. Usa o padrão da empresa se vazio." />
+                          </FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.1" placeholder={companyDefaults ? String(companyDefaults.penalty_rate) : "2"} {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={assignForm.control}
+                      name="daily_interest_rate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Juros/dia (%/dia)
+                            <HelpHint text="Juros diário por atraso. Ex: 0.033 = 0.033%/dia. Usa o padrão da empresa se vazio." />
+                          </FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.001" placeholder={companyDefaults ? String(companyDefaults.daily_interest_rate) : "0.033"} {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField
+                      control={assignForm.control}
+                      name="adjustment_index"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Índice de Reajuste
+                            <HelpHint text="Índice econômico para reajuste anual das parcelas. IPCA é o mais comum." />
+                          </FormLabel>
+                          <Select onValueChange={(v) => field.onChange(v === "__default__" ? undefined : v)} value={field.value ?? "__default__"}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Padrão" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="__default__">Padrão ({companyDefaults?.adjustment_index ?? "IPCA"})</SelectItem>
+                              <SelectItem value="IPCA">IPCA</SelectItem>
+                              <SelectItem value="IGPM">IGP-M</SelectItem>
+                              <SelectItem value="CUB">CUB</SelectItem>
+                              <SelectItem value="INPC">INPC</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={assignForm.control}
+                      name="adjustment_frequency"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Frequência de Reajuste
+                            <HelpHint text="Com que frequência o reajuste é aplicado às parcelas." />
+                          </FormLabel>
+                          <Select onValueChange={(v) => field.onChange(v === "__default__" ? undefined : v)} value={field.value ?? "__default__"}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Padrão" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="__default__">Padrão ({companyDefaults?.adjustment_frequency ?? "ANNUAL"})</SelectItem>
+                              <SelectItem value="MONTHLY">Mensal</SelectItem>
+                              <SelectItem value="QUARTERLY">Trimestral</SelectItem>
+                              <SelectItem value="SEMIANNUAL">Semestral</SelectItem>
+                              <SelectItem value="ANNUAL">Anual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField
+                      control={assignForm.control}
+                      name="adjustment_custom_rate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Taxa Fixa (%)
+                            <HelpHint text="Percentual fixo de reajuste, independente do índice econômico." />
+                          </FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.1" placeholder={companyDefaults ? String(companyDefaults.adjustment_custom_rate) : "5"} {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={assignForm.control}
+                      name="annual_adjustment_rate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Reajuste Anual (%)
+                            <HelpHint text="Percentual fixo de reajuste anual, independente do índice. Ex: 5 = 5%/ano." />
+                          </FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.1" placeholder="5" {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">

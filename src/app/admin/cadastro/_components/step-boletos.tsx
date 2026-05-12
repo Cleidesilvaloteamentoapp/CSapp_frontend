@@ -14,6 +14,7 @@ import {
   ListChecks,
   Loader2,
   AlertTriangle,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,8 +46,18 @@ import {
 } from "@/components/ui/table";
 import { useSicrediBoletos } from "@/hooks/use-sicredi";
 import { formatCurrency } from "@/lib/format";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import type { ClientResponse } from "@/types";
+import type { ClientResponse, ClientLotResponse } from "@/types";
 import type {
   CreateBoletoRequest,
   BatchCreateRequest,
@@ -64,6 +75,7 @@ import { HelpHint } from "./help-hint";
 
 interface StepBoletosProps {
   client: ClientResponse;
+  clientLot?: ClientLotResponse | null;
   invoiceCount: number;
   onSkip: () => void;
   onComplete: (result: BoletoCreated | { batch_id: string; total_items: number }) => void;
@@ -123,9 +135,17 @@ const boletoSchema = z.object({
 
 type BoletoFormValues = z.infer<typeof boletoSchema>;
 
-export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }: StepBoletosProps) {
+export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplete, onBack }: StepBoletosProps) {
   const { create, createBatch, loading } = useSicrediBoletos();
-  const [mode, setMode] = useState<"SKIP" | "INDIVIDUAL" | "BATCH">("SKIP");
+  const [mode, setMode] = useState<"SKIP" | "INDIVIDUAL" | "BATCH">(clientLot ? "BATCH" : "SKIP");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmType, setConfirmType] = useState<"INDIVIDUAL" | "BATCH">("BATCH");
+
+  // Pre-compute batch defaults from clientLot
+  const computedParcelaValue = clientLot
+    ? (clientLot.total_value - (clientLot.down_payment ?? 0)) / (clientLot.total_installments || 12)
+    : 0;
+  const computedFirstDue = (clientLot?.payment_plan as Record<string, unknown>)?.first_due as string | undefined;
 
   // Individual boleto form
   const form = useForm<BoletoFormValues>({
@@ -142,8 +162,8 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
       email: client.email || "",
       telefone: client.phone?.replace(/\D/g, "") || "",
       especie_documento: "DUPLICATA_MERCANTIL_INDICACAO",
-      data_vencimento: "",
-      valor: 0,
+      data_vencimento: computedFirstDue || "",
+      valor: computedParcelaValue > 0 ? Math.round(computedParcelaValue * 100) / 100 : 0,
       seu_numero: "",
       tipo_desconto: "ISENTO",
       valor_desconto_1: 0,
@@ -157,11 +177,11 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
     },
   });
 
-  // Batch state
-  const [batchValor, setBatchValor] = useState("");
+  // Batch state — pre-populated from clientLot
+  const [batchValor, setBatchValor] = useState(computedParcelaValue > 0 ? String(Math.round(computedParcelaValue * 100) / 100) : "");
   const [frequency, setFrequency] = useState<BatchFrequency>("MENSAL");
   const [durationMonths, setDurationMonths] = useState("12");
-  const [dataInicio, setDataInicio] = useState("");
+  const [dataInicio, setDataInicio] = useState(computedFirstDue || "");
   const [tipoJuros, setTipoJuros] = useState<TipoJuros>("ISENTO");
   const [juros, setJuros] = useState("");
   const [tipoMulta, setTipoMulta] = useState<TipoMulta>("ISENTO");
@@ -361,9 +381,9 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
           )}
         >
           <ListChecks className="mb-2 h-5 w-5 text-muted-foreground" />
-          <p className="font-semibold text-sm">Lote de Boletos</p>
+          <p className="font-semibold text-sm">Gerar 12 Boletos</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Múltiplos boletos recorrentes
+            Gera automaticamente 12 boletos no banco
           </p>
         </button>
       </div>
@@ -399,7 +419,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                     name="nome"
                     render={({ field }) => (
                       <FormItem className="sm:col-span-2">
-                        <FormLabel>Nome</FormLabel>
+                        <FormLabel>
+                          Nome
+                          <HelpHint text="Nome completo conforme documento. Será impresso no boleto bancário." />
+                        </FormLabel>
                         <FormControl><Input {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -410,7 +433,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                     name="documento"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>CPF/CNPJ</FormLabel>
+                        <FormLabel>
+                          CPF/CNPJ
+                          <HelpHint text="Apenas números, sem pontos ou traços. CPF: 11 dígitos. CNPJ: 14 dígitos." />
+                        </FormLabel>
                         <FormControl><Input {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -421,7 +447,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                     name="cep"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>CEP</FormLabel>
+                        <FormLabel>
+                          CEP
+                          <HelpHint text="Apenas números, sem traço. 8 dígitos." />
+                        </FormLabel>
                         <FormControl><Input {...field} maxLength={8} /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -432,7 +461,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                     name="endereco"
                     render={({ field }) => (
                       <FormItem className="sm:col-span-2">
-                        <FormLabel>Endereço</FormLabel>
+                        <FormLabel>
+                          Endereço
+                          <HelpHint text="Endereço completo com número. Será enviado ao banco para registro do boleto." />
+                        </FormLabel>
                         <FormControl><Input {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -529,7 +561,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                         name="data_vencimento"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Data de Vencimento</FormLabel>
+                            <FormLabel>
+                              Data de Vencimento
+                              <HelpHint text="Data futura no formato AAAA-MM-DD. Após esta data, juros e multa podem incidir." />
+                            </FormLabel>
                             <FormControl><Input type="date" {...field} /></FormControl>
                             <FormMessage />
                           </FormItem>
@@ -540,7 +575,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                         name="valor"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Valor (R$)</FormLabel>
+                            <FormLabel>
+                              Valor (R$)
+                              <HelpHint text="Valor nominal do boleto. Será registrado no Sicredi. Mínimo R$ 2,50." />
+                            </FormLabel>
                             <FormControl><CurrencyInput value={field.value as number | undefined} onChange={(v) => field.onChange(v ?? 0)} /></FormControl>
                             <FormMessage />
                           </FormItem>
@@ -575,7 +613,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                         name="tipo_desconto"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Tipo de Desconto</FormLabel>
+                            <FormLabel>
+                              Tipo de Desconto
+                              <HelpHint text="Desconto concedido se o pagador quitar antes da data limite. ISENTO = sem desconto." />
+                            </FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                               <SelectContent>
@@ -621,7 +662,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                         name="tipo_juros"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Tipo de Juros</FormLabel>
+                            <FormLabel>
+                              Tipo de Juros
+                              <HelpHint text="Juros cobrados após vencimento. VALOR_DIA = R$/dia. PERCENTUAL_MES = % ao mês." />
+                            </FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                               <SelectContent>
@@ -654,7 +698,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                         name="tipo_multa"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Tipo de Multa</FormLabel>
+                            <FormLabel>
+                              Tipo de Multa
+                              <HelpHint text="Multa cobrada após vencimento. VALOR = R$ fixo. PERCENTUAL = % sobre o valor do boleto." />
+                            </FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                               <SelectContent>
@@ -694,7 +741,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                       name="informativos"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Informativos</FormLabel>
+                          <FormLabel>
+                            Informativos
+                            <HelpHint text="Texto informativo impresso no corpo do boleto. Ex: 'Referente à parcela 1/12'." />
+                          </FormLabel>
                           <FormControl><Input {...field} placeholder="Linha informativa no boleto" /></FormControl>
                           <FormMessage />
                         </FormItem>
@@ -705,7 +755,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                       name="mensagens"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Mensagens</FormLabel>
+                          <FormLabel>
+                            Mensagens
+                            <HelpHint text="Instruções adicionais impressas no boleto. Ex: 'Após vencimento, cobrar multa de 2%'." />
+                          </FormLabel>
                           <FormControl><Input {...field} placeholder="Instruções adicionais" /></FormControl>
                           <FormMessage />
                         </FormItem>
@@ -716,7 +769,7 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
 
                 <div className="flex justify-between">
                   <Button type="button" variant="outline" onClick={onBack}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button>
-                  <Button type="submit" disabled={loading}>
+                  <Button type="button" disabled={loading} onClick={async () => { const valid = await form.trigger(); if (valid) { setConfirmType("INDIVIDUAL"); setConfirmOpen(true); } }}>
                     {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Gerando...</> : "Gerar Boleto"}
                   </Button>
                 </div>
@@ -735,11 +788,20 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Valor por Parcela (R$)</Label>
+                        <Label className="flex items-center gap-1">
+                          Valor por Parcela (R$)
+                          <HelpHint text="Valor de cada boleto gerado. Calculado automaticamente a partir do plano de pagamento. Mínimo R$ 2,50." />
+                        </Label>
                         <CurrencyInput value={batchValor ? parseFloat(batchValor) : undefined} onChange={(v) => setBatchValor(v != null ? String(v) : "")} placeholder="500,00" />
+                        {batchValor && parseFloat(batchValor) <= 0 && (
+                          <p className="text-xs text-destructive">Valor deve ser maior que zero</p>
+                        )}
                       </div>
                       <div className="space-y-2">
-                        <Label>Frequência</Label>
+                        <Label className="flex items-center gap-1">
+                          Frequência
+                          <HelpHint text="Intervalo entre os vencimentos dos boletos gerados." />
+                        </Label>
                         <Select value={frequency} onValueChange={(v) => setFrequency(v as BatchFrequency)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -750,19 +812,29 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Label>Duração (meses)</Label>
-                        </div>
+                        <Label className="flex items-center gap-1">
+                          Duração (meses)
+                          <HelpHint text="Sempre 12 meses. O sistema gera boletos anualmente, de 12 em 12." />
+                        </Label>
                         <Input type="number" min="1" max="12" value={durationMonths} onChange={(e) => setDurationMonths(e.target.value)} />
                         <p className="text-xs text-muted-foreground">Máx 12 boletos por lote</p>
                       </div>
                       <div className="space-y-2">
-                        <Label>Primeiro Vencimento</Label>
-                        <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
+                        <Label className="flex items-center gap-1">
+                          Primeiro Vencimento
+                          <HelpHint text="Data de vencimento do primeiro boleto. Os demais serão calculados pela frequência escolhida." />
+                        </Label>
+                        <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className={cn(!dataInicio && "border-destructive")} />
+                        {!dataInicio && (
+                          <p className="text-xs text-destructive">Data de início é obrigatória</p>
+                        )}
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Negativação Automática (dias, opcional)</Label>
+                      <Label className="flex items-center gap-1">
+                        Negativação Automática (dias, opcional)
+                        <HelpHint text="Dias após vencimento para negativação no SPC/Serasa via Sicredi. Deixe vazio para não negativar." />
+                      </Label>
                       <Input type="number" min="0" value={diasNegativacao} onChange={(e) => setDiasNegativacao(e.target.value)} placeholder="Ex: 30" />
                     </div>
                   </CardContent>
@@ -775,7 +847,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Tipo de Juros</Label>
+                        <Label className="flex items-center gap-1">
+                          Tipo de Juros
+                          <HelpHint text="Juros cobrados após vencimento. VALOR_DIA = R$/dia. PERCENTUAL_MES = % ao mês." />
+                        </Label>
                         <Select value={tipoJuros} onValueChange={(v) => setTipoJuros(v as TipoJuros)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -792,7 +867,10 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
                         </div>
                       )}
                       <div className="space-y-2">
-                        <Label>Tipo de Multa</Label>
+                        <Label className="flex items-center gap-1">
+                          Tipo de Multa
+                          <HelpHint text="Multa cobrada após vencimento. VALOR = R$ fixo. PERCENTUAL = % sobre o valor do boleto." />
+                        </Label>
                         <Select value={tipoMulta} onValueChange={(v) => setTipoMulta(v as TipoMulta)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -851,7 +929,7 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
 
                 <div className="flex justify-between">
                   <Button variant="outline" onClick={onBack}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button>
-                  <Button onClick={handleBatchSubmit} disabled={!canSubmitBatch || loading}>
+                  <Button onClick={() => { setConfirmType("BATCH"); setConfirmOpen(true); }} disabled={!canSubmitBatch || loading}>
                     {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Criando lote...</> : <>Criar {installments.length} Boletos</>}
                   </Button>
                 </div>
@@ -866,6 +944,70 @@ export function StepBoletos({ client, invoiceCount, onSkip, onComplete, onBack }
           </form>
         </Form>
       )}
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-yellow-600" />
+              {confirmType === "BATCH"
+                ? `Confirmar geração de ${installments.length} boletos`
+                : "Confirmar geração de boleto"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                {confirmType === "BATCH" ? (
+                  <>
+                    <div className="rounded-md border p-3 text-sm space-y-1">
+                      <p><strong>Quantidade:</strong> {installments.length} boletos</p>
+                      <p><strong>Valor unitário:</strong> {formatCurrency(parseFloat(batchValor) || 0)}</p>
+                      <p><strong>Total:</strong> {formatCurrency(totalValue)}</p>
+                      <p><strong>Primeiro vencimento:</strong> {dataInicio || "—"}</p>
+                      <p><strong>Frequência:</strong> {FREQ_OPTIONS.find(f => f.value === frequency)?.label}</p>
+                    </div>
+                    <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
+                      <p className="text-xs text-yellow-800">
+                        <strong>Atenção:</strong> Estes boletos serão registrados diretamente no banco Sicredi e não apenas na plataforma. A operação é irreversível.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="rounded-md border p-3 text-sm space-y-1">
+                      <p><strong>Pagador:</strong> {form.getValues("nome")}</p>
+                      <p><strong>Valor:</strong> {formatCurrency(form.getValues("valor") || 0)}</p>
+                      <p><strong>Vencimento:</strong> {form.getValues("data_vencimento") || "—"}</p>
+                    </div>
+                    <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
+                      <p className="text-xs text-yellow-800">
+                        <strong>Atenção:</strong> Este boleto será registrado diretamente no banco Sicredi. A operação é irreversível.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmType === "BATCH") {
+                  handleBatchSubmit();
+                } else {
+                  form.handleSubmit(handleIndividualSubmit)();
+                }
+              }}
+              className="bg-primary"
+            >
+              Confirmar e Gerar no Banco
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

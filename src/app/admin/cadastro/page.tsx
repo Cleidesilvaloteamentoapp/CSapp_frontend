@@ -287,6 +287,7 @@ export default function CadastroWizardPage() {
           {state.step === 2 && state.client && (
             <StepBoletos
               client={state.client}
+              clientLot={state.clientLot}
               invoiceCount={state.invoiceCount}
               onSkip={handleBoletoSkip}
               onComplete={handleBoletoComplete}
