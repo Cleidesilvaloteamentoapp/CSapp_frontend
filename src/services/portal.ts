@@ -154,11 +154,72 @@ export async function getClientDocumentDetail(
   return api.get<ClientDocument>(`/client/documents/${documentId}`);
 }
 
-/** Returns redirect URL for download */
+/** Returns redirect URL for download (client portal context) */
 export function getDocumentDownloadUrl(documentId: string): string {
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
   return `${API_URL}/client/documents/${documentId}/download`;
+}
+
+/** Returns redirect URL for download (admin context) */
+export function getAdminDocumentDownloadUrl(documentId: string): string {
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  return `${API_URL}/admin/documents/${documentId}/download`;
+}
+
+/** Update document tags and/or category (admin only) */
+export async function updateAdminDocument(
+  documentId: string,
+  body: {
+    document_type?: string;
+    description?: string | null;
+    tags?: string[];
+  }
+): Promise<import("@/types/portal").ClientDocument> {
+  return api.patch<import("@/types/portal").ClientDocument>(
+    `/admin/documents/${documentId}`,
+    body
+  );
+}
+
+/** Delete a document (admin only) */
+export async function deleteAdminDocument(documentId: string): Promise<void> {
+  await api.delete(`/admin/documents/${documentId}`);
+}
+
+// ===================== Portal access (admin actions on client) =====================
+
+export interface PortalAccessStatus {
+  has_access: boolean;
+  profile_id: string | null;
+}
+
+export async function getClientPortalAccess(
+  clientId: string
+): Promise<PortalAccessStatus> {
+  return api.get<PortalAccessStatus>(`/admin/clients/${clientId}/portal-access`);
+}
+
+export async function createClientPortalAccess(
+  clientId: string,
+  password: string,
+  sendEmail: boolean = true
+): Promise<PortalAccessStatus> {
+  return api.post<PortalAccessStatus>(
+    `/admin/clients/${clientId}/portal-access`,
+    { password, send_email: sendEmail }
+  );
+}
+
+export async function resetClientPortalPassword(
+  clientId: string,
+  password: string
+): Promise<PortalAccessStatus> {
+  return api.patch<PortalAccessStatus>(
+    `/admin/clients/${clientId}/portal-password`,
+    { password }
+  );
 }
 
 export async function deleteClientDocument(
@@ -309,11 +370,17 @@ export async function adminListDocuments(params?: {
   client_id?: string;
   status?: string;
   document_type?: string;
+  tag?: string;
+  page?: number;
+  per_page?: number;
 }): Promise<ClientDocument[]> {
   const query = new URLSearchParams();
   if (params?.client_id) query.set("client_id", params.client_id);
   if (params?.status) query.set("status", params.status);
   if (params?.document_type) query.set("document_type", params.document_type);
+  if (params?.tag) query.set("tag", params.tag);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.per_page) query.set("per_page", String(params.per_page));
   const qs = query.toString();
   return api.get<ClientDocument[]>(
     `/admin/documents${qs ? `?${qs}` : ""}`
@@ -321,7 +388,7 @@ export async function adminListDocuments(params?: {
 }
 
 export async function adminGetPendingDocumentsCount(): Promise<{
-  count: number;
+  pending_count: number;
 }> {
   return api.get("/admin/documents/pending-count");
 }

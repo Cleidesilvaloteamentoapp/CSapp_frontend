@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useReducer } from "react";
+import { api } from "@/lib/api";
 import type {
   ClientResponse,
   LotResponse,
@@ -115,38 +116,113 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
   }
 }
 
+interface WizardDraft {
+  step: number;
+  clientId: string | null;
+  clientSelectionMode: "EXISTING" | "NEW" | null;
+  lotMode: LotMode;
+  lotId: string | null;
+  createdLotId: string | null;
+  clientLotId: string | null;
+  boletoMode: BoletoMode;
+  invoiceCount: number;
+}
+
 function serializeState(state: WizardState): string {
-  // Don't serialize full client/lot objects to avoid sessionStorage bloat
-  const minimal = {
+  // Persist only IDs — full objects are rehydrated from API on mount.
+  const draft: WizardDraft = {
     step: state.step,
     clientId: state.client?.id ?? null,
-    clientName: state.client?.full_name ?? null,
     clientSelectionMode: state.clientSelectionMode,
     lotMode: state.lotMode,
     lotId: state.lot?.id ?? null,
-    lotLabel: state.lot ? `${state.lot.block ?? ""}-${state.lot.lot_number}` : null,
     createdLotId: state.createdLotId,
     clientLotId: state.clientLot?.id ?? null,
     boletoMode: state.boletoMode,
-    boletoResultId:
-      state.boletoResult && "batch_id" in state.boletoResult
-        ? state.boletoResult.batch_id
-        : state.boletoResult && "nosso_numero" in state.boletoResult
-          ? state.boletoResult.nosso_numero
-          : null,
     invoiceCount: state.invoiceCount,
-    savedDraft: true,
   };
-  return JSON.stringify(minimal);
+  return JSON.stringify(draft);
+}
+
+function readDraft(): WizardDraft | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as WizardDraft;
+  } catch {
+    return null;
+  }
 }
 
 export function useCadastroWizard(clientIdFromUrl?: string | null) {
   const [state, dispatch] = useReducer(reducer, getInitialState());
 
-  // Hydrate from URL param if provided (user selected existing client)
+  // Hydrate from sessionStorage draft on mount (recovers state if user
+  // refreshed the page or navigated away mid-wizard).
   useEffect(() => {
-    if (!clientIdFromUrl) return;
-    // We'll let the page fetch the client and then call SET_CLIENT
+    // URL param takes precedence — the page hydrates `state.client` itself.
+    if (clientIdFromUrl) return;
+    const draft = readDraft();
+    if (!draft || !draft.clientId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const client = await api.get<ClientResponse>(`/admin/clients/${draft.clientId}`);
+        if (cancelled) return;
+
+        let lot: LotResponse | null = null;
+        if (draft.lotId) {
+          try {
+            lot = await api.get<LotResponse>(`/admin/lots/${draft.lotId}`);
+          } catch {
+            lot = null;
+          }
+        }
+
+        let clientLot: ClientLotResponse | null = null;
+        if (draft.clientLotId) {
+          try {
+            clientLot = await api.get<ClientLotResponse>(
+              `/admin/lots/client-lots/${draft.clientLotId}`
+            );
+          } catch {
+            clientLot = null;
+          }
+        }
+
+        if (cancelled) return;
+        dispatch({
+          type: "HYDRATE",
+          payload: {
+            step: draft.step,
+            client,
+            clientSelectionMode: draft.clientSelectionMode,
+            lotMode: draft.lotMode,
+            lot,
+            createdLotId: draft.createdLotId,
+            clientLot,
+            boletoMode: draft.boletoMode,
+            boletoResult: null,
+            documents: [],
+            invoiceCount: draft.invoiceCount,
+            savedDraft: true,
+            isLoading: false,
+          },
+        });
+      } catch {
+        // Stale draft (client deleted, etc) — clear it and start fresh.
+        try {
+          sessionStorage.removeItem(STORAGE_KEY);
+        } catch {
+          // ignore
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [clientIdFromUrl]);
 
   // Persist minimal state

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Check, ChevronsUpDown, Plus, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Check, ChevronsUpDown, Plus, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Command,
   CommandEmpty,
@@ -31,11 +30,14 @@ export function ClientSelector({ value, onChange, onCreateNew }: ClientSelectorP
   const [open, setOpen] = useState(false);
   const [clients, setClients] = useState<ClientResponse[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<ClientResponse | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadClients = useCallback(async (searchTerm: string = "") => {
     setLoading(true);
+    setLoadError(null);
     try {
       const params = new URLSearchParams({ page: "1", per_page: "50" });
       if (searchTerm) params.set("search", searchTerm);
@@ -47,6 +49,13 @@ export function ClientSelector({ value, onChange, onCreateNew }: ClientSelectorP
     } catch (error) {
       console.error("Erro ao carregar clientes:", error);
       setClients([]);
+      if (error instanceof ApiError) {
+        setLoadError(
+          typeof error.detail === "string" ? error.detail : "Erro ao buscar clientes"
+        );
+      } else {
+        setLoadError("Erro de conexão");
+      }
     } finally {
       setLoading(false);
     }
@@ -54,9 +63,10 @@ export function ClientSelector({ value, onChange, onCreateNew }: ClientSelectorP
 
   useEffect(() => {
     if (open) {
-      loadClients(search);
+      loadClients("");
     }
-  }, [open, loadClients]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     if (value && clients.length > 0) {
@@ -67,10 +77,20 @@ export function ClientSelector({ value, onChange, onCreateNew }: ClientSelectorP
     }
   }, [value, clients]);
 
+  // Debounce search so we don't hit the API on every keystroke.
   const handleSearch = useCallback((searchValue: string) => {
     setSearch(searchValue);
-    loadClients(searchValue);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      loadClients(searchValue);
+    }, 300);
   }, [loadClients]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const handleSelect = (client: ClientResponse) => {
     setSelectedClient(client);
@@ -110,6 +130,18 @@ export function ClientSelector({ value, onChange, onCreateNew }: ClientSelectorP
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="ml-2 text-sm text-muted-foreground">Carregando...</span>
+                </div>
+              ) : loadError ? (
+                <div className="flex flex-col items-center justify-center gap-2 py-6">
+                  <AlertCircle className="h-5 w-5 text-destructive" />
+                  <p className="text-sm text-destructive text-center px-4">{loadError}</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => loadClients(search)}
+                  >
+                    Tentar novamente
+                  </Button>
                 </div>
               ) : (
                 <>

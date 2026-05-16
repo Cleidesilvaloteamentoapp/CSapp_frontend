@@ -12,11 +12,13 @@ import {
   User,
   Home,
   FileQuestion,
-  Eye,
+  Download,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -25,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api, ApiError } from "@/lib/api";
-import { getDocumentDownloadUrl } from "@/services/portal";
+import { getAdminDocumentDownloadUrl } from "@/services/portal";
 import {
   DOCUMENT_TYPE_LABELS,
   DOCUMENT_TYPES_BY_CATEGORY,
@@ -33,6 +35,8 @@ import {
 } from "@/types/portal";
 import type { DocumentType, ClientDocument, DocumentCategory } from "@/types/portal";
 import { HelpHint } from "./help-hint";
+
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 interface StepDocumentosProps {
   clientId: string;
@@ -61,7 +65,35 @@ export function StepDocumentos({
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedType, setSelectedType] = useState<DocumentType>("OUTROS");
+  const [tagInput, setTagInput] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileSelect(file: File | null) {
+    if (file && file.size > MAX_UPLOAD_BYTES) {
+      toast.error(
+        `Arquivo muito grande (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo: 100MB.`
+      );
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    setSelectedFile(file);
+  }
+
+  function handleTagInputKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      const v = tagInput.trim();
+      if (v && !tags.includes(v)) {
+        setTags([...tags, v]);
+      }
+      setTagInput("");
+    }
+  }
+
+  function removeTag(t: string) {
+    setTags(tags.filter((x) => x !== t));
+  }
 
   async function handleUpload() {
     if (!selectedFile || !clientId) {
@@ -73,11 +105,15 @@ export function StepDocumentos({
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("document_type", selectedType);
+      if (tags.length > 0) {
+        formData.append("tags", JSON.stringify(tags));
+      }
       const doc = await api.post<ClientDocument>(`/admin/clients/${clientId}/documents`, formData);
       toast.success("Documento enviado com sucesso");
       setDocuments((prev) => [...prev, doc]);
       onAddDocument(doc);
       setSelectedFile(null);
+      setTags([]);
       if (inputRef.current) inputRef.current.value = "";
     } catch (error) {
       if (error instanceof ApiError) {
@@ -123,11 +159,13 @@ export function StepDocumentos({
               <Input
                 ref={inputRef}
                 type="file"
-                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => handleFileSelect(e.target.files?.[0] ?? null)}
               />
-              {selectedFile && (
-                <p className="text-xs text-muted-foreground mt-1 truncate">{selectedFile.name}</p>
-              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                {selectedFile
+                  ? `${selectedFile.name} (${(selectedFile.size / 1024 / 1024).toFixed(2)} MB)`
+                  : "Máximo 100MB. PDF, imagens, planilhas e documentos."}
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Tipo</label>
@@ -148,6 +186,35 @@ export function StepDocumentos({
               </Select>
             </div>
           </div>
+
+          <div>
+            <label className="text-sm font-medium mb-1.5 block flex items-center gap-1">
+              Tags (opcional)
+              <HelpHint text="Marque o documento com palavras-chave (ex: 'urgente', 'assinado'). Pressione Enter para adicionar." />
+            </label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {tags.map((t) => (
+                <Badge key={t} variant="secondary" className="gap-1">
+                  {t}
+                  <button
+                    type="button"
+                    onClick={() => removeTag(t)}
+                    className="ml-0.5 hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            <Input
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={handleTagInputKey}
+              placeholder="Digite uma tag e pressione Enter"
+              disabled={uploading}
+            />
+          </div>
+
           <div className="flex justify-end gap-2">
             <Button
               variant="outline"
@@ -155,6 +222,8 @@ export function StepDocumentos({
               onClick={() => {
                 setSelectedFile(null);
                 setSelectedType("OUTROS");
+                setTags([]);
+                setTagInput("");
                 if (inputRef.current) inputRef.current.value = "";
               }}
               disabled={uploading}
@@ -193,23 +262,33 @@ export function StepDocumentos({
                   {docs.map((doc) => (
                     <div
                       key={doc.id}
-                      className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                      className="flex items-center justify-between rounded-md border px-3 py-2 text-sm gap-2"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
-                        <span className="truncate">{doc.file_name}</span>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          {DOCUMENT_TYPE_LABELS[doc.document_type]}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{doc.file_name}</p>
+                          <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                            <Badge variant="outline" className="text-xs">
+                              {DOCUMENT_TYPE_LABELS[doc.document_type]}
+                            </Badge>
+                            {(doc.tags ?? []).map((t) => (
+                              <Badge key={t} variant="secondary" className="text-xs">
+                                {t}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                       <a
-                        href={getDocumentDownloadUrl(doc.file_url)}
+                        href={getAdminDocumentDownloadUrl(doc.id)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="shrink-0"
+                        download
                       >
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                          <Eye className="h-4 w-4" />
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" type="button">
+                          <Download className="h-4 w-4" />
                         </Button>
                       </a>
                     </div>

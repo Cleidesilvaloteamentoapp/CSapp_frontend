@@ -30,7 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, ApiError } from "@/lib/api";
 import { lotCreateSchema, lotAssignSchema, type LotCreateFormData, type LotAssignFormData } from "@/lib/validators";
 import { formatCurrency } from "@/lib/format";
-import type { DevelopmentResponse, LotResponse, ClientResponse, ClientLotResponse, CompanyFinancialSettingsResponse } from "@/types";
+import type { DevelopmentResponse, LotResponse, ClientResponse, ClientLotResponse, CompanyFinancialSettingsResponse, PaginatedResponse } from "@/types";
 import { getFinancialSettings } from "@/services/admin";
 import { cn } from "@/lib/utils";
 import { HelpHint } from "./help-hint";
@@ -91,9 +91,13 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
       return;
     }
     setLoadingLots(true);
-    api.get<LotResponse[]>(`/admin/developments/${selectedDev}/lots?status=AVAILABLE`).catch(() => []).then((data) => {
-      setLots(Array.isArray(data) ? data : []);
-    }).finally(() => setLoadingLots(false));
+    api
+      .get<PaginatedResponse<LotResponse>>(
+        `/admin/lots?development_id=${selectedDev}&status=AVAILABLE&per_page=50`
+      )
+      .then((data) => setLots(data?.items ?? []))
+      .catch(() => setLots([]))
+      .finally(() => setLoadingLots(false));
   }, [selectedDev]);
 
   useEffect(() => {

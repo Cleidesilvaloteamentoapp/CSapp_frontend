@@ -250,11 +250,23 @@ export default function PortalDocumentsPage() {
               <label className="text-sm font-medium">Arquivo *</label>
               <Input
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
                 className="mt-1"
-                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  if (f && f.size > 100 * 1024 * 1024) {
+                    toast.error(
+                      `Arquivo muito grande (${(f.size / 1024 / 1024).toFixed(1)}MB). Máximo: 100MB.`
+                    );
+                    e.target.value = "";
+                    setUploadFile(null);
+                    return;
+                  }
+                  setUploadFile(f);
+                }}
               />
-              <p className="text-xs text-muted-foreground mt-1">PDF, JPG ou PNG (máx 10MB)</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                PDF, imagens, planilhas e documentos (máx 100MB)
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium">Descrição (opcional)</label>

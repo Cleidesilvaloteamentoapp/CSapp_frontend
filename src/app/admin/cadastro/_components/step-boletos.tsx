@@ -141,9 +141,16 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmType, setConfirmType] = useState<"INDIVIDUAL" | "BATCH">("BATCH");
 
-  // Pre-compute batch defaults from clientLot
+  // Pre-compute batch defaults from clientLot.
+  // Pydantic serializes Decimal as string, so coerce defensively to avoid
+  // string concatenation producing NaN.
+  const toNumber = (v: unknown): number => {
+    const n = typeof v === "number" ? v : parseFloat(String(v ?? 0));
+    return Number.isFinite(n) ? n : 0;
+  };
   const computedParcelaValue = clientLot
-    ? (clientLot.total_value - (clientLot.down_payment ?? 0)) / (clientLot.total_installments || 12)
+    ? (toNumber(clientLot.total_value) - toNumber(clientLot.down_payment)) /
+      (clientLot.total_installments || 12)
     : 0;
   const computedFirstDue = (clientLot?.payment_plan as Record<string, unknown>)?.first_due as string | undefined;
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Ban, Loader2, Sparkles } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Ban, Loader2, Sparkles, KeyRound, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +37,7 @@ import type { ClientResponse, PaginatedResponse } from "@/types";
 import { ClientFormDialog } from "./client-form-dialog";
 import { ClientDetailSheet } from "./client-detail-sheet";
 import { PermissionGuard } from "@/components/shared/permission-guard";
+import { ClientPortalAccessDialog } from "@/components/shared/client-portal-access-dialog";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   active: { label: "Ativo", variant: "default" },
@@ -54,6 +55,11 @@ export default function ClientsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientResponse | null>(null);
   const [detailClient, setDetailClient] = useState<ClientResponse | null>(null);
+  const [portalDialog, setPortalDialog] = useState<{
+    open: boolean;
+    client: ClientResponse | null;
+    mode: "create" | "reset";
+  }>({ open: false, client: null, mode: "create" });
 
   const loadClients = useCallback(async () => {
     setLoading(true);
@@ -222,6 +228,27 @@ export default function ClientsPage() {
                                 </DropdownMenuItem>
                               </PermissionGuard>
                               <PermissionGuard permission="manage_clients">
+                                {client.profile_id ? (
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPortalDialog({ open: true, client, mode: "reset" });
+                                    }}
+                                  >
+                                    <KeyRound className="mr-2 h-4 w-4" /> Editar senha do portal
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPortalDialog({ open: true, client, mode: "create" });
+                                    }}
+                                  >
+                                    <ShieldCheck className="mr-2 h-4 w-4" /> Criar acesso ao portal
+                                  </DropdownMenuItem>
+                                )}
+                              </PermissionGuard>
+                              <PermissionGuard permission="manage_clients">
                                 <DropdownMenuItem
                                   className="text-yellow-600"
                                   onClick={(e) => { e.stopPropagation(); handleDeactivate(client.id); }}
@@ -287,6 +314,18 @@ export default function ClientsPage() {
         client={editingClient}
         onSuccess={handleFormSuccess}
       />
+
+      {/* Portal access / password reset Dialog */}
+      {portalDialog.client && (
+        <ClientPortalAccessDialog
+          open={portalDialog.open}
+          onOpenChange={(o) => setPortalDialog((p) => ({ ...p, open: o }))}
+          clientId={portalDialog.client.id}
+          clientName={portalDialog.client.full_name}
+          mode={portalDialog.mode}
+          onSuccess={loadClients}
+        />
+      )}
 
       {/* Detail Sheet */}
       <ClientDetailSheet

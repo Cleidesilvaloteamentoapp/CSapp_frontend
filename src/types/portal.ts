@@ -67,6 +67,7 @@ export interface ClientDocument {
   file_url: string;
   file_size: number;
   description: string | null;
+  tags: string[];
   status: DocumentStatus;
   rejection_reason: string | null;
   reviewed_at: string | null;
