@@ -141,17 +141,25 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmType, setConfirmType] = useState<"INDIVIDUAL" | "BATCH">("BATCH");
 
-  // Pre-compute batch defaults from clientLot.
-  // Pydantic serializes Decimal as string, so coerce defensively to avoid
-  // string concatenation producing NaN.
+  // Coerce Pydantic Decimal (may arrive as string) to number.
   const toNumber = (v: unknown): number => {
     const n = typeof v === "number" ? v : parseFloat(String(v ?? 0));
     return Number.isFinite(n) ? n : 0;
   };
+
+  // Use the server-calculated installment value; fall back to formula.
   const computedParcelaValue = clientLot
-    ? (toNumber(clientLot.total_value) - toNumber(clientLot.down_payment)) /
-      (clientLot.total_installments || 12)
+    ? toNumber(clientLot.current_installment_value) ||
+      (toNumber(clientLot.total_value) - toNumber(clientLot.down_payment)) /
+        (clientLot.total_installments || 12)
     : 0;
+
+  // First batch is always min(total_installments, 12) — the annual generation cycle.
+  // Even on a 120-installment contract, only 12 boletos are issued per year.
+  const totalInstallments = clientLot?.total_installments || 12;
+  const firstBatchCount = Math.min(totalInstallments, 12);
+  const totalCycles = Math.ceil(totalInstallments / 12);
+  const computedNumBoletos = String(invoiceCount > 0 ? Math.min(invoiceCount, 12) : firstBatchCount);
   const computedFirstDue = (clientLot?.payment_plan as Record<string, unknown>)?.first_due as string | undefined;
 
   // Individual boleto form
@@ -187,8 +195,9 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
   // Batch state — pre-populated from clientLot
   const [batchValor, setBatchValor] = useState(computedParcelaValue > 0 ? String(Math.round(computedParcelaValue * 100) / 100) : "");
   const [frequency, setFrequency] = useState<BatchFrequency>("MENSAL");
-  const [durationMonths, setDurationMonths] = useState("12");
+  const [durationMonths, setDurationMonths] = useState(computedNumBoletos);
   const [dataInicio, setDataInicio] = useState(computedFirstDue || "");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [tipoJuros, setTipoJuros] = useState<TipoJuros>("ISENTO");
   const [juros, setJuros] = useState("");
   const [tipoMulta, setTipoMulta] = useState<TipoMulta>("ISENTO");
@@ -785,65 +794,115 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
 
             {mode === "BATCH" && (
               <>
-                <Card>
+                {/* Confirmation card — shows pre-filled values from the sale */}
+                <Card className="border-primary/30 bg-primary/5">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <CalendarRange className="h-4 w-4" />
-                      Configuração das Parcelas
+                      <CalendarRange className="h-4 w-4 text-primary" />
+                      Confirmação dos Boletos — Ciclo 1{totalCycles > 1 ? ` de ${totalCycles}` : ""}
                     </CardTitle>
+                    <CardDescription>
+                      {totalCycles > 1
+                        ? `Contrato de ${totalInstallments} parcelas. Os boletos são emitidos de 12 em 12 por ano. Após o pagamento do 12º boleto, você gera o próximo ciclo com reajuste anual.`
+                        : "Dados preenchidos automaticamente a partir da venda. Confira e ajuste se necessário."}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-1">
-                          Valor por Parcela (R$)
-                          <HelpHint text="Valor de cada boleto gerado. Calculado automaticamente a partir do plano de pagamento. Mínimo R$ 2,50." />
-                        </Label>
-                        <CurrencyInput value={batchValor ? parseFloat(batchValor) : undefined} onChange={(v) => setBatchValor(v != null ? String(v) : "")} placeholder="500,00" />
-                        {batchValor && parseFloat(batchValor) <= 0 && (
-                          <p className="text-xs text-destructive">Valor deve ser maior que zero</p>
-                        )}
+                    {totalCycles > 1 && (
+                      <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2 text-sm text-blue-800">
+                        <span className="shrink-0">📅</span>
+                        <span>
+                          Este lote emite <strong>{durationMonths} boletos</strong> (1º ano).
+                          Restam <strong>{totalInstallments - parseInt(durationMonths || "12")} parcelas</strong> para os próximos{" "}
+                          {totalCycles - 1} ciclo{totalCycles - 1 > 1 ? "s" : ""}.
+                        </span>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-1">
-                          Frequência
-                          <HelpHint text="Intervalo entre os vencimentos dos boletos gerados." />
-                        </Label>
-                        <Select value={frequency} onValueChange={(v) => setFrequency(v as BatchFrequency)}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {FREQ_OPTIONS.map((f) => (
-                              <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    )}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                      <div className="rounded-lg border bg-background p-3">
+                        <p className="text-xs text-muted-foreground mb-1">Valor por boleto</p>
+                        <p className="font-bold text-base">
+                          {batchValor && parseFloat(batchValor) > 0
+                            ? formatCurrency(parseFloat(batchValor))
+                            : <span className="text-destructive text-sm">Preencher abaixo</span>}
+                        </p>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-1">
-                          Duração (meses)
-                          <HelpHint text="Sempre 12 meses. O sistema gera boletos anualmente, de 12 em 12." />
-                        </Label>
-                        <Input type="number" min="1" max="12" value={durationMonths} onChange={(e) => setDurationMonths(e.target.value)} />
-                        <p className="text-xs text-muted-foreground">Máx 12 boletos por lote</p>
+                      <div className="rounded-lg border bg-background p-3">
+                        <p className="text-xs text-muted-foreground mb-1">Boletos este lote</p>
+                        <p className="font-bold text-base">{durationMonths} de {totalInstallments}</p>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-1">
-                          Primeiro Vencimento
-                          <HelpHint text="Data de vencimento do primeiro boleto. Os demais serão calculados pela frequência escolhida." />
-                        </Label>
-                        <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className={cn(!dataInicio && "border-destructive")} />
-                        {!dataInicio && (
-                          <p className="text-xs text-destructive">Data de início é obrigatória</p>
-                        )}
+                      <div className="rounded-lg border bg-background p-3">
+                        <p className="text-xs text-muted-foreground mb-1">Frequência</p>
+                        <p className="font-bold text-base">{FREQ_OPTIONS.find(f => f.value === frequency)?.label}</p>
+                      </div>
+                      <div className="rounded-lg border bg-background p-3">
+                        <p className="text-xs text-muted-foreground mb-1">1º Vencimento</p>
+                        <p className="font-bold text-base">
+                          {dataInicio
+                            ? new Date(dataInicio + "T12:00:00").toLocaleDateString("pt-BR")
+                            : <span className="text-destructive text-sm">Preencher abaixo</span>}
+                        </p>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1">
-                        Negativação Automática (dias, opcional)
-                        <HelpHint text="Dias após vencimento para negativação no SPC/Serasa via Sicredi. Deixe vazio para não negativar." />
-                      </Label>
-                      <Input type="number" min="0" value={diasNegativacao} onChange={(e) => setDiasNegativacao(e.target.value)} placeholder="Ex: 30" />
-                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvanced(!showAdvanced)}
+                      className="w-full text-sm text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 py-1"
+                    >
+                      {showAdvanced ? "▲ Ocultar ajustes" : "▼ Ajustar valores"}
+                    </button>
+
+                    {showAdvanced && (
+                      <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-1">
+                            Valor por Parcela (R$)
+                            <HelpHint text="Calculado automaticamente: (total - entrada) ÷ parcelas." />
+                          </Label>
+                          <CurrencyInput value={batchValor ? parseFloat(batchValor) : undefined} onChange={(v) => setBatchValor(v != null ? String(v) : "")} placeholder="500,00" />
+                          {batchValor && parseFloat(batchValor) <= 0 && (
+                            <p className="text-xs text-destructive">Valor deve ser maior que zero</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-1">
+                            Frequência
+                            <HelpHint text="Intervalo entre os vencimentos." />
+                          </Label>
+                          <Select value={frequency} onValueChange={(v) => setFrequency(v as BatchFrequency)}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {FREQ_OPTIONS.map((f) => (
+                                <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-1">
+                            Qtd de Boletos
+                            <HelpHint text="Máximo 12 por lote. O próximo ciclo é gerado após todos serem pagos." />
+                          </Label>
+                          <Input type="number" min="1" max="12" value={durationMonths} onChange={(e) => setDurationMonths(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-1">
+                            Primeiro Vencimento
+                            <HelpHint text="Data de vencimento do primeiro boleto." />
+                          </Label>
+                          <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className={cn(!dataInicio && "border-destructive")} />
+                          {!dataInicio && <p className="text-xs text-destructive">Obrigatória</p>}
+                        </div>
+                        <div className="space-y-2 col-span-2">
+                          <Label className="flex items-center gap-1">
+                            Negativação Automática (dias, opcional)
+                            <HelpHint text="Entre 3 e 99 dias após vencimento. Deixe vazio para não negativar." />
+                          </Label>
+                          <Input type="number" min="3" max="99" value={diasNegativacao} onChange={(e) => setDiasNegativacao(e.target.value)} placeholder="Ex: 30" />
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
