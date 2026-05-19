@@ -101,6 +101,14 @@ async function proxyRequest(
       }
     });
 
+    // 204 and 304 are null-body statuses — Response constructor rejects a body for them
+    if (response.status === 204 || response.status === 304) {
+      return new NextResponse(null, {
+        status: response.status,
+        headers: responseHeaders,
+      });
+    }
+
     const responseBody = await response.text();
 
     return new NextResponse(responseBody, {
