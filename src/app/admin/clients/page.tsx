@@ -50,7 +50,7 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<PaginatedResponse<ClientResponse> | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("active");
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientResponse | null>(null);
