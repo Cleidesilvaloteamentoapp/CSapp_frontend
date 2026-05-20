@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   Users,
@@ -116,72 +117,80 @@ export default function AdminDashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Clientes Ativos</CardTitle>
-            <Users className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats?.active_clients ?? 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats?.total_clients ?? 0} total
-              {(stats?.defaulter_clients ?? 0) > 0 && (
-                <button
-                  onClick={handleOpenDefaulters}
-                  className="text-destructive ml-2 underline underline-offset-2 hover:text-destructive/80 transition-colors cursor-pointer"
-                >
-                  {stats?.defaulter_clients} inadimplente{(stats?.defaulter_clients ?? 0) > 1 ? "s" : ""}
-                </button>
-              )}
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/admin/clients" className="transition-transform hover:scale-[1.02]">
+          <Card className="h-full cursor-pointer hover:border-primary/40 transition-colors">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Clientes Ativos</CardTitle>
+              <Users className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{stats?.active_clients ?? 0}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats?.total_clients ?? 0} total
+                {(stats?.defaulter_clients ?? 0) > 0 && (
+                  <button
+                    onClick={(e) => { e.preventDefault(); handleOpenDefaulters(); }}
+                    className="text-destructive ml-2 underline underline-offset-2 hover:text-destructive/80 transition-colors cursor-pointer"
+                  >
+                    {stats?.defaulter_clients} inadimplente{(stats?.defaulter_clients ?? 0) > 1 ? "s" : ""}
+                  </button>
+                )}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Lotes</CardTitle>
-            <LandPlot className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats?.total_lots ?? 0}</div>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant="secondary" className="text-xs bg-success/10 text-success border-0">
-                {stats?.available_lots ?? 0} disponíveis
-              </Badge>
-              <Badge variant="secondary" className="text-xs">
-                {stats?.sold_lots ?? 0} vendidos
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+        <Link href="/admin/developments" className="transition-transform hover:scale-[1.02]">
+          <Card className="h-full cursor-pointer hover:border-primary/40 transition-colors">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Lotes</CardTitle>
+              <LandPlot className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{stats?.total_lots ?? 0}</div>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="secondary" className="text-xs bg-success/10 text-success border-0">
+                  {stats?.available_lots ?? 0} disponíveis
+                </Badge>
+                <Badge variant="secondary" className="text-xs">
+                  {stats?.sold_lots ?? 0} vendidos
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">A Receber</CardTitle>
-            <DollarSign className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-success">
-              {financial ? formatCurrency(financial.total_receivable) : "—"}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Recebido: {financial ? formatCurrency(financial.total_received) : "—"}
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/admin/financial" className="transition-transform hover:scale-[1.02]">
+          <Card className="h-full cursor-pointer hover:border-primary/40 transition-colors">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">A Receber</CardTitle>
+              <DollarSign className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-success">
+                {financial ? formatCurrency(financial.total_receivable) : "—"}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Recebido: {financial ? formatCurrency(financial.total_received) : "—"}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Ordens de Serviço</CardTitle>
-            <Wrench className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats?.open_service_orders ?? 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats?.completed_service_orders ?? 0} concluídas
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/admin/services" className="transition-transform hover:scale-[1.02]">
+          <Card className="h-full cursor-pointer hover:border-primary/40 transition-colors">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Ordens de Serviço</CardTitle>
+              <Wrench className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{stats?.open_service_orders ?? 0}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats?.completed_service_orders ?? 0} concluídas
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Financial Alert */}

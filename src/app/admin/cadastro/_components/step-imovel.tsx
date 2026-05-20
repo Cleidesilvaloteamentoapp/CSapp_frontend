@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Home, Link2, Plus, Loader2, AlertTriangle } from "lucide-react";
+import { Home, Link2, Plus, Loader2, AlertTriangle, Unlink, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -58,6 +58,11 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
   const [submitting, setSubmitting] = useState(false);
   const [newLotId, setNewLotId] = useState<string | null>(null);
 
+  // Existing client lots
+  const [existingLots, setExistingLots] = useState<ClientLotResponse[]>([]);
+  const [loadingExisting, setLoadingExisting] = useState(true);
+  const [unlinking, setUnlinking] = useState<string | null>(null);
+
   // Create lot form
   const createForm = useForm<LotCreateFormData>({
     resolver: zodResolver(lotCreateSchema) as never,
@@ -83,7 +88,29 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
       setDevelopments(devs);
     });
     getFinancialSettings().catch(() => null).then((d) => setCompanyDefaults(d));
-  }, []);
+    // Load existing lots for this client
+    api.get<ClientLotResponse[]>(`/admin/clients/${client.id}/lots`)
+      .then((data) => setExistingLots(Array.isArray(data) ? data : []))
+      .catch(() => setExistingLots([]))
+      .finally(() => setLoadingExisting(false));
+  }, [client.id]);
+
+  async function handleUnlinkLot(clientLotId: string) {
+    setUnlinking(clientLotId);
+    try {
+      await api.delete(`/admin/lots/assign/${clientLotId}`);
+      toast.success("Lote desvinculado com sucesso");
+      setExistingLots((prev) => prev.filter((l) => l.id !== clientLotId));
+    } catch (error) {
+      if (error instanceof ApiError) {
+        toast.error(typeof error.detail === "string" ? error.detail : "Erro ao desvincular lote");
+      } else {
+        toast.error("Erro ao desvincular lote");
+      }
+    } finally {
+      setUnlinking(null);
+    }
+  }
 
   useEffect(() => {
     if (!selectedDev) {
@@ -165,6 +192,49 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
 
   return (
     <div className="space-y-4">
+      {/* Existing lots section */}
+      {!loadingExisting && existingLots.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Info className="h-4 w-4 text-blue-600" />
+              Lotes já vinculados a este cliente
+            </CardTitle>
+            <CardDescription>
+              Este cliente já possui lote(s) vinculado(s). Você pode desvincular um existente ou vincular um novo lote adicional abaixo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {existingLots.map((lot) => (
+              <div
+                key={lot.id}
+                className="flex items-center justify-between rounded-lg border bg-background p-3"
+              >
+                <div>
+                  <p className="text-sm font-medium">Lote {lot.lot_id.slice(0, 8)}...</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatCurrency(lot.total_value)} &bull; {lot.status}
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={unlinking === lot.id}
+                  onClick={() => handleUnlinkLot(lot.id)}
+                >
+                  {unlinking === lot.id ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Unlink className="mr-1 h-3 w-3" />
+                  )}
+                  Desvincular
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs value={mode} onValueChange={(v) => setMode(v as "EXISTING" | "NEW")} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="EXISTING">

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -36,6 +36,7 @@ interface ClientFormDialogProps {
 
 export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: ClientFormDialogProps) {
   const isEditing = !!client;
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<ClientCreateFormData>({
     resolver: zodResolver(clientCreateSchema) as never,
@@ -277,7 +278,22 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
                       <FormItem>
                         <FormLabel>Senha do cliente</FormLabel>
                         <FormControl>
-                          <Input type="password" placeholder="Mínimo 8 caracteres" {...field} />
+                          <div className="relative">
+                            <Input type={showPassword ? "text" : "password"} placeholder="Mínimo 8 caracteres" {...field} />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                              onClick={() => setShowPassword(!showPassword)}
+                            >
+                              {showPassword ? (
+                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
