@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Home, Link2, Plus, Loader2, AlertTriangle, Unlink, Info } from "lucide-react";
+import { Home, Link2, Plus, Loader2, AlertTriangle, Unlink, Info, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -120,7 +120,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
     setLoadingLots(true);
     api
       .get<PaginatedResponse<LotResponse>>(
-        `/admin/lots?development_id=${selectedDev}&status=AVAILABLE&per_page=50`
+        `/admin/lots?development_id=${selectedDev}&per_page=50`
       )
       .then((data) => setLots(data?.items ?? []))
       .catch(() => setLots([]))
@@ -252,8 +252,8 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Selecionar Lote</CardTitle>
               <CardDescription>
-                Escolha um empreendimento e depois o lote disponível.
-                <HelpHint text="Só serão listados lotes com status 'Disponível'. Lotes vendidos não aparecem." />
+                Escolha um empreendimento para ver todos os lotes cadastrados.
+                <HelpHint text="Todos os lotes do empreendimento são exibidos. Lotes já vendidos para outros clientes não podem ser selecionados." />
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -283,17 +283,22 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                     </div>
                   ) : lots.length === 0 ? (
                     <p className="text-sm text-muted-foreground py-2">
-                      Nenhum lote disponível neste empreendimento. Cadastre um novo lote na aba ao lado.
+                      Nenhum lote cadastrado neste empreendimento. Cadastre um novo lote na aba ao lado.
                     </p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {lots.map((lot) => {
                         const isSelected = selectedLot?.id === lot.id;
+                        const isOwnedByThisClient = existingLots.some((el) => el.lot_id === lot.id);
+                        const isOwnedByOtherClient = !isOwnedByThisClient && lot.status === "SOLD";
+                        const isDisabled = isOwnedByOtherClient || isOwnedByThisClient;
                         return (
                           <button
                             key={lot.id}
                             type="button"
+                            disabled={isDisabled}
                             onClick={() => {
+                              if (isDisabled) return;
                               setSelectedLot(lot);
                               assignForm.setValue("lot_id", lot.id);
                               assignForm.setValue("total_value", parseFloat(lot.price));
@@ -302,6 +307,10 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                               "rounded-lg border p-3 text-left transition-colors",
                               isSelected
                                 ? "border-primary bg-primary/5"
+                                : isOwnedByThisClient
+                                ? "border-blue-200 bg-blue-50/50 cursor-not-allowed opacity-70"
+                                : isOwnedByOtherClient
+                                ? "border-border bg-muted/50 cursor-not-allowed opacity-60"
                                 : "border-border hover:border-primary/50"
                             )}
                           >
@@ -309,13 +318,33 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                               <span className="font-semibold text-sm">
                                 Lote {lot.lot_number}{lot.block ? ` - Quadra ${lot.block}` : ""}
                               </span>
-                              <Badge variant="outline" className="text-xs">
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-xs",
+                                  lot.status === "AVAILABLE" && "border-green-500 text-green-700",
+                                  lot.status === "SOLD" && "border-red-400 text-red-700",
+                                  lot.status === "RESERVED" && "border-yellow-500 text-yellow-700"
+                                )}
+                              >
                                 {LOT_STATUS_LABELS[lot.status] ?? lot.status}
                               </Badge>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
                               {formatCurrency(lot.price)} &bull; {lot.area_m2}m²
                             </p>
+                            {isOwnedByOtherClient && (
+                              <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                <Ban className="h-3 w-3" />
+                                Este lote já possui cliente
+                              </p>
+                            )}
+                            {isOwnedByThisClient && (
+                              <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                                <Info className="h-3 w-3" />
+                                Vinculado a este cliente
+                              </p>
+                            )}
                           </button>
                         );
                       })}
