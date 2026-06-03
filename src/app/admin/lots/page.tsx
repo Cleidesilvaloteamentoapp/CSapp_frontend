@@ -31,6 +31,8 @@ import { formatCurrency, formatArea } from "@/lib/format";
 import type { LotResponse, PaginatedResponse, DevelopmentResponse, ClientResponse, CompanyFinancialSettingsResponse } from "@/types";
 import { getFinancialSettings } from "@/services/admin";
 import { cn } from "@/lib/utils";
+import { ConfirmSaleDialog, type RateOverrides } from "@/components/financial/confirm-sale-dialog";
+import type { PlanPreviewRequest } from "@/lib/pricing";
 
 const LOT_STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   AVAILABLE: { label: "Disponível", variant: "default" },
@@ -51,6 +53,12 @@ export default function LotsPage() {
   const [selectedLot, setSelectedLot] = useState<LotResponse | null>(null);
   const [financialExpanded, setFinancialExpanded] = useState(false);
   const [companyDefaults, setCompanyDefaults] = useState<CompanyFinancialSettingsResponse | null>(null);
+
+  // Confirmation step
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [previewRequest, setPreviewRequest] = useState<PlanPreviewRequest | null>(null);
+  const [pendingData, setPendingData] = useState<LotAssignFormData | null>(null);
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
 
   const createForm = useForm<LotCreateFormData>({
     resolver: zodResolver(lotCreateSchema) as never,
@@ -125,14 +133,40 @@ export default function LotsPage() {
     setAssignOpen(true);
   }
 
-  async function onAssignSubmit(data: LotAssignFormData) {
+  // Validate, then open the confirmation dialog (does NOT submit yet).
+  function onAssignSubmit(data: LotAssignFormData) {
+    const plan = data.payment_plan;
+    setPreviewRequest({
+      total_value: data.total_value,
+      down_payment: plan?.down_payment ?? data.down_payment,
+      total_installments: data.total_installments ?? plan?.installments,
+      monthly_value: plan?.monthly_value,
+      purchase_date: data.purchase_date,
+      first_due: plan?.first_due || undefined,
+      penalty_rate: data.penalty_rate,
+      daily_interest_rate: data.daily_interest_rate,
+      adjustment_index: data.adjustment_index,
+      adjustment_frequency: data.adjustment_frequency,
+      adjustment_custom_rate: data.adjustment_custom_rate,
+    });
+    setPendingData(data);
+    setConfirmOpen(true);
+  }
+
+  // Admin confirmed — merge rate edits and create the sale.
+  async function doAssign(overrides: RateOverrides) {
+    if (!pendingData) return;
+    setAssignSubmitting(true);
     try {
-      await api.post("/admin/lots/assign", data);
+      await api.post("/admin/lots/assign", { ...pendingData, ...overrides });
       toast.success("Lote vendido com sucesso! Faturas geradas automaticamente.");
+      setConfirmOpen(false);
       setAssignOpen(false);
       loadLots();
     } catch (error) {
       if (error instanceof ApiError) toast.error(typeof error.detail === "string" ? error.detail : "Erro ao vender lote");
+    } finally {
+      setAssignSubmitting(false);
     }
   }
 
@@ -313,12 +347,15 @@ export default function LotsPage() {
                 <h4 className="text-sm font-semibold text-muted-foreground">Plano de Pagamento</h4>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField control={assignForm.control} name="payment_plan.installments" render={({ field }) => (
-                    <FormItem><FormLabel>Parcelas</FormLabel><FormControl><Input type="text" inputMode="numeric" {...field} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Parcelas</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="Automático se informar valor mensal" {...field} onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={assignForm.control} name="payment_plan.first_due" render={({ field }) => (
-                    <FormItem><FormLabel>Primeiro Vencimento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormField control={assignForm.control} name="payment_plan.monthly_value" render={({ field }) => (
+                    <FormItem><FormLabel>Valor Mensal (R$)</FormLabel><FormControl><CurrencyInput placeholder="Automático" value={field.value as number | undefined} onChange={field.onChange} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
+                <FormField control={assignForm.control} name="payment_plan.first_due" render={({ field }) => (
+                  <FormItem><FormLabel>Primeiro Vencimento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
               </div>
               {/* Expandable Financial Rules */}
               <div className="rounded-lg border">
@@ -431,14 +468,22 @@ export default function LotsPage() {
 
               <div className="flex justify-end gap-3 pt-2">
                 <Button type="button" variant="outline" onClick={() => setAssignOpen(false)}>Cancelar</Button>
-                <Button type="submit" disabled={assignForm.formState.isSubmitting} className="bg-success hover:bg-success/90">
-                  {assignForm.formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</> : "Confirmar Venda"}
+                <Button type="submit" className="bg-success hover:bg-success/90">
+                  Revisar e confirmar
                 </Button>
               </div>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmSaleDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        request={previewRequest}
+        submitting={assignSubmitting}
+        onConfirm={doAssign}
+      />
     </div>
   );
 }

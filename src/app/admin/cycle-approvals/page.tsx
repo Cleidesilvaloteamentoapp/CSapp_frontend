@@ -118,6 +118,7 @@ export default function CycleApprovalsPage() {
     try {
       await approveCycle(approveTarget.id, {
         new_installment_value: parseFloat(newValue),
+        adjustment_details: approveTarget.suggested_adjustment_details || undefined,
         admin_notes: approveNotes || undefined,
       });
       toast.success("Ciclo aprovado com sucesso");
@@ -339,7 +340,7 @@ export default function CycleApprovalsPage() {
                                   className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
                                   onClick={() => {
                                     setApproveTarget(item);
-                                    setNewValue(String(item.previous_installment_value));
+                                    setNewValue(String(item.suggested_new_value ?? item.previous_installment_value));
                                     setApproveNotes("");
                                     setApproveOpen(true);
                                   }}
@@ -457,14 +458,62 @@ export default function CycleApprovalsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="rounded-lg bg-muted p-3">
-              <div className="flex items-center justify-between text-sm">
+            <div className="rounded-lg bg-muted p-3 space-y-1.5 text-sm">
+              <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Valor anterior:</span>
                 <span className="font-semibold">
                   {approveTarget ? formatCurrency(approveTarget.previous_installment_value) : "—"}
                 </span>
               </div>
+              {approveTarget?.remaining_installments != null && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Débito do ciclo:</span>
+                  <span className="font-medium">
+                    gera {approveTarget.installments_to_generate ?? 0} — restam {approveTarget.remaining_installments} de {approveTarget.total_installments ?? "?"}
+                  </span>
+                </div>
+              )}
+              {approveTarget?.last_adjustment_date && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Último reajuste:</span>
+                  <span className="font-medium">{formatDate(approveTarget.last_adjustment_date)}</span>
+                </div>
+              )}
             </div>
+
+            {/* Taxas aplicadas anteriormente — destaque para revisão */}
+            {approveTarget?.effective_rates && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-amber-800">
+                  Taxas aplicadas (revise antes de aprovar)
+                </p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-amber-900">
+                  <span>Multa: <strong>{approveTarget.effective_rates.penalty_rate}%</strong></span>
+                  <span>Juros/dia: <strong>{approveTarget.effective_rates.daily_interest_rate}%</strong></span>
+                  <span>Índice: <strong>{approveTarget.effective_rates.adjustment_index}</strong></span>
+                  <span>Taxa fixa: <strong>{approveTarget.effective_rates.adjustment_custom_rate}%</strong></span>
+                </div>
+                {approveTarget.previous_adjustment_details && Object.keys(approveTarget.previous_adjustment_details).length > 0 && (
+                  <p className="mt-2 text-xs text-amber-700">
+                    Reajuste anterior: {JSON.stringify(approveTarget.previous_adjustment_details)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Sugestão de cálculo (IPCA acumulado + taxa fixa) */}
+            {approveTarget?.suggested_new_value != null && (
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                <div className="flex items-center justify-between">
+                  <span>Valor sugerido (IPCA + taxa fixa):</span>
+                  <span className="font-semibold">{formatCurrency(approveTarget.suggested_new_value)}</span>
+                </div>
+                <p className="mt-1 text-xs text-green-700">
+                  Pré-preenchido abaixo. Edite se necessário antes de aprovar.
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="text-sm font-medium">Novo Valor da Parcela *</label>
               <Input

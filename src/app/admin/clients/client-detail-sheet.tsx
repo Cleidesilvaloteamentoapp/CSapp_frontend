@@ -49,6 +49,8 @@ import {
   getInstallmentInfo, getClientDocuments,
 } from "@/services/admin";
 import { InstallmentInfoCard } from "@/components/shared/installment-info-card";
+import { ConfirmSaleDialog, type RateOverrides } from "@/components/financial/confirm-sale-dialog";
+import type { PlanPreviewRequest } from "@/lib/pricing";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   active: { label: "Ativo", variant: "default" },
@@ -123,7 +125,8 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
     lot_id: "",
     purchase_date: new Date().toISOString().split("T")[0],
     total_value: 0,
-    installments: 12,
+    installments: 12 as number | undefined,
+    monthly_value: undefined as number | undefined,
     first_due: "",
     down_payment: undefined as number | undefined,
     penalty_rate: undefined as number | undefined,
@@ -133,6 +136,11 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
     adjustment_custom_rate: undefined as number | undefined,
     annual_adjustment_rate: undefined as number | undefined,
   });
+
+  // Confirmation step
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [previewRequest, setPreviewRequest] = useState<PlanPreviewRequest | null>(null);
+  const [pendingPayload, setPendingPayload] = useState<Record<string, unknown> | null>(null);
   
   const { boletos, loading: boletosLoading, error: boletosError } = useClientBoletos(client?.id || null);
 
@@ -233,7 +241,7 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
   async function openAssignDialog() {
     setAssignForm({
       lot_id: "", purchase_date: new Date().toISOString().split("T")[0],
-      total_value: 0, installments: 12, first_due: "",
+      total_value: 0, installments: 12, monthly_value: undefined, first_due: "",
       down_payment: undefined, penalty_rate: undefined, daily_interest_rate: undefined,
       adjustment_index: undefined, adjustment_frequency: undefined,
       adjustment_custom_rate: undefined, annual_adjustment_rate: undefined,
@@ -252,7 +260,8 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
     }
   }
 
-  async function handleAssignLot() {
+  // Validate, then open the confirmation dialog (does NOT submit yet).
+  function handleAssignLot() {
     if (!client || !assignForm.lot_id) {
       toast.error("Selecione um lote");
       return;
@@ -261,30 +270,51 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
       toast.error("Valor total deve ser maior que 0");
       return;
     }
+    const payload: Record<string, unknown> = {
+      client_id: client.id,
+      lot_id: assignForm.lot_id,
+      purchase_date: assignForm.purchase_date,
+      total_value: assignForm.total_value,
+      payment_plan: {
+        installments: assignForm.installments,
+        monthly_value: assignForm.monthly_value,
+        first_due: assignForm.first_due || undefined,
+        down_payment: assignForm.down_payment,
+      },
+    };
+    if (assignForm.penalty_rate !== undefined) payload.penalty_rate = assignForm.penalty_rate;
+    if (assignForm.daily_interest_rate !== undefined) payload.daily_interest_rate = assignForm.daily_interest_rate;
+    if (assignForm.adjustment_index !== undefined) payload.adjustment_index = assignForm.adjustment_index;
+    if (assignForm.adjustment_frequency !== undefined) payload.adjustment_frequency = assignForm.adjustment_frequency;
+    if (assignForm.adjustment_custom_rate !== undefined) payload.adjustment_custom_rate = assignForm.adjustment_custom_rate;
+    if (assignForm.annual_adjustment_rate !== undefined) payload.annual_adjustment_rate = assignForm.annual_adjustment_rate;
+
+    setPendingPayload(payload);
+    setPreviewRequest({
+      total_value: assignForm.total_value,
+      down_payment: assignForm.down_payment,
+      total_installments: assignForm.installments,
+      monthly_value: assignForm.monthly_value,
+      purchase_date: assignForm.purchase_date,
+      first_due: assignForm.first_due || undefined,
+      penalty_rate: assignForm.penalty_rate,
+      daily_interest_rate: assignForm.daily_interest_rate,
+      adjustment_index: assignForm.adjustment_index,
+      adjustment_frequency: assignForm.adjustment_frequency,
+      adjustment_custom_rate: assignForm.adjustment_custom_rate,
+    });
+    setConfirmOpen(true);
+  }
+
+  // Admin confirmed — merge rate edits and create the sale.
+  async function doAssignLot(overrides: RateOverrides) {
+    if (!client || !pendingPayload) return;
     setAssigningLot(true);
     try {
-      const payload: Record<string, unknown> = {
-        client_id: client.id,
-        lot_id: assignForm.lot_id,
-        purchase_date: assignForm.purchase_date,
-        total_value: assignForm.total_value,
-        payment_plan: {
-          installments: assignForm.installments,
-          first_due: assignForm.first_due || undefined,
-          down_payment: assignForm.down_payment,
-        },
-      };
-      if (assignForm.penalty_rate !== undefined) payload.penalty_rate = assignForm.penalty_rate;
-      if (assignForm.daily_interest_rate !== undefined) payload.daily_interest_rate = assignForm.daily_interest_rate;
-      if (assignForm.adjustment_index !== undefined) payload.adjustment_index = assignForm.adjustment_index;
-      if (assignForm.adjustment_frequency !== undefined) payload.adjustment_frequency = assignForm.adjustment_frequency;
-      if (assignForm.adjustment_custom_rate !== undefined) payload.adjustment_custom_rate = assignForm.adjustment_custom_rate;
-      if (assignForm.annual_adjustment_rate !== undefined) payload.annual_adjustment_rate = assignForm.annual_adjustment_rate;
-      
-      await api.post("/admin/lots/assign", payload);
+      await api.post("/admin/lots/assign", { ...pendingPayload, ...overrides });
       toast.success("Lote atrelado com sucesso! Faturas geradas automaticamente.");
+      setConfirmOpen(false);
       setAssignDialogOpen(false);
-      // Reload lots
       const updatedLots = await api.get<ClientLotResponse[]>(`/admin/clients/${client.id}/lots`).catch(() => []);
       setLots(updatedLots);
     } catch (error) {
@@ -1115,18 +1145,27 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                 <Input
                   type="text"
                   inputMode="numeric"
-                  value={assignForm.installments}
-                  onChange={(e) => setAssignForm((p) => ({ ...p, installments: parseInt(e.target.value) || 12 }))}
+                  placeholder="Automático se informar valor mensal"
+                  value={assignForm.installments ?? ""}
+                  onChange={(e) => setAssignForm((p) => ({ ...p, installments: e.target.value ? parseInt(e.target.value) : undefined }))}
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Primeiro Vencimento</label>
-                <Input
-                  type="date"
-                  value={assignForm.first_due}
-                  onChange={(e) => setAssignForm((p) => ({ ...p, first_due: e.target.value }))}
+                <label className="text-sm font-medium">Valor Mensal (R$)</label>
+                <CurrencyInput
+                  placeholder="Automático"
+                  value={assignForm.monthly_value}
+                  onChange={(v) => setAssignForm((p) => ({ ...p, monthly_value: v }))}
                 />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Primeiro Vencimento</label>
+              <Input
+                type="date"
+                value={assignForm.first_due}
+                onChange={(e) => setAssignForm((p) => ({ ...p, first_due: e.target.value }))}
+              />
             </div>
           </div>
 
@@ -1233,16 +1272,20 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleAssignLot} disabled={assigningLot || !assignForm.lot_id}>
-              {assigningLot ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</>
-              ) : (
-                <><Plus className="mr-2 h-4 w-4" />Confirmar Venda</>
-              )}
+              <Plus className="mr-2 h-4 w-4" />Revisar e confirmar
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
+
+    <ConfirmSaleDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      request={previewRequest}
+      submitting={assigningLot}
+      onConfirm={doAssignLot}
+    />
 
     {/* Document Upload Dialog */}
     <Dialog open={uploadDocDialogOpen} onOpenChange={setUploadDocDialogOpen}>

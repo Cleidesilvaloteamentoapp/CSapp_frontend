@@ -625,6 +625,20 @@ export interface CycleApprovalResponse {
   client_name: string | null;
   lot_identifier: string | null;
   total_installments: number | null;
+  // Review data (enriched by the backend)
+  effective_rates: {
+    penalty_rate: number;
+    daily_interest_rate: number;
+    adjustment_index: string;
+    adjustment_frequency: string;
+    adjustment_custom_rate: number;
+  } | null;
+  last_adjustment_date: string | null;
+  previous_adjustment_details: Record<string, unknown> | null;
+  suggested_new_value: number | null;
+  suggested_adjustment_details: Record<string, unknown> | null;
+  remaining_installments: number | null;
+  installments_to_generate: number | null;
 }
 
 // ===================== Contract Transfer =====================
@@ -693,6 +707,48 @@ export const WORKFLOW_STATUS_CONFIG: Record<
   CANCELLED: { label: "Cancelado", variant: "secondary", color: "text-gray-500" },
   CONTACTED: { label: "Contactado", variant: "outline", color: "text-blue-500" },
 };
+
+// ===================== Rescission (Distrato) =====================
+export type RescissionStatus =
+  | "REQUESTED" | "PENDING_APPROVAL" | "APPROVED" | "COMPLETED" | "CANCELLED";
+
+export interface RescissionResponse {
+  id: string;
+  company_id: string;
+  client_id: string;
+  client_lot_id: string;
+  status: RescissionStatus;
+  reason: string;
+  total_paid: number;
+  total_debt: number;
+  refund_amount: number;
+  penalty_amount: number;
+  request_date: string;
+  approval_date: string | null;
+  completion_date: string | null;
+  admin_notes: string | null;
+  document_path: string | null;
+  metadata_json: Record<string, unknown> | null;
+  requested_by: string | null;
+  approved_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ===================== Sicredi Audit Events =====================
+export interface SicrediEventResponse {
+  id: string;
+  company_id: string | null;
+  direction: "INBOUND" | "OUTBOUND";
+  event_type: string;
+  nosso_numero: string | null;
+  boleto_id: string | null;
+  invoice_id: string | null;
+  http_status: number | null;
+  success: boolean | null;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+}
 
 // ===================== Manual Writeoff =====================
 export interface ManualWriteoffRequest {

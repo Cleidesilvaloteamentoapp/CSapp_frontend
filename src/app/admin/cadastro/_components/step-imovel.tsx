@@ -34,6 +34,8 @@ import type { DevelopmentResponse, LotResponse, ClientResponse, ClientLotRespons
 import { getFinancialSettings } from "@/services/admin";
 import { cn } from "@/lib/utils";
 import { HelpHint } from "./help-hint";
+import { ConfirmSaleDialog, type RateOverrides } from "@/components/financial/confirm-sale-dialog";
+import type { PlanPreviewRequest } from "@/lib/pricing";
 
 interface StepImovelProps {
   client: ClientResponse;
@@ -57,6 +59,11 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
   const [companyDefaults, setCompanyDefaults] = useState<CompanyFinancialSettingsResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [newLotId, setNewLotId] = useState<string | null>(null);
+
+  // Confirmation step (shows critical fields + effective rates before submit)
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [previewRequest, setPreviewRequest] = useState<PlanPreviewRequest | null>(null);
+  const [pendingData, setPendingData] = useState<LotAssignFormData | null>(null);
 
   // Existing client lots
   const [existingLots, setExistingLots] = useState<ClientLotResponse[]>([]);
@@ -168,12 +175,34 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
     }
   }
 
-  async function handleAssign(data: LotAssignFormData) {
+  // Step 1: validate form, then open the confirmation dialog (does NOT submit yet).
+  function handleAssign(data: LotAssignFormData) {
+    const plan = data.payment_plan;
+    setPreviewRequest({
+      total_value: data.total_value,
+      down_payment: plan?.down_payment,
+      total_installments: data.total_installments ?? plan?.installments,
+      monthly_value: plan?.monthly_value,
+      purchase_date: data.purchase_date,
+      first_due: plan?.first_due || undefined,
+      penalty_rate: data.penalty_rate,
+      daily_interest_rate: data.daily_interest_rate,
+      adjustment_index: data.adjustment_index,
+      adjustment_frequency: data.adjustment_frequency,
+      adjustment_custom_rate: data.adjustment_custom_rate,
+    });
+    setPendingData(data);
+    setConfirmOpen(true);
+  }
+
+  // Step 2: admin confirmed — merge any rate edits and actually create the sale.
+  async function doAssign(overrides: RateOverrides) {
+    if (!pendingData) return;
     setSubmitting(true);
     try {
-      const res = await api.post<ClientLotResponse>("/admin/lots/assign", data);
+      const payload = { ...pendingData, ...overrides };
+      const res = await api.post<ClientLotResponse>("/admin/lots/assign", payload);
       toast.success("Lote atrelado com sucesso! Parcelas geradas automaticamente.");
-      // Try to count invoices created
       let invoiceCount = 0;
       try {
         const plan = res.payment_plan as { installments?: number } | null;
@@ -181,6 +210,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
       } catch {
         // ignore
       }
+      setConfirmOpen(false);
       onComplete(res, invoiceCount);
     } catch (error) {
       if (error instanceof ApiError) toast.error(typeof error.detail === "string" ? error.detail : "Erro ao atrelar lote");
@@ -712,7 +742,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                     Voltar
                   </Button>
                   <Button type="submit" disabled={submitting} className="bg-success hover:bg-success/90">
-                    {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</> : "Confirmar Venda"}
+                    Revisar e confirmar
                   </Button>
                 </div>
               </CardContent>
@@ -720,6 +750,14 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
           </form>
         </Form>
       )}
+
+      <ConfirmSaleDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        request={previewRequest}
+        submitting={submitting}
+        onConfirm={doAssign}
+      />
     </div>
   );
 }

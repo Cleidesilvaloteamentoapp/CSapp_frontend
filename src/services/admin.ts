@@ -16,6 +16,8 @@ import type {
   InstallmentInfo,
   GenerateNextBatchResponse,
   AdminNotification,
+  RescissionResponse,
+  SicrediEventResponse,
 } from "@/types";
 import type { Boleto } from "@/types/sicredi";
 import type { ClientDocument } from "@/types/portal";
@@ -145,6 +147,60 @@ export async function cancelTransfer(
   return api.post<ContractTransferResponse>(
     `/admin/transfers/${id}/cancel`
   );
+}
+
+// ===================== Rescissions (Distrato) =====================
+
+export async function listRescissions(params?: {
+  status?: string;
+  client_id?: string;
+}): Promise<RescissionResponse[]> {
+  const query = new URLSearchParams();
+  if (params?.status) query.set("status", params.status);
+  if (params?.client_id) query.set("client_id", params.client_id);
+  const qs = query.toString();
+  return api.get<RescissionResponse[]>(`/admin/rescissions${qs ? `?${qs}` : ""}`);
+}
+
+export async function getRescissionDetail(id: string): Promise<RescissionResponse> {
+  return api.get<RescissionResponse>(`/admin/rescissions/${id}`);
+}
+
+export async function approveRescission(
+  id: string,
+  data: { approved: boolean; refund_amount?: number; penalty_amount?: number; admin_notes?: string }
+): Promise<RescissionResponse> {
+  return api.post<RescissionResponse>(`/admin/rescissions/${id}/approve`, data);
+}
+
+export async function completeRescission(id: string): Promise<RescissionResponse> {
+  return api.post<RescissionResponse>(`/admin/rescissions/${id}/complete`);
+}
+
+export async function revertRescission(
+  id: string,
+  data?: { admin_notes?: string }
+): Promise<RescissionResponse> {
+  return api.post<RescissionResponse>(`/admin/rescissions/${id}/revert`, data ?? {});
+}
+
+// ===================== Sicredi Audit Events =====================
+
+export async function listSicrediEvents(params?: {
+  direction?: string;
+  nosso_numero?: string;
+  event_type?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<SicrediEventResponse[]> {
+  const query = new URLSearchParams();
+  if (params?.direction) query.set("direction", params.direction);
+  if (params?.nosso_numero) query.set("nosso_numero", params.nosso_numero);
+  if (params?.event_type) query.set("event_type", params.event_type);
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.offset) query.set("offset", String(params.offset));
+  const qs = query.toString();
+  return api.get<SicrediEventResponse[]>(`/admin/sicredi-events${qs ? `?${qs}` : ""}`);
 }
 
 // ===================== Early Payoff Requests (Admin) =====================

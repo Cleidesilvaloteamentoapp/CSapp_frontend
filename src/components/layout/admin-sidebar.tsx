@@ -27,6 +27,8 @@ import {
   UserCog,
   KeyRound,
   UserPlus,
+  Ban,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -74,11 +76,13 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/cycle-approvals", label: "Aprovação de Ciclos", icon: CheckCircle, badge: "pending", permission: "manage_financial" },
   { href: "/admin/transfers", label: "Transferências", icon: ArrowLeftRight, permission: "manage_clients" },
   { href: "/admin/early-payoff-requests", label: "Antecipações", icon: FastForward, permission: "manage_financial" },
+  { href: "/admin/rescissions", label: "Rescisões", icon: Ban, permission: "manage_rescissions" },
   { href: "/admin/bank-statements", label: "Extratos Bancários", icon: FileSpreadsheet, badge: "coming-soon", permission: "view_financial" },
   { href: "/admin/services", label: "Serviços", icon: Wrench, permission: "view_service_requests", separator: true },
   { href: "/admin/sicredi/boletos", label: "Boletos", icon: Barcode, permission: "manage_sicredi" },
   { href: "/admin/sicredi/boletos/batch", label: "Lote Boletos", icon: ListChecks, permission: "manage_sicredi" },
   { href: "/admin/sicredi/config", label: "Config Sicredi", icon: Settings, permission: "manage_sicredi" },
+  { href: "/admin/sicredi-events", label: "Auditoria Sicredi", icon: Landmark, permission: "manage_sicredi" },
   { href: "/admin/documents", label: "Documentos", icon: FolderOpen, permission: "view_documents" },
   { href: "/admin/service-requests", label: "Solicitações", icon: TicketCheck, permission: "view_service_requests" },
   { href: "/admin/settings/whatsapp", label: "WhatsApp", icon: MessageSquare, permission: "manage_whatsapp", separator: true },
