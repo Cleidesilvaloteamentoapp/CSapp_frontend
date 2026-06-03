@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, MapPin, Pencil, Loader2, Home, Building, Store, Trees, Filter } from "lucide-react";
+import { Plus, MapPin, Pencil, Loader2, Home, Building, Store, Trees, Filter, ChevronDown, ChevronRight, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import { PermissionGuard } from "@/components/shared/permission-guard";
 import { StatsCardsSkeleton } from "@/components/shared/loading-skeleton";
 import { PropertyTypeQuiz } from "@/components/shared/property-type-quiz";
 import { PropertyForm } from "@/components/shared/property-form";
+import { PhotoManager } from "@/components/shared/photo-manager";
 import { api, ApiError } from "@/lib/api";
 import { developmentCreateSchema, type DevelopmentCreateFormData } from "@/lib/validators";
 import { formatDate, formatCurrency, formatArea } from "@/lib/format";
@@ -39,6 +40,41 @@ export default function DevelopmentsPage() {
   const [selectedType, setSelectedType] = useState<PropertyType | null>(null);
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"properties" | "lots">("properties");
+  const [expandedDevs, setExpandedDevs] = useState<Set<string>>(new Set());
+  const [childLotsMap, setChildLotsMap] = useState<Record<string, LotResponse[]>>({});
+  const [loadingChildren, setLoadingChildren] = useState<Set<string>>(new Set());
+
+  async function loadChildLots(devId: string) {
+    if (childLotsMap[devId]) return; // already loaded
+    setLoadingChildren((prev) => new Set(prev).add(devId));
+    try {
+      const res = await api.get<PaginatedResponse<LotResponse>>(
+        `/admin/lots?development_id=${devId}&per_page=50`
+      );
+      setChildLotsMap((prev) => ({ ...prev, [devId]: res.items }));
+    } catch {
+      setChildLotsMap((prev) => ({ ...prev, [devId]: [] }));
+    } finally {
+      setLoadingChildren((prev) => {
+        const next = new Set(prev);
+        next.delete(devId);
+        return next;
+      });
+    }
+  }
+
+  function toggleExpanded(devId: string) {
+    setExpandedDevs((prev) => {
+      const next = new Set(prev);
+      if (next.has(devId)) {
+        next.delete(devId);
+      } else {
+        next.add(devId);
+        loadChildLots(devId);
+      }
+      return next;
+    });
+  }
 
   const form = useForm<DevelopmentCreateFormData>({
     resolver: zodResolver(developmentCreateSchema) as never,
@@ -110,13 +146,15 @@ export default function DevelopmentsPage() {
       if (editing) {
         await api.put(`/admin/developments/${editing.id}`, data);
         toast.success("Imóvel atualizado");
+        setFormOpen(false);
+        setEditing(null);
+        setSelectedType(null);
       } else {
-        await api.post("/admin/developments", data);
-        toast.success("Imóvel criado");
+        const created = await api.post<DevelopmentResponse>("/admin/developments", data);
+        toast.success("Imóvel criado — adicione as fotos abaixo");
+        // Keep the dialog open in edit mode so the user can add photos now.
+        setEditing(created);
       }
-      setFormOpen(false);
-      setEditing(null);
-      setSelectedType(null);
       loadData();
     } catch (error) {
       if (error instanceof ApiError) {
@@ -242,10 +280,26 @@ export default function DevelopmentsPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
+                    {/* Foto principal do empreendimento */}
+                    {(() => {
+                      const primary = dev.photos?.find((p) => p.is_primary) ?? dev.photos?.[0];
+                      if (!primary?.url) return null;
+                      return (
+                        <div className="mb-3 overflow-hidden rounded-md">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={primary.url}
+                            alt={dev.name}
+                            className="h-32 w-full object-cover"
+                          />
+                        </div>
+                      );
+                    })()}
+
                     {dev.description && (
                       <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{dev.description}</p>
                     )}
-                    
+
                     {/* Informações específicas por tipo */}
                     <div className="space-y-2 text-sm">
                       {dev.property_type === "LOT" && (
@@ -300,6 +354,72 @@ export default function DevelopmentsPage() {
                       )}
                     </div>
                     
+                    {/* Lotes filhos vinculados ao empreendimento */}
+                    {(() => {
+                      const expanded = expandedDevs.has(dev.id);
+                      const children = childLotsMap[dev.id];
+                      const isLoading = loadingChildren.has(dev.id);
+                      return (
+                        <div className="mt-3 pt-3 border-t">
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(dev.id)}
+                            className="flex w-full items-center justify-between text-sm font-medium hover:text-primary transition-colors"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <Building className="h-3.5 w-3.5" />
+                              Lotes vinculados
+                              {children !== undefined && (
+                                <Badge variant="secondary" className="text-xs">{children.length}</Badge>
+                              )}
+                            </span>
+                            {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          </button>
+
+                          {expanded && (
+                            <div className="mt-2 space-y-1.5">
+                              {isLoading ? (
+                                <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando lotes...
+                                </div>
+                              ) : children && children.length > 0 ? (
+                                children.map((lot) => {
+                                  const primary = lot.photos?.find((p) => p.is_primary) ?? lot.photos?.[0];
+                                  return (
+                                    <div key={lot.id} className="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs">
+                                      {primary?.url ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={primary.url} alt={`Lote ${lot.lot_number}`} className="h-9 w-9 shrink-0 rounded object-cover" />
+                                      ) : (
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-muted">
+                                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                        </div>
+                                      )}
+                                      <div className="min-w-0 flex-1">
+                                        <p className="font-medium truncate">
+                                          Lote {lot.lot_number}{lot.block ? ` · Q ${lot.block}` : ""}
+                                        </p>
+                                        <p className="text-muted-foreground">
+                                          {formatArea(parseFloat(lot.area_m2))} · {formatCurrency(parseFloat(lot.price))}
+                                        </p>
+                                      </div>
+                                      <Badge variant={lot.status === "AVAILABLE" ? "default" : lot.status === "SOLD" ? "secondary" : "outline"}>
+                                        {lot.status === "AVAILABLE" ? "Disponível" : lot.status === "SOLD" ? "Vendido" : "Reservado"}
+                                      </Badge>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <p className="py-2 text-xs text-muted-foreground">
+                                  Nenhum lote vinculado a este empreendimento ainda.
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     <p className="text-xs text-muted-foreground mt-3 pt-3 border-t">
                       Criado em {formatDate(dev.created_at)}
                     </p>
@@ -388,6 +508,7 @@ export default function DevelopmentsPage() {
         if (!open) {
           setEditing(null);
           setSelectedType(null);
+          loadData(); // refresh card thumbnails after photo edits
         }
       }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -427,6 +548,27 @@ export default function DevelopmentsPage() {
               } : undefined}
             />
           )}
+
+          {/* Fotos: disponíveis após o imóvel existir (precisa de id) */}
+          <div className="mt-2 border-t pt-4">
+            <h4 className="mb-1 text-sm font-medium">Fotos do imóvel</h4>
+            {editing ? (
+              <>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Defina a foto principal e escolha quais aparecem para o cliente no portal.
+                </p>
+                <PhotoManager
+                  basePath={`/admin/developments/${editing.id}`}
+                  photos={editing.photos ?? []}
+                  onChange={(photos) => setEditing((prev) => (prev ? { ...prev, photos } : prev))}
+                />
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Salve o imóvel primeiro para adicionar fotos.
+              </p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

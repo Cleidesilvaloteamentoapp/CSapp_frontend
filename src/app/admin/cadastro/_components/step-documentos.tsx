@@ -14,9 +14,13 @@ import {
   FileQuestion,
   Download,
   X,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -67,6 +71,7 @@ export function StepDocumentos({
   const [selectedType, setSelectedType] = useState<DocumentType>("OUTROS");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [visibleToClient, setVisibleToClient] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleFileSelect(file: File | null) {
@@ -108,12 +113,14 @@ export function StepDocumentos({
       if (tags.length > 0) {
         formData.append("tags", JSON.stringify(tags));
       }
+      formData.append("visible_to_client", String(visibleToClient));
       const doc = await api.post<ClientDocument>(`/admin/clients/${clientId}/documents`, formData);
       toast.success("Documento enviado com sucesso");
       setDocuments((prev) => [...prev, doc]);
       onAddDocument(doc);
       setSelectedFile(null);
       setTags([]);
+      setVisibleToClient(false);
       if (inputRef.current) inputRef.current.value = "";
     } catch (error) {
       if (error instanceof ApiError) {
@@ -215,6 +222,24 @@ export function StepDocumentos({
             />
           </div>
 
+          <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="visible-to-client" className="flex items-center gap-1.5 text-sm font-medium">
+                {visibleToClient ? <Eye className="h-4 w-4 text-green-600" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                Expor ao cliente
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Quando ativado, o documento aparece para o cliente no portal. Por padrão fica oculto.
+              </p>
+            </div>
+            <Switch
+              id="visible-to-client"
+              checked={visibleToClient}
+              onCheckedChange={setVisibleToClient}
+              disabled={uploading}
+            />
+          </div>
+
           <div className="flex justify-end gap-2">
             <Button
               variant="outline"
@@ -224,6 +249,7 @@ export function StepDocumentos({
                 setSelectedType("OUTROS");
                 setTags([]);
                 setTagInput("");
+                setVisibleToClient(false);
                 if (inputRef.current) inputRef.current.value = "";
               }}
               disabled={uploading}
@@ -272,6 +298,11 @@ export function StepDocumentos({
                             <Badge variant="outline" className="text-xs">
                               {DOCUMENT_TYPE_LABELS[doc.document_type]}
                             </Badge>
+                            {doc.visible_to_client && (
+                              <Badge className="gap-1 bg-green-100 text-green-700 text-xs hover:bg-green-100">
+                                <Eye className="h-3 w-3" /> Cliente
+                              </Badge>
+                            )}
                             {(doc.tags ?? []).map((t) => (
                               <Badge key={t} variant="secondary" className="text-xs">
                                 {t}

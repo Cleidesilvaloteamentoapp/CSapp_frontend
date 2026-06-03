@@ -214,6 +214,16 @@ export const PROPERTY_TYPE_ICONS: Record<PropertyType, string> = {
   RURAL: "🌾",
 };
 
+// ===================== Photos =====================
+export interface Photo {
+  id: string;
+  path?: string | null;
+  url: string | null;
+  is_primary: boolean;
+  visible_to_client: boolean;
+  caption: string | null;
+}
+
 // ===================== Development =====================
 export interface DevelopmentCreate {
   name: string;
@@ -272,6 +282,7 @@ export interface DevelopmentResponse {
   total_area_m2: string | null;
   price: string | null;
   documents: Record<string, unknown> | null;
+  photos: Photo[];
   created_at: string;
   updated_at: string;
 }
@@ -307,6 +318,7 @@ export interface LotResponse {
   price: string;
   status: LotStatus;
   documents: Record<string, unknown> | null;
+  photos: Photo[];
   created_at: string;
   updated_at: string;
 }
@@ -353,6 +365,12 @@ export interface ClientLotResponse {
   status: string;
   created_at: string;
   updated_at: string;
+  // Optional property context (populated by the client portal my-lots endpoint)
+  lot_number?: string | null;
+  block?: string | null;
+  development_name?: string | null;
+  lot_photos?: Photo[];
+  development_photos?: Photo[];
 }
 
 export interface CompanyFinancialSettingsResponse {

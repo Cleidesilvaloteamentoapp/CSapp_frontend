@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Home, Link2, Plus, Loader2, AlertTriangle, Unlink, Info, Ban } from "lucide-react";
+import { Home, Link2, Plus, Loader2, AlertTriangle, Unlink, Info, Ban, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -35,6 +35,7 @@ import { getFinancialSettings } from "@/services/admin";
 import { cn } from "@/lib/utils";
 import { HelpHint } from "./help-hint";
 import { ConfirmSaleDialog, type RateOverrides } from "@/components/financial/confirm-sale-dialog";
+import { PhotoManager } from "@/components/shared/photo-manager";
 import type { PlanPreviewRequest } from "@/lib/pricing";
 
 interface StepImovelProps {
@@ -481,6 +482,29 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
           </Form>
         </TabsContent>
       </Tabs>
+
+      {/* Fotos do lote selecionado / recém-criado */}
+      {selectedLot && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ImageIcon className="h-4 w-4" />
+              Fotos do Lote {selectedLot.lot_number}{selectedLot.block ? ` - Quadra ${selectedLot.block}` : ""}
+            </CardTitle>
+            <CardDescription>
+              Adicione a foto principal e as secundárias. Escolha quais aparecem para o cliente no portal.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PhotoManager
+              key={selectedLot.id}
+              basePath={`/admin/lots/${selectedLot.id}`}
+              photos={selectedLot.photos ?? []}
+              onChange={(photos) => setSelectedLot((prev) => (prev ? { ...prev, photos } : prev))}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Assignment form - visible once a lot is selected */}
       {(selectedLot || newLotId) && (

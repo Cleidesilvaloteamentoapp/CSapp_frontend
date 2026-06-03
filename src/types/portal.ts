@@ -69,6 +69,7 @@ export interface ClientDocument {
   description: string | null;
   tags: string[];
   status: DocumentStatus;
+  visible_to_client: boolean;
   rejection_reason: string | null;
   reviewed_at: string | null;
   reviewed_by: string | null;
