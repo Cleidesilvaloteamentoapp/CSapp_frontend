@@ -123,6 +123,14 @@ export const lotCreateSchema = z.object({
   price: z.coerce.number().positive("Preço deve ser maior que 0"),
 });
 
+export const lotUpdateSchema = z.object({
+  lot_number: z.string().min(1, "Número do lote é obrigatório").optional(),
+  block: z.string().optional(),
+  area_m2: z.coerce.number().positive("Área deve ser maior que 0").optional(),
+  price: z.coerce.number().positive("Preço deve ser maior que 0").optional(),
+  status: z.enum(["AVAILABLE", "RESERVED", "SOLD"]).optional(),
+});
+
 export const lotAssignSchema = z.object({
   client_id: z.string().uuid("Selecione um cliente"),
   lot_id: z.string().uuid("Selecione um lote"),
@@ -170,6 +178,7 @@ export type SignupFormData = z.infer<typeof signupSchema>;
 export type ClientCreateFormData = z.infer<typeof clientCreateSchema>;
 export type DevelopmentCreateFormData = z.infer<typeof developmentCreateSchema>;
 export type LotCreateFormData = z.infer<typeof lotCreateSchema>;
+export type LotUpdateFormData = z.infer<typeof lotUpdateSchema>;
 export type LotAssignFormData = z.infer<typeof lotAssignSchema>;
 export type ServiceTypeCreateFormData = z.infer<typeof serviceTypeCreateSchema>;
 export type ServiceOrderCreateFormData = z.infer<typeof serviceOrderCreateSchema>;
