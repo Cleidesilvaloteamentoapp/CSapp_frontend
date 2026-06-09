@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
 import { HelpHint } from "./help-hint";
 import { ConfirmSaleDialog, type RateOverrides } from "@/components/financial/confirm-sale-dialog";
 import { PhotoManager } from "@/components/shared/photo-manager";
-import type { PlanPreviewRequest } from "@/lib/pricing";
+import { computePlanLocal, type PlanPreviewRequest } from "@/lib/pricing";
 
 interface StepImovelProps {
   client: ClientResponse;
@@ -90,6 +90,19 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
   });
 
   const watchedLotId = assignForm.watch("lot_id");
+
+  // Live, bidirectional payment-plan preview (parcelas <-> valor mensal).
+  const wTotal = assignForm.watch("total_value");
+  const wDown = assignForm.watch("payment_plan.down_payment");
+  const wInstallments = assignForm.watch("payment_plan.installments");
+  const wMonthly = assignForm.watch("payment_plan.monthly_value");
+  const livePlan = computePlanLocal({
+    totalValue: wTotal,
+    downPayment: wDown,
+    // When a monthly value is typed, derive the count from it; otherwise use the count.
+    installments: wMonthly ? undefined : wInstallments,
+    monthlyValue: wMonthly,
+  });
 
   useEffect(() => {
     api.get<DevelopmentResponse[]>("/admin/developments/").catch(() => []).then((devs) => {
@@ -179,10 +192,21 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
   // Step 1: validate form, then open the confirmation dialog (does NOT submit yet).
   function handleAssign(data: LotAssignFormData) {
     const plan = data.payment_plan;
+    // If a monthly value is given, let it drive the installment count: the
+    // backend gives precedence to `installments`, so drop it for monthly-first.
+    const monthlyDriven = !!plan?.monthly_value && plan.monthly_value > 0;
+    const normalized: LotAssignFormData = monthlyDriven
+      ? {
+          ...data,
+          total_installments: undefined,
+          payment_plan: plan ? { ...plan, installments: undefined } : plan,
+        }
+      : data;
+
     setPreviewRequest({
       total_value: data.total_value,
       down_payment: plan?.down_payment,
-      total_installments: data.total_installments ?? plan?.installments,
+      total_installments: monthlyDriven ? undefined : (data.total_installments ?? plan?.installments),
       monthly_value: plan?.monthly_value,
       purchase_date: data.purchase_date,
       first_due: plan?.first_due || undefined,
@@ -192,7 +216,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
       adjustment_frequency: data.adjustment_frequency,
       adjustment_custom_rate: data.adjustment_custom_rate,
     });
-    setPendingData(data);
+    setPendingData(normalized);
     setConfirmOpen(true);
   }
 
@@ -626,6 +650,35 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                       )}
                     />
                   </div>
+
+                  {livePlan && !livePlan.error && livePlan.installments > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-lg border bg-muted/40 p-3 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Valor financiado</p>
+                        <p className="font-semibold">{formatCurrency(livePlan.financedValue)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Nº de parcelas</p>
+                        <p className="font-semibold">{livePlan.installments}x</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Valor da parcela</p>
+                        <p className="font-semibold">{formatCurrency(livePlan.monthlyValue)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Total (entrada + parcelas)</p>
+                        <p className="font-semibold">{formatCurrency(livePlan.downPayment + livePlan.monthlyValue * (livePlan.installments - 1) + livePlan.lastInstallmentValue)}</p>
+                      </div>
+                      {livePlan.hasResidue && (
+                        <p className="col-span-2 sm:col-span-4 text-xs text-muted-foreground">
+                          Última parcela: {formatCurrency(livePlan.lastInstallmentValue)} (ajuste de arredondamento).
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {livePlan?.error && (
+                    <p className="text-xs text-destructive">{livePlan.error}</p>
+                  )}
                 </div>
 
                 {/* Financial Rules - Inline */}
@@ -746,6 +799,22 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                           </FormLabel>
                           <FormControl>
                             <Input type="number" step="0.1" placeholder="5" {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={assignForm.control}
+                      name="manual_index_value"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Índice do dia (%) — IPCA manual
+                            <HelpHint text="Valor do índice (ex: IPCA do dia) a usar neste contrato, somado à taxa fixa no reajuste. Se preenchido, substitui a busca automática do índice. Ex: 0,5 = 0,5%." />
+                          </FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" placeholder="Automático" {...field} value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

@@ -1,5 +1,46 @@
 import { z } from "zod";
 
+// ---------------------------------------------------------------------------
+// CPF/CNPJ validation (check digits) — mirrors backend app/utils/documents.py
+// ---------------------------------------------------------------------------
+
+const onlyDigits = (v: string) => (v || "").replace(/\D/g, "");
+
+export function isValidCpf(cpf: string): boolean {
+  const d = onlyDigits(cpf);
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  for (const len of [9, 10]) {
+    let total = 0;
+    for (let i = 0; i < len; i++) total += parseInt(d[i], 10) * (len + 1 - i);
+    let check = (total * 10) % 11;
+    if (check === 10) check = 0;
+    if (check !== parseInt(d[len], 10)) return false;
+  }
+  return true;
+}
+
+export function isValidCnpj(cnpj: string): boolean {
+  const d = onlyDigits(cnpj);
+  if (d.length !== 14 || /^(\d)\1{13}$/.test(d)) return false;
+  const w1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const w2 = [6, ...w1];
+  for (const [weights, pos] of [[w1, 12], [w2, 13]] as const) {
+    let total = 0;
+    for (let i = 0; i < pos; i++) total += parseInt(d[i], 10) * weights[i];
+    const rem = total % 11;
+    const check = rem < 2 ? 0 : 11 - rem;
+    if (check !== parseInt(d[pos], 10)) return false;
+  }
+  return true;
+}
+
+export function isValidCpfCnpj(documento: string): boolean {
+  const d = onlyDigits(documento);
+  if (d.length === 11) return isValidCpf(d);
+  if (d.length === 14) return isValidCnpj(d);
+  return false;
+}
+
 export const loginSchema = z.object({
   email: z.string().email("E-mail inválido"),
   password: z.string().min(8, "Senha deve ter no mínimo 8 caracteres"),
@@ -144,6 +185,7 @@ export const lotAssignSchema = z.object({
   adjustment_index: z.enum(["IPCA", "IGPM", "CUB", "INPC"]).optional(),
   adjustment_frequency: z.enum(["MONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"]).optional(),
   adjustment_custom_rate: z.coerce.number().min(0).max(100).optional(),
+  manual_index_value: z.coerce.number().min(0).max(100).optional(),
   payment_plan: z
     .object({
       installments: z.coerce.number().int().positive().optional(),

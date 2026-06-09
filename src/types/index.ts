@@ -467,6 +467,9 @@ export interface ServiceOrderResponse {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  client_name?: string | null;
+  client_cpf_cnpj?: string | null;
+  service_type_name?: string | null;
 }
 
 // ===================== Referral =====================

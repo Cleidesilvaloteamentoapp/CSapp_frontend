@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Save, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { PageHeader } from "@/components/layout/page-header";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
-import { getClientProfile, updateClientProfile } from "@/services/portal";
+import { getClientProfile, updateClientProfile, uploadClientProfilePhoto } from "@/services/portal";
 import type { ClientProfile, ClientProfileUpdate } from "@/types/portal";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -24,6 +24,8 @@ export default function PortalProfilePage() {
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Editable fields
   const [email, setEmail] = useState("");
@@ -53,6 +55,26 @@ export default function PortalProfilePage() {
       toast.error("Erro ao carregar perfil.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem.");
+      return;
+    }
+    setUploadingPhoto(true);
+    try {
+      const updated = await uploadClientProfilePhoto(file);
+      setProfile(updated);
+      toast.success("Foto atualizada com sucesso");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar foto.");
+    } finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -110,6 +132,40 @@ export default function PortalProfilePage() {
           <CardDescription>Informações vinculadas ao seu cadastro</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex items-center gap-4 mb-6">
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border bg-muted">
+              {profile.photo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.photo_url} alt={profile.full_name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <User className="h-8 w-8 text-muted-foreground" />
+                </div>
+              )}
+            </div>
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoChange}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={uploadingPhoto}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploadingPhoto ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
+                ) : (
+                  "Alterar foto"
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground mt-1">JPG, PNG ou WEBP.</p>
+            </div>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="text-xs font-medium text-muted-foreground">Nome Completo</label>

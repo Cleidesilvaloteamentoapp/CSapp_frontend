@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/table";
 import { useSicrediBoletos } from "@/hooks/use-sicredi";
 import { formatCurrency } from "@/lib/format";
+import { isValidCpfCnpj } from "@/lib/validators";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -136,7 +137,7 @@ const boletoSchema = z.object({
 type BoletoFormValues = z.infer<typeof boletoSchema>;
 
 export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplete, onBack }: StepBoletosProps) {
-  const { create, createBatch, loading } = useSicrediBoletos();
+  const { create, createBatch, loading, error } = useSicrediBoletos();
   const [mode, setMode] = useState<"SKIP" | "INDIVIDUAL" | "BATCH">(clientLot ? "BATCH" : "SKIP");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmType, setConfirmType] = useState<"INDIVIDUAL" | "BATCH">("BATCH");
@@ -236,6 +237,10 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
   const totalValue = installments.reduce((sum, i) => sum + i.value, 0);
 
   async function handleIndividualSubmit(data: BoletoFormValues) {
+    if (!isValidCpfCnpj(data.documento)) {
+      toast.error("CPF/CNPJ do pagador inválido. Corrija antes de gerar o boleto.");
+      return;
+    }
     const isPF = data.documento.length <= 11;
     const payload: CreateBoletoRequest = {
       client_id: client.id,
@@ -299,7 +304,12 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
 
   async function handleBatchSubmit() {
     if (!canSubmitBatch) return;
-    const isPF = form.getValues("documento").length <= 11;
+    const documento = form.getValues("documento");
+    if (!isValidCpfCnpj(documento)) {
+      toast.error("CPF/CNPJ do pagador inválido. Corrija antes de gerar os boletos.");
+      return;
+    }
+    const isPF = documento.length <= 11;
     const payload: BatchCreateRequest = {
       client_id: client.id,
       pagador: {
@@ -331,12 +341,12 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
 
     const result = await createBatch(payload);
     if (result) {
-      toast.success(`Lote iniciado: ${result.total_items} boletos`);
+      toast.info(`Processando ${result.total_items} boletos no banco. Acompanhe o progresso abaixo.`);
       setBatchId(result.batch_id);
       setProgressOpen(true);
       onComplete({ batch_id: result.batch_id, total_items: result.total_items });
     } else {
-      toast.error("Erro ao criar lote de boletos");
+      toast.error(error || "Erro ao criar lote de boletos. Verifique os dados do pagador.");
     }
   }
 

@@ -11,6 +11,7 @@ export interface ClientProfile {
   contract_number: string | null;
   matricula: string | null;
   address: ClientAddress | null;
+  photo_url: string | null;
   status: ClientStatus;
   created_at: string;
 }

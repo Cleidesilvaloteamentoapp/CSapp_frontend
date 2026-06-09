@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
-import { Plus, Wrench, Loader2 } from "lucide-react";
+import { Plus, Wrench, Loader2, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,10 +39,13 @@ export default function ServicesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [typeFormOpen, setTypeFormOpen] = useState(false);
+  const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
   const [typeName, setTypeName] = useState("");
   const [typeDesc, setTypeDesc] = useState("");
   const [typePrice, setTypePrice] = useState("");
+  const [typeActive, setTypeActive] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingTypeId, setDeletingTypeId] = useState<string | null>(null);
 
   useEffect(() => {
     api.get<ServiceTypeResponse[]>("/admin/services/types").then(setTypes).catch(() => {});
@@ -64,23 +67,61 @@ export default function ServicesPage() {
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
-  async function handleCreateType() {
+  function openCreateType() {
+    setEditingTypeId(null);
+    setTypeName(""); setTypeDesc(""); setTypePrice(""); setTypeActive(true);
+    setTypeFormOpen(true);
+  }
+
+  function openEditType(t: ServiceTypeResponse) {
+    setEditingTypeId(t.id);
+    setTypeName(t.name);
+    setTypeDesc(t.description || "");
+    setTypePrice(String(t.base_price ?? ""));
+    setTypeActive(t.is_active);
+    setTypeFormOpen(true);
+  }
+
+  async function handleSaveType() {
     if (!typeName.trim()) return;
     setSaving(true);
     try {
-      await api.post("/admin/services/types", {
-        name: typeName, description: typeDesc || undefined,
+      const body = {
+        name: typeName,
+        description: typeDesc || undefined,
         base_price: typePrice ? parseFloat(typePrice) : undefined,
-      });
-      toast.success("Tipo de serviço criado");
+        is_active: typeActive,
+      };
+      if (editingTypeId) {
+        await api.put(`/admin/services/types/${editingTypeId}`, body);
+        toast.success("Tipo de serviço atualizado");
+      } else {
+        await api.post("/admin/services/types", body);
+        toast.success("Tipo de serviço criado");
+      }
       setTypeFormOpen(false);
-      setTypeName(""); setTypeDesc(""); setTypePrice("");
+      setEditingTypeId(null);
+      setTypeName(""); setTypeDesc(""); setTypePrice(""); setTypeActive(true);
       const data = await api.get<ServiceTypeResponse[]>("/admin/services/types");
       setTypes(data);
     } catch (error) {
       if (error instanceof ApiError) toast.error(typeof error.detail === "string" ? error.detail : "Erro");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeleteType(id: string) {
+    if (!confirm("Excluir este tipo de serviço? Esta ação não pode ser desfeita.")) return;
+    setDeletingTypeId(id);
+    try {
+      await api.delete(`/admin/services/types/${id}`);
+      toast.success("Tipo de serviço excluído");
+      setTypes((prev) => prev.filter((t) => t.id !== id));
+    } catch (error) {
+      if (error instanceof ApiError) toast.error(typeof error.detail === "string" ? error.detail : "Erro ao excluir");
+    } finally {
+      setDeletingTypeId(null);
     }
   }
 
@@ -131,6 +172,8 @@ export default function ServicesPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Data</TableHead>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead className="hidden lg:table-cell">Serviço</TableHead>
                         <TableHead className="hidden sm:table-cell">Notas</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="hidden md:table-cell">Custo</TableHead>
@@ -144,6 +187,8 @@ export default function ServicesPage() {
                         return (
                           <TableRow key={order.id}>
                             <TableCell className="text-sm">{formatDate(order.requested_date)}</TableCell>
+                            <TableCell className="text-sm font-medium">{order.client_name || "—"}</TableCell>
+                            <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{order.service_type_name || "—"}</TableCell>
                             <TableCell className="hidden sm:table-cell text-sm text-muted-foreground max-w-[200px] truncate">{order.notes || "—"}</TableCell>
                             <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
                             <TableCell className="hidden md:table-cell text-sm">{formatCurrency(order.cost)}</TableCell>
@@ -191,7 +236,7 @@ export default function ServicesPage() {
                   <CardDescription>Serviços oferecidos aos clientes</CardDescription>
                 </div>
                 <PermissionGuard permission="manage_service_requests">
-                  <Button size="sm" onClick={() => setTypeFormOpen(true)}>
+                  <Button size="sm" onClick={openCreateType}>
                     <Plus className="mr-2 h-4 w-4" /> Novo Tipo
                   </Button>
                 </PermissionGuard>
@@ -213,6 +258,23 @@ export default function ServicesPage() {
                       </div>
                       {t.description && <p className="text-xs text-muted-foreground mt-1">{t.description}</p>}
                       <p className="text-sm font-semibold mt-2">{formatCurrency(t.base_price)}</p>
+                      <PermissionGuard permission="manage_service_requests">
+                        <div className="flex gap-2 mt-3">
+                          <Button variant="outline" size="sm" className="h-8" onClick={() => openEditType(t)}>
+                            <Pencil className="mr-1 h-3 w-3" /> Editar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-destructive hover:text-destructive"
+                            disabled={deletingTypeId === t.id}
+                            onClick={() => handleDeleteType(t.id)}
+                          >
+                            {deletingTypeId === t.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
+                            Excluir
+                          </Button>
+                        </div>
+                      </PermissionGuard>
                     </div>
                   ))}
                 </div>
@@ -225,18 +287,22 @@ export default function ServicesPage() {
       <Dialog open={typeFormOpen} onOpenChange={setTypeFormOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo Tipo de Serviço</DialogTitle>
-            <DialogDescription>Defina um novo serviço disponível para os clientes</DialogDescription>
+            <DialogTitle>{editingTypeId ? "Editar Tipo de Serviço" : "Novo Tipo de Serviço"}</DialogTitle>
+            <DialogDescription>Defina um serviço disponível para os clientes</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div><label className="text-sm font-medium">Nome</label><Input value={typeName} onChange={(e) => setTypeName(e.target.value)} placeholder="Ex: Limpeza de terreno" className="mt-1" /></div>
             <div><label className="text-sm font-medium">Descrição</label><Input value={typeDesc} onChange={(e) => setTypeDesc(e.target.value)} placeholder="Opcional" className="mt-1" /></div>
             <div><label className="text-sm font-medium">Preço Base (R$)</label><Input type="number" step="0.01" value={typePrice} onChange={(e) => setTypePrice(e.target.value)} placeholder="0.00" className="mt-1" /></div>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" checked={typeActive} onChange={(e) => setTypeActive(e.target.checked)} className="h-4 w-4" />
+              Ativo (disponível para solicitação)
+            </label>
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setTypeFormOpen(false)}>Cancelar</Button>
               <PermissionGuard permission="manage_service_requests">
-                <Button onClick={handleCreateType} disabled={saving || !typeName.trim()}>
-                  {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : "Criar"}
+                <Button onClick={handleSaveType} disabled={saving || !typeName.trim()}>
+                  {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : editingTypeId ? "Salvar" : "Criar"}
                 </Button>
               </PermissionGuard>
             </div>

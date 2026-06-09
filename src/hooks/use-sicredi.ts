@@ -376,9 +376,13 @@ export function useSicrediBoletos() {
     try {
       return await createBatchBoletos(data);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Erro ao criar lote de boletos"
-      );
+      const detail =
+        err instanceof ApiError && typeof err.detail === "string"
+          ? err.detail
+          : err instanceof Error
+          ? err.message
+          : "Erro ao criar lote de boletos";
+      setError(detail);
       return null;
     } finally {
       setLoading(false);

@@ -154,6 +154,30 @@ export async function getClientDocumentDetail(
   return api.get<ClientDocument>(`/client/documents/${documentId}`);
 }
 
+export async function uploadClientProfilePhoto(file: File): Promise<ClientProfile> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  const token = getTokenFromCookie();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_URL}/client/profile/photo`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: `Erro ${res.status}` }));
+    throw new Error(typeof err.detail === "string" ? err.detail : `Erro ${res.status}`);
+  }
+
+  return res.json();
+}
+
 /** Returns redirect URL for download (client portal context) */
 export function getDocumentDownloadUrl(documentId: string): string {
   const API_URL =

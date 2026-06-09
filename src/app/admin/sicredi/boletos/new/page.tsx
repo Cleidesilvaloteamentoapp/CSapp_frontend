@@ -125,7 +125,7 @@ const STEPS = [
   { id: "cliente", label: "Cliente" },
   { id: "pagador", label: "Pagador" },
   { id: "boleto", label: "Boleto" },
-  { id: "extras", label: "Descontos/Juros" },
+  { id: "extras", label: "Descontos/Multa" },
   { id: "mensagens", label: "Mensagens" },
   { id: "revisao", label: "Revisão" },
 ];
@@ -776,7 +776,7 @@ export default function CreateBoletoPage() {
               {/* Step 4: Descontos/Juros/Multa */}
               {step === 4 && (
                 <div className="space-y-4">
-                  <CardTitle className="text-base">Descontos, Juros e Multa</CardTitle>
+                  <CardTitle className="text-base">Descontos e Multa</CardTitle>
                   <CardDescription>Campos opcionais. Deixe como "Isento" para não aplicar.</CardDescription>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
@@ -829,41 +829,8 @@ export default function CreateBoletoPage() {
                         />
                       </>
                     )}
-                    <FormField
-                      control={form.control}
-                      name="tipo_juros"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tipo de Juros</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="ISENTO">Isento</SelectItem>
-                              <SelectItem value="VALOR_DIA">Valor por Dia</SelectItem>
-                              <SelectItem value="PERCENTUAL_MES">Percentual ao Mês</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    {watchedValues.tipo_juros !== "ISENTO" && (
-                      <FormField
-                        control={form.control}
-                        name="juros"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Valor dos Juros</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" step="0.01" min="0" placeholder="0.50" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
+                    {/* Juros opcional removido a pedido: juros de atraso são
+                        definidos nas regras do contrato, não por boleto. */}
                     <FormField
                       control={form.control}
                       name="tipo_multa"
@@ -994,7 +961,6 @@ export default function CreateBoletoPage() {
                     <div className="rounded-lg border p-4 space-y-1">
                       <p className="text-sm font-semibold">Encargos</p>
                       <p className="text-xs">Desconto: {watchedValues.tipo_desconto === "ISENTO" ? "Isento" : `${watchedValues.valor_desconto_1}`}</p>
-                      <p className="text-xs">Juros: {watchedValues.tipo_juros === "ISENTO" ? "Isento" : `${watchedValues.juros}`}</p>
                       <p className="text-xs">Multa: {watchedValues.tipo_multa === "ISENTO" ? "Isento" : `${watchedValues.multa}`}</p>
                     </div>
                   </div>
