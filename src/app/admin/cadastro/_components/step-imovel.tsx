@@ -91,7 +91,10 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
 
   const watchedLotId = assignForm.watch("lot_id");
 
-  // Live, bidirectional payment-plan preview (parcelas <-> valor mensal).
+  // Whether the down payment participates in the installment math (default yes).
+  const [considerDownPayment, setConsiderDownPayment] = useState(true);
+
+  // Live payment-plan preview.
   const wTotal = assignForm.watch("total_value");
   const wDown = assignForm.watch("payment_plan.down_payment");
   const wInstallments = assignForm.watch("payment_plan.installments");
@@ -99,10 +102,21 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
   const livePlan = computePlanLocal({
     totalValue: wTotal,
     downPayment: wDown,
-    // When a monthly value is typed, derive the count from it; otherwise use the count.
-    installments: wMonthly ? undefined : wInstallments,
+    installments: wInstallments,
     monthlyValue: wMonthly,
+    considerDownPayment,
   });
+
+  // Case C (parcelas + valor mensal informados): o total é derivado. Reflete o
+  // valor calculado no campo "Valor Total" para o usuário ver e enviar correto.
+  const caseC = !!(wInstallments && wInstallments > 0 && wMonthly && wMonthly > 0);
+  useEffect(() => {
+    if (caseC && livePlan && !livePlan.error) {
+      if (Math.abs((wTotal ?? 0) - livePlan.totalValue) > 0.001) {
+        assignForm.setValue("total_value", livePlan.totalValue);
+      }
+    }
+  }, [caseC, livePlan, wTotal, assignForm]);
 
   useEffect(() => {
     api.get<DevelopmentResponse[]>("/admin/developments/").catch(() => []).then((devs) => {
@@ -192,22 +206,38 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
   // Step 1: validate form, then open the confirmation dialog (does NOT submit yet).
   function handleAssign(data: LotAssignFormData) {
     const plan = data.payment_plan;
-    // If a monthly value is given, let it drive the installment count: the
-    // backend gives precedence to `installments`, so drop it for monthly-first.
-    const monthlyDriven = !!plan?.monthly_value && plan.monthly_value > 0;
-    const normalized: LotAssignFormData = monthlyDriven
-      ? {
-          ...data,
-          total_installments: undefined,
-          payment_plan: plan ? { ...plan, installments: undefined } : plan,
-        }
-      : data;
+    // Resolve the plan the same way the preview does so what the user sees is
+    // exactly what we submit. In Case C (parcelas + mensal) the total is derived.
+    const computed = computePlanLocal({
+      totalValue: data.total_value,
+      downPayment: plan?.down_payment,
+      installments: plan?.installments ?? data.total_installments,
+      monthlyValue: plan?.monthly_value,
+      considerDownPayment,
+    });
+    const effectiveDown = considerDownPayment ? (plan?.down_payment ?? 0) : 0;
+    const finalTotal = computed?.totalValue ?? data.total_value;
+    const finalInstallments =
+      computed?.installments ?? plan?.installments ?? data.total_installments;
+
+    const normalized: LotAssignFormData = {
+      ...data,
+      total_value: finalTotal,
+      total_installments: finalInstallments,
+      payment_plan: {
+        ...plan,
+        installments: finalInstallments,
+        down_payment: effectiveDown,
+        // Backend derives the monthly value from total/installments.
+        monthly_value: undefined,
+      },
+    };
 
     setPreviewRequest({
-      total_value: data.total_value,
-      down_payment: plan?.down_payment,
-      total_installments: monthlyDriven ? undefined : (data.total_installments ?? plan?.installments),
-      monthly_value: plan?.monthly_value,
+      total_value: finalTotal,
+      down_payment: effectiveDown,
+      total_installments: finalInstallments,
+      monthly_value: undefined,
       purchase_date: data.purchase_date,
       first_due: plan?.first_due || undefined,
       penalty_rate: data.penalty_rate,
@@ -592,11 +622,20 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                         <FormItem>
                           <FormLabel>
                             Entrada (R$)
-                            <HelpHint text="Valor pago à vista. Será descontado do total na geração das parcelas." />
+                            <HelpHint text="Valor pago à vista. Quando considerada, é descontada do total antes de calcular as parcelas." />
                           </FormLabel>
                           <FormControl>
                             <CurrencyInput placeholder="0,00" value={field.value as number | undefined} onChange={field.onChange} />
                           </FormControl>
+                          <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                            <input
+                              type="checkbox"
+                              className="h-3.5 w-3.5"
+                              checked={considerDownPayment}
+                              onChange={(e) => setConsiderDownPayment(e.target.checked)}
+                            />
+                            Considerar entrada no cálculo das parcelas
+                          </label>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -608,7 +647,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                         <FormItem>
                           <FormLabel>
                             Valor Mensal (R$)
-                            <HelpHint text="Se preenchido, fixa o valor de cada parcela. Se deixar em branco, o sistema divide o restante pelo número de parcelas." />
+                            <HelpHint text="Se preenchido junto com o nº de parcelas, o Valor Total é calculado (parcelas × mensal), sobrescrevendo o valor do lote. Deixe em branco para dividir o total pelas parcelas." />
                           </FormLabel>
                           <FormControl>
                             <CurrencyInput placeholder="Automático" value={field.value as number | undefined} onChange={field.onChange} />
@@ -666,8 +705,8 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                         <p className="font-semibold">{formatCurrency(livePlan.monthlyValue)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Total (entrada + parcelas)</p>
-                        <p className="font-semibold">{formatCurrency(livePlan.downPayment + livePlan.monthlyValue * (livePlan.installments - 1) + livePlan.lastInstallmentValue)}</p>
+                        <p className="text-xs text-muted-foreground">Valor total</p>
+                        <p className="font-semibold">{formatCurrency(livePlan.totalValue)}</p>
                       </div>
                       {livePlan.hasResidue && (
                         <p className="col-span-2 sm:col-span-4 text-xs text-muted-foreground">

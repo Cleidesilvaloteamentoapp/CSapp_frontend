@@ -31,9 +31,32 @@ export function computePlanLocal(params: {
   downPayment?: number;
   installments?: number;
   monthlyValue?: number;
+  /** When false, the down payment is ignored in the installment math (default true). */
+  considerDownPayment?: boolean;
 }): LocalPlan | null {
+  const considerDown = params.considerDownPayment !== false;
+  const down = considerDown ? (params.downPayment ?? 0) : 0;
+  const inst =
+    params.installments && params.installments > 0 ? Math.trunc(params.installments) : 0;
+  const monthly = params.monthlyValue && params.monthlyValue > 0 ? params.monthlyValue : 0;
+
+  // Case C — parcelas E valor mensal informados: o TOTAL é derivado
+  // (n × mensal [+ entrada]), ignorando qualquer total pré-existente. Usado em
+  // lançamentos posteriores com parcelas restantes já reajustadas.
+  if (inst > 0 && monthly > 0) {
+    const financed = round2(inst * monthly);
+    return {
+      totalValue: round2(financed + down),
+      downPayment: down,
+      financedValue: financed,
+      installments: inst,
+      monthlyValue: round2(monthly),
+      lastInstallmentValue: round2(monthly),
+      hasResidue: false,
+    };
+  }
+
   const total = params.totalValue ?? 0;
-  const down = params.downPayment ?? 0;
 
   if (!total || total <= 0) return null;
   if (down < 0 || down > total) {
@@ -48,16 +71,16 @@ export function computePlanLocal(params: {
   let n: number;
   let base: number;
 
-  if (params.installments && params.installments > 0) {
-    n = Math.trunc(params.installments);
+  if (inst > 0) {
+    n = inst;
     base = round2(financed / n);
-  } else if (params.monthlyValue && params.monthlyValue > 0) {
-    if (params.monthlyValue > financed) {
+  } else if (monthly > 0) {
+    if (monthly > financed) {
       n = 1;
       base = financed;
     } else {
-      n = Math.max(1, Math.round(financed / params.monthlyValue));
-      base = round2(params.monthlyValue);
+      n = Math.max(1, Math.round(financed / monthly));
+      base = round2(monthly);
     }
   } else {
     return null; // not enough info yet
