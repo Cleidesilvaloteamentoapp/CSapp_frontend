@@ -94,3 +94,38 @@ export interface CreateTemplateRequest {
   category: TemplateCategory;
   components: TemplateComponent[];
 }
+
+// ===================== Notification Settings Types =====================
+
+export interface NotificationSettingsResponse {
+  id: string;
+  company_id: string;
+  // Client toggles
+  notify_client_new_boleto: boolean;
+  notify_client_due_reminder: boolean;
+  notify_client_overdue: boolean;
+  notify_client_service: boolean;
+  // Admin toggles
+  notify_admin_client_created: boolean;
+  notify_admin_client_deleted: boolean;
+  notify_admin_boleto_generated: boolean;
+  notify_admin_boleto_cancelled: boolean;
+  notify_admin_cycle_request: boolean;
+  // Admin WhatsApp numbers (comma-separated)
+  admin_whatsapp_numbers?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationSettingsUpdate {
+  notify_client_new_boleto?: boolean;
+  notify_client_due_reminder?: boolean;
+  notify_client_overdue?: boolean;
+  notify_client_service?: boolean;
+  notify_admin_client_created?: boolean;
+  notify_admin_client_deleted?: boolean;
+  notify_admin_boleto_generated?: boolean;
+  notify_admin_boleto_cancelled?: boolean;
+  notify_admin_cycle_request?: boolean;
+  admin_whatsapp_numbers?: string;
+}

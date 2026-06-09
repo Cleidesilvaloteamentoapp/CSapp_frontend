@@ -7,6 +7,8 @@ import type {
   TestMessageRequest,
   TemplateResponse,
   CreateTemplateRequest,
+  NotificationSettingsResponse,
+  NotificationSettingsUpdate,
 } from "@/types/whatsapp";
 
 // ===================== Credentials =====================
@@ -105,4 +107,21 @@ export async function deleteWhatsAppTemplate(
 ): Promise<void> {
   const qs = credentialId ? `?credential_id=${credentialId}` : "";
   await api.delete(`/admin/whatsapp/templates/${name}${qs}`);
+}
+
+// ===================== Notification Settings =====================
+
+export async function getNotificationSettings(): Promise<NotificationSettingsResponse> {
+  return api.get<NotificationSettingsResponse>(
+    "/admin/whatsapp/notification-settings"
+  );
+}
+
+export async function updateNotificationSettings(
+  data: NotificationSettingsUpdate
+): Promise<NotificationSettingsResponse> {
+  return api.put<NotificationSettingsResponse>(
+    "/admin/whatsapp/notification-settings",
+    data
+  );
 }

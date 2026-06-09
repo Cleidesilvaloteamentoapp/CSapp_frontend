@@ -60,6 +60,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PermissionGuard } from "@/components/shared/permission-guard";
 import { PageSkeleton } from "@/components/shared/loading-skeleton";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { NotificationSettingsTab } from "./notification-settings-tab";
 import {
   listWhatsAppCredentials,
   createWhatsAppCredential,
@@ -1148,7 +1149,7 @@ export default function WhatsAppSettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Configurações WhatsApp"
-        description="Gerencie os provedores de WhatsApp para envio de notificações automáticas aos clientes"
+        description="Gerencie os provedores e as preferências de notificação via WhatsApp"
       >
         {credentials.length > 0 &&
           existingProviders.length < 2 && (
@@ -1161,79 +1162,94 @@ export default function WhatsAppSettingsPage() {
           )}
       </PageHeader>
 
-      {/* How it works */}
-      <Card className="border-blue-200 bg-blue-50/50">
-        <CardContent className="py-4">
-          <div className="flex gap-3">
-            <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-blue-900">
-                Como funciona?
-              </p>
-              <p className="text-sm text-blue-800/80">
-                O sistema envia alertas automáticos pelo WhatsApp (como vencimentos de boletos).
-                Você pode configurar até <strong>2 provedores</strong> (um UAZAPI e um Meta Cloud API) e definir qual será o <strong>padrão</strong> para envio.
-              </p>
-              <div className="flex flex-wrap gap-4 pt-2 text-xs text-blue-700">
-                <span className="flex items-center gap-1">
-                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                  <strong>UAZAPI</strong> — Mensagens de texto livre
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
-                  <strong>Meta Cloud API</strong> — Templates aprovados pela Meta
-                </span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="provedores" className="space-y-6">
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="provedores">Provedores</TabsTrigger>
+          <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
+        </TabsList>
 
-      {/* Credentials List */}
-      {credentials.length === 0 ? (
-        <EmptyState onAdd={handleAdd} />
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {credentials.map((cred) => (
-            <CredentialCard
-              key={cred.id}
-              credential={cred}
-              onCheckStatus={handleCheckStatus}
-              onSetDefault={handleSetDefault}
-              onEdit={handleEdit}
-              onDeactivate={(id) => setDeactivateId(id)}
-              onTestMessage={handleTestMessage}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Templates shortcut */}
-      {hasMetaCredential && (
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
-                  <MessageSquare className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">Templates WhatsApp</p>
-                  <p className="text-xs text-muted-foreground">
-                    Gerencie os templates de mensagem da Meta Cloud API
+        {/* ---- Tab: Provedores ---- */}
+        <TabsContent value="provedores" className="space-y-6 mt-0">
+          {/* How it works */}
+          <Card className="border-blue-200 bg-blue-50/50">
+            <CardContent className="py-4">
+              <div className="flex gap-3">
+                <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-blue-900">
+                    Como funciona?
                   </p>
+                  <p className="text-sm text-blue-800/80">
+                    O sistema envia alertas automáticos pelo WhatsApp (como vencimentos de boletos).
+                    Você pode configurar até <strong>2 provedores</strong> (um UAZAPI e um Meta Cloud API) e definir qual será o <strong>padrão</strong> para envio.
+                  </p>
+                  <div className="flex flex-wrap gap-4 pt-2 text-xs text-blue-700">
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                      <strong>UAZAPI</strong> — Mensagens de texto livre
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
+                      <strong>Meta Cloud API</strong> — Templates aprovados pela Meta
+                    </span>
+                  </div>
                 </div>
               </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/admin/settings/whatsapp/templates">
-                  Gerenciar Templates
-                  <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
-                </Link>
-              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Credentials List */}
+          {credentials.length === 0 ? (
+            <EmptyState onAdd={handleAdd} />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {credentials.map((cred) => (
+                <CredentialCard
+                  key={cred.id}
+                  credential={cred}
+                  onCheckStatus={handleCheckStatus}
+                  onSetDefault={handleSetDefault}
+                  onEdit={handleEdit}
+                  onDeactivate={(id) => setDeactivateId(id)}
+                  onTestMessage={handleTestMessage}
+                />
+              ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+
+          {/* Templates shortcut */}
+          {hasMetaCredential && (
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+                      <MessageSquare className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Templates WhatsApp</p>
+                      <p className="text-xs text-muted-foreground">
+                        Gerencie os templates de mensagem da Meta Cloud API
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/admin/settings/whatsapp/templates">
+                      Gerenciar Templates
+                      <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
+                    </Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ---- Tab: Notificações ---- */}
+        <TabsContent value="notificacoes" className="mt-0">
+          <NotificationSettingsTab />
+        </TabsContent>
+      </Tabs>
 
       {/* Dialogs */}
       <CredentialDialog
