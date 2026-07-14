@@ -93,6 +93,28 @@ export async function downloadBoletoPdf(
 }
 
 /**
+ * Baixa todos os boletos gerados em um lote (batch) como um único PDF (carnê).
+ */
+export async function downloadBatchCarne(batchId: string): Promise<Blob> {
+  const token = getTokenFromCookies();
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+  const response = await fetch(
+    `${API_URL}/admin/sicredi/boletos/batch/${batchId}/carne-pdf`,
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Erro ao gerar carnê");
+  }
+
+  return response.blob();
+}
+
+/**
  * Cancela (dar baixa) no boleto.
  * Se o Sicredi retornar erro 422 com código 0077 (título já liquidado),
  * o backend automaticamente sincroniza o boleto local para LIQUIDADO

@@ -168,7 +168,7 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
     resolver: zodResolver(boletoSchema) as any,
     mode: "onChange",
     defaultValues: {
-      tipo_cobranca: "NORMAL",
+      tipo_cobranca: "HIBRIDO",
       documento: client.cpf_cnpj.replace(/\D/g, ""),
       nome: client.full_name,
       endereco: "",

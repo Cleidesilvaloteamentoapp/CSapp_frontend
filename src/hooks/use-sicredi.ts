@@ -17,6 +17,7 @@ import {
   incluirNegativacao,
   sustarNegativacaoBaixar,
   downloadBoletoPdf,
+  downloadBatchCarne,
   triggerPdfDownload,
   listLocalBoletos,
   getBoletoStats,
@@ -424,6 +425,24 @@ export function useSicrediBoletos() {
     }
   };
 
+  const downloadCarne = async (
+    batchId: string,
+    filename?: string
+  ): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const blob = await downloadBatchCarne(batchId);
+      triggerPdfDownload(blob, filename || `carne_${batchId}.pdf`);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao baixar carnê");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     error,
@@ -445,5 +464,6 @@ export function useSicrediBoletos() {
     createBatch,
     batchOperation,
     downloadPdf,
+    downloadCarne,
   };
 }

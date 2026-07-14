@@ -12,7 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBatchProgress } from "@/hooks/use-batch-progress";
-import { CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
+import { useSicrediBoletos } from "@/hooks/use-sicredi";
+import { CheckCircle2, XCircle, Loader2, Clock, Download } from "lucide-react";
 
 interface BatchProgressDialogProps {
   open: boolean;
@@ -42,8 +43,13 @@ export function BatchProgressDialog({
   onComplete,
 }: BatchProgressDialogProps) {
   const { data, loading } = useBatchProgress(open ? batchId : null);
+  const { downloadCarne, loading: downloadingCarne } = useSicrediBoletos();
 
   const isFinished = data?.status === "COMPLETED" || data?.status === "FAILED";
+  const canDownloadCarne =
+    data?.type === "BATCH_CREATE" &&
+    data?.status === "COMPLETED" &&
+    (data?.completed_items ?? 0) > 0;
   const progressPercent = data
     ? Math.round(((data.completed_items + data.failed_items) / Math.max(data.total_items, 1)) * 100)
     : 0;
@@ -132,7 +138,21 @@ export function BatchProgressDialog({
           )}
 
           {/* Actions */}
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            {canDownloadCarne && batchId && (
+              <Button
+                variant="outline"
+                disabled={downloadingCarne}
+                onClick={() => downloadCarne(batchId)}
+              >
+                {downloadingCarne ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Baixar carnê (PDF único)
+              </Button>
+            )}
             <Button
               onClick={handleClose}
               variant={isFinished ? "default" : "outline"}
