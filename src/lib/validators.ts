@@ -160,6 +160,8 @@ export const lotCreateSchema = z.object({
   development_id: z.string().uuid("Selecione um empreendimento"),
   lot_number: z.string().min(1, "Número do lote é obrigatório"),
   block: z.string().optional(),
+  balneario: z.string().trim().min(1, "Balneário é obrigatório"),
+  registration_number: z.string().trim().min(1, "Número de matrícula é obrigatório"),
   area_m2: z.coerce.number().positive("Área deve ser maior que 0"),
   price: z.coerce.number().positive("Preço deve ser maior que 0"),
 });
@@ -167,6 +169,8 @@ export const lotCreateSchema = z.object({
 export const lotUpdateSchema = z.object({
   lot_number: z.string().min(1, "Número do lote é obrigatório").optional(),
   block: z.string().optional(),
+  balneario: z.string().trim().min(1, "Balneário é obrigatório").optional(),
+  registration_number: z.string().trim().min(1, "Número de matrícula é obrigatório").optional(),
   area_m2: z.coerce.number().positive("Área deve ser maior que 0").optional(),
   price: z.coerce.number().positive("Preço deve ser maior que 0").optional(),
   status: z.enum(["AVAILABLE", "RESERVED", "SOLD"]).optional(),

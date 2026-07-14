@@ -294,6 +294,8 @@ export interface LotCreate {
   development_id: string;
   lot_number: string;
   block?: string;
+  balneario: string;
+  registration_number: string;
   area_m2: number;
   price: number;
   documents?: Record<string, unknown>;
@@ -302,6 +304,8 @@ export interface LotCreate {
 export interface LotUpdate {
   lot_number?: string;
   block?: string;
+  balneario?: string;
+  registration_number?: string;
   area_m2?: number;
   price?: number;
   status?: LotStatus;
@@ -314,6 +318,8 @@ export interface LotResponse {
   development_id: string;
   lot_number: string;
   block: string | null;
+  balneario: string | null;
+  registration_number: string | null;
   area_m2: string;
   price: string;
   status: LotStatus;

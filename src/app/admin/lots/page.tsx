@@ -62,7 +62,7 @@ export default function LotsPage() {
 
   const createForm = useForm<LotCreateFormData>({
     resolver: zodResolver(lotCreateSchema) as never,
-    defaultValues: { development_id: "", lot_number: "", block: "", area_m2: 0, price: 0 },
+    defaultValues: { development_id: "", lot_number: "", block: "", balneario: "", registration_number: "", area_m2: 0, price: 0 },
   });
 
   const assignForm = useForm<LotAssignFormData>({
@@ -223,6 +223,8 @@ export default function LotsPage() {
                   <TableRow>
                     <TableHead>Lote</TableHead>
                     <TableHead>Quadra</TableHead>
+                    <TableHead className="hidden lg:table-cell">Balneário</TableHead>
+                    <TableHead className="hidden md:table-cell">Matrícula</TableHead>
                     <TableHead className="hidden sm:table-cell">Área</TableHead>
                     <TableHead>Preço</TableHead>
                     <TableHead>Status</TableHead>
@@ -236,6 +238,8 @@ export default function LotsPage() {
                       <TableRow key={lot.id}>
                         <TableCell className="font-medium">{lot.lot_number}</TableCell>
                         <TableCell>{lot.block || "—"}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{lot.balneario || "—"}</TableCell>
+                        <TableCell className="hidden md:table-cell">{lot.registration_number || "—"}</TableCell>
                         <TableCell className="hidden sm:table-cell">{formatArea(lot.area_m2)}</TableCell>
                         <TableCell>{formatCurrency(lot.price)}</TableCell>
                         <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
@@ -293,6 +297,14 @@ export default function LotsPage() {
                 )} />
                 <FormField control={createForm.control} name="block" render={({ field }) => (
                   <FormItem><FormLabel>Quadra</FormLabel><FormControl><Input placeholder="A" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField control={createForm.control} name="balneario" render={({ field }) => (
+                  <FormItem><FormLabel>Balneário</FormLabel><FormControl><Input placeholder="Ex: Balneário Camboriú" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={createForm.control} name="registration_number" render={({ field }) => (
+                  <FormItem><FormLabel>Número de Matrícula</FormLabel><FormControl><Input placeholder="Ex: 12.345" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">

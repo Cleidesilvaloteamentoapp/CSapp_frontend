@@ -74,7 +74,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
   // Create lot form
   const createForm = useForm<LotCreateFormData>({
     resolver: zodResolver(lotCreateSchema) as never,
-    defaultValues: { development_id: "", lot_number: "", block: "", area_m2: undefined as unknown as number, price: undefined as unknown as number },
+    defaultValues: { development_id: "", lot_number: "", block: "", balneario: "", registration_number: "", area_m2: undefined as unknown as number, price: undefined as unknown as number },
   });
 
   // Assign form
@@ -418,6 +418,13 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                             <p className="text-xs text-muted-foreground mt-1">
                               {formatCurrency(lot.price)} &bull; {lot.area_m2}m²
                             </p>
+                            {(lot.balneario || lot.registration_number) && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {lot.balneario ? lot.balneario : ""}
+                                {lot.balneario && lot.registration_number ? " • " : ""}
+                                {lot.registration_number ? `Matrícula ${lot.registration_number}` : ""}
+                              </p>
+                            )}
                             {isOwnedByOtherClient && (
                               <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
                                 <Ban className="h-3 w-3" />
@@ -492,6 +499,33 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                         <FormItem>
                           <FormLabel>Quadra (opcional)</FormLabel>
                           <FormControl><Input placeholder="A" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField
+                      control={createForm.control}
+                      name="balneario"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Balneário</FormLabel>
+                          <FormControl><Input placeholder="Ex: Balneário Camboriú" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={createForm.control}
+                      name="registration_number"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Número de Matrícula
+                            <HelpHint text="Matrícula do imóvel no cartório. É única por empresa e impede o cadastro de terrenos duplicados." />
+                          </FormLabel>
+                          <FormControl><Input placeholder="Ex: 12.345" {...field} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
