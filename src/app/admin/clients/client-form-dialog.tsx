@@ -27,6 +27,7 @@ import { clientCreateSchema, type ClientCreateFormData } from "@/lib/validators"
 import { api, ApiError } from "@/lib/api";
 import { useCepLookup } from "@/hooks/use-cep-lookup";
 import { formatCep, onlyDigits } from "@/lib/cep";
+import { lookupClientByCpf } from "@/services/admin";
 import type { ClientResponse } from "@/types";
 
 interface ClientFormDialogProps {
@@ -39,6 +40,8 @@ interface ClientFormDialogProps {
 export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: ClientFormDialogProps) {
   const isEditing = !!client;
   const [showPassword, setShowPassword] = useState(false);
+  const [cpfChecking, setCpfChecking] = useState(false);
+  const [duplicateClient, setDuplicateClient] = useState<ClientResponse | null>(null);
 
   const form = useForm<ClientCreateFormData>({
     resolver: zodResolver(clientCreateSchema) as never,
@@ -65,6 +68,25 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
     },
     onError: (message) => toast.error(message),
   });
+
+  // Trava de duplicidade: sinaliza quando o CPF/CNPJ já pertence a outro cliente.
+  async function handleCpfLookup(rawCpf: string) {
+    const digits = rawCpf.replace(/\D/g, "");
+    if (digits.length !== 11 && digits.length !== 14) {
+      setDuplicateClient(null);
+      return;
+    }
+    setCpfChecking(true);
+    try {
+      const existing = await lookupClientByCpf(digits);
+      // Ao editar, encontrar o próprio cliente não é duplicidade.
+      setDuplicateClient(existing && existing.id !== client?.id ? existing : null);
+    } catch {
+      setDuplicateClient(null);
+    } finally {
+      setCpfChecking(false);
+    }
+  }
 
   useEffect(() => {
     if (client) {
@@ -96,6 +118,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
         password: "",
       });
     }
+    setDuplicateClient(null);
   }, [client, form, open]);
 
   async function onSubmit(data: ClientCreateFormData) {
@@ -200,9 +223,36 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
                 <FormItem>
                   <FormLabel>CPF / CNPJ</FormLabel>
                   <FormControl>
-                    <Input placeholder="12345678900" {...field} />
+                    <div className="relative">
+                      <Input
+                        placeholder="12345678900"
+                        inputMode="numeric"
+                        {...field}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          if (duplicateClient) setDuplicateClient(null);
+                        }}
+                        onBlur={(e) => {
+                          field.onBlur();
+                          handleCpfLookup(e.target.value);
+                        }}
+                      />
+                      {cpfChecking && (
+                        <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
                   </FormControl>
                   <FormMessage />
+                  {duplicateClient && (
+                    <div className="mt-1 rounded-md border border-destructive/40 bg-destructive/5 p-2.5 text-xs">
+                      <p className="font-medium text-destructive">CPF/CNPJ já cadastrado</p>
+                      <p className="text-muted-foreground">
+                        Já existe o cliente{" "}
+                        <span className="font-medium">{duplicateClient.full_name}</span>{" "}
+                        ({duplicateClient.email}) com este documento.
+                      </p>
+                    </div>
+                  )}
                 </FormItem>
               )}
             />
@@ -354,7 +404,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" disabled={form.formState.isSubmitting || !!duplicateClient}>
                 {form.formState.isSubmitting ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</>
                 ) : isEditing ? "Salvar Alterações" : "Cadastrar Cliente"}

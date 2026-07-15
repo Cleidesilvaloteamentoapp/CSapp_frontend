@@ -22,6 +22,7 @@ import { api, ApiError } from "@/lib/api";
 import { clientCreateSchema, type ClientCreateFormData } from "@/lib/validators";
 import { useCepLookup } from "@/hooks/use-cep-lookup";
 import { formatCep, onlyDigits } from "@/lib/cep";
+import { lookupClientByCpf } from "@/services/admin";
 import { ClientSelector } from "@/components/sicredi/client-selector";
 import { ClientPortalAccessDialog } from "@/components/shared/client-portal-access-dialog";
 import type { ClientResponse } from "@/types";
@@ -54,6 +55,29 @@ export function StepCliente({ selectedClient, onClientSelect, onClear }: StepCli
   });
 
   const watchCreateAccess = form.watch("create_access");
+  const [cpfChecking, setCpfChecking] = useState(false);
+
+  // Trava de duplicidade: ao informar um CPF/CNPJ já cadastrado, traz o cliente
+  // existente (muda para a aba "Selecionar") em vez de permitir um novo cadastro.
+  async function handleCpfLookup(rawCpf: string) {
+    const digits = rawCpf.replace(/\D/g, "");
+    if (digits.length !== 11 && digits.length !== 14) return;
+    setCpfChecking(true);
+    try {
+      const existing = await lookupClientByCpf(digits);
+      if (existing) {
+        toast.info(
+          `Este CPF/CNPJ já está cadastrado para "${existing.full_name}". Carregamos o cliente existente.`
+        );
+        onClientSelect(existing, "EXISTING");
+        setMode("SELECT");
+      }
+    } catch {
+      // Falha na checagem não bloqueia o fluxo: o backend ainda barra no submit.
+    } finally {
+      setCpfChecking(false);
+    }
+  }
 
   const cep = useCepLookup({
     onFound: (address) => {
@@ -313,10 +337,23 @@ export function StepCliente({ selectedClient, onClientSelect, onClear }: StepCli
                       <FormItem>
                         <FormLabel>
                           CPF / CNPJ
-                          <HelpHint text="Apenas números. CPF = 11 dígitos, CNPJ = 14 dígitos. Não pode repetir cadastro." />
+                          <HelpHint text="Apenas números. CPF = 11 dígitos, CNPJ = 14 dígitos. Se já existir, o cliente é carregado automaticamente." />
                         </FormLabel>
                         <FormControl>
-                          <Input placeholder="12345678900" {...field} />
+                          <div className="relative">
+                            <Input
+                              placeholder="12345678900"
+                              inputMode="numeric"
+                              {...field}
+                              onBlur={(e) => {
+                                field.onBlur();
+                                handleCpfLookup(e.target.value);
+                              }}
+                            />
+                            {cpfChecking && (
+                              <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                            )}
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

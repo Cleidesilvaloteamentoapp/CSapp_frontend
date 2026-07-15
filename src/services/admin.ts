@@ -18,9 +18,25 @@ import type {
   AdminNotification,
   RescissionResponse,
   SicrediEventResponse,
+  ClientResponse,
 } from "@/types";
 import type { Boleto } from "@/types/sicredi";
 import type { ClientDocument } from "@/types/portal";
+
+// ===================== Clients =====================
+
+/**
+ * Procura um cliente já cadastrado pelo CPF/CNPJ (comparação por dígitos).
+ * Retorna o cliente existente ou `null` quando o documento está livre.
+ * Não dispara a busca para documentos incompletos (menos de 11 dígitos).
+ */
+export async function lookupClientByCpf(cpfCnpj: string): Promise<ClientResponse | null> {
+  const digits = (cpfCnpj || "").replace(/\D/g, "");
+  if (digits.length !== 11 && digits.length !== 14) return null;
+  return api.get<ClientResponse | null>(
+    `/admin/clients/lookup?cpf_cnpj=${encodeURIComponent(digits)}`
+  );
+}
 
 // ===================== Economic Indices =====================
 
