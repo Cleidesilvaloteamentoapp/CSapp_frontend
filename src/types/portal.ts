@@ -19,6 +19,7 @@ export interface ClientProfile {
 export interface ClientAddress {
   street: string;
   number: string;
+  neighborhood: string;
   city: string;
   state: string;
   zip: string;

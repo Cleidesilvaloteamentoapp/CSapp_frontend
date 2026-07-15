@@ -69,6 +69,7 @@ export const clientCreateSchema = z
       .object({
         street: z.string().optional(),
         number: z.string().optional(),
+        neighborhood: z.string().optional(),
         city: z.string().optional(),
         state: z.string().optional(),
         zip: z.string().optional(),

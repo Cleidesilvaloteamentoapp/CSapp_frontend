@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/form";
 import { clientCreateSchema, type ClientCreateFormData } from "@/lib/validators";
 import { api, ApiError } from "@/lib/api";
+import { useCepLookup } from "@/hooks/use-cep-lookup";
+import { formatCep, onlyDigits } from "@/lib/cep";
 import type { ClientResponse } from "@/types";
 
 interface ClientFormDialogProps {
@@ -45,13 +47,24 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
       full_name: "",
       cpf_cnpj: "",
       phone: "",
-      address: { street: "", number: "", city: "", state: "", zip: "" },
+      address: { street: "", number: "", neighborhood: "", city: "", state: "", zip: "" },
       create_access: false,
       password: "",
     },
   });
 
   const watchCreateAccess = form.watch("create_access");
+
+  const cep = useCepLookup({
+    onFound: (address) => {
+      if (address.street) form.setValue("address.street", address.street, { shouldDirty: true });
+      if (address.neighborhood) form.setValue("address.neighborhood", address.neighborhood, { shouldDirty: true });
+      if (address.city) form.setValue("address.city", address.city, { shouldDirty: true });
+      if (address.state) form.setValue("address.state", address.state, { shouldDirty: true });
+      form.setFocus("address.number");
+    },
+    onError: (message) => toast.error(message),
+  });
 
   useEffect(() => {
     if (client) {
@@ -64,6 +77,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
         address: {
           street: addr.street || "",
           number: addr.number || "",
+          neighborhood: addr.neighborhood || "",
           city: addr.city || "",
           state: addr.state || "",
           zip: addr.zip || "",
@@ -77,7 +91,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
         full_name: "",
         cpf_cnpj: "",
         phone: "",
-        address: { street: "", number: "", city: "", state: "", zip: "" },
+        address: { street: "", number: "", neighborhood: "", city: "", state: "", zip: "" },
         create_access: false,
         password: "",
       });
@@ -198,6 +212,37 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
               <div className="grid gap-3 sm:grid-cols-3">
                 <FormField
                   control={form.control}
+                  name="address.zip"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CEP</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            placeholder="01001-000"
+                            inputMode="numeric"
+                            maxLength={9}
+                            {...field}
+                            onChange={(e) => {
+                              const masked = formatCep(e.target.value);
+                              field.onChange(masked);
+                              if (onlyDigits(masked).length === 8) cep.lookup(masked);
+                            }}
+                            onBlur={(e) => {
+                              field.onBlur();
+                              cep.lookup(e.target.value);
+                            }}
+                          />
+                          {cep.loading && (
+                            <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="address.street"
                   render={({ field }) => (
                     <FormItem className="sm:col-span-2">
@@ -206,6 +251,8 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
                     </FormItem>
                   )}
                 />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="address.number"
@@ -216,13 +263,23 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="address.neighborhood"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Bairro</FormLabel>
+                      <FormControl><Input placeholder="Centro" {...field} /></FormControl>
+                    </FormItem>
+                  )}
+                />
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="address.city"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="sm:col-span-2">
                       <FormLabel>Cidade</FormLabel>
                       <FormControl><Input placeholder="São Paulo" {...field} /></FormControl>
                     </FormItem>
@@ -235,16 +292,6 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
                     <FormItem>
                       <FormLabel>Estado</FormLabel>
                       <FormControl><Input placeholder="SP" {...field} /></FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="address.zip"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>CEP</FormLabel>
-                      <FormControl><Input placeholder="01001-000" {...field} /></FormControl>
                     </FormItem>
                   )}
                 />

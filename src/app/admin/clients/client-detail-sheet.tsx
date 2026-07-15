@@ -441,7 +441,7 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                   {addr.street && (
                     <InfoRow
                       label="Endereço"
-                      value={`${addr.street}, ${addr.number || "S/N"} — ${addr.city || ""}/${addr.state || ""} ${addr.zip || ""}`}
+                      value={`${addr.street}, ${addr.number || "S/N"}${addr.neighborhood ? ` - ${addr.neighborhood}` : ""} — ${addr.city || ""}/${addr.state || ""} ${addr.zip || ""}`}
                     />
                   )}
                   <InfoRow label="Cadastrado em" value={formatDate(client.created_at)} />

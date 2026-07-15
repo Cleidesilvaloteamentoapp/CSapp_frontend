@@ -11,6 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import { PageHeader } from "@/components/layout/page-header";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { getClientProfile, updateClientProfile, uploadClientProfilePhoto } from "@/services/portal";
+import { useCepLookup } from "@/hooks/use-cep-lookup";
+import { formatCep, onlyDigits } from "@/lib/cep";
 import type { ClientProfile, ClientProfileUpdate } from "@/types/portal";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -32,9 +34,20 @@ export default function PortalProfilePage() {
   const [phone, setPhone] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [zip, setZip] = useState("");
+
+  const cep = useCepLookup({
+    onFound: (address) => {
+      if (address.street) setStreet(address.street);
+      if (address.neighborhood) setNeighborhood(address.neighborhood);
+      if (address.city) setCity(address.city);
+      if (address.state) setState(address.state);
+    },
+    onError: (message) => toast.error(message),
+  });
 
   useEffect(() => {
     loadProfile();
@@ -48,6 +61,7 @@ export default function PortalProfilePage() {
       setPhone(data.phone || "");
       setStreet(data.address?.street || "");
       setNumber(data.address?.number || "");
+      setNeighborhood(data.address?.neighborhood || "");
       setCity(data.address?.city || "");
       setState(data.address?.state || "");
       setZip(data.address?.zip || "");
@@ -84,7 +98,7 @@ export default function PortalProfilePage() {
       const update: ClientProfileUpdate = {
         email,
         phone,
-        address: { street, number, city, state, zip },
+        address: { street, number, neighborhood, city, state, zip },
       };
       const updated = await updateClientProfile(update);
       setProfile(updated);
@@ -228,13 +242,25 @@ export default function PortalProfilePage() {
 
           <p className="text-sm font-medium">Endereço</p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label className="text-sm font-medium">Rua</label>
-              <Input
-                value={street}
-                onChange={(e) => setStreet(e.target.value)}
-                className="mt-1"
-              />
+            <div>
+              <label className="text-sm font-medium">CEP</label>
+              <div className="relative mt-1">
+                <Input
+                  value={zip}
+                  inputMode="numeric"
+                  maxLength={9}
+                  placeholder="01001-000"
+                  onChange={(e) => {
+                    const masked = formatCep(e.target.value);
+                    setZip(masked);
+                    if (onlyDigits(masked).length === 8) cep.lookup(masked);
+                  }}
+                  onBlur={(e) => cep.lookup(e.target.value)}
+                />
+                {cep.loading && (
+                  <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium">Número</label>
@@ -244,11 +270,19 @@ export default function PortalProfilePage() {
                 className="mt-1"
               />
             </div>
-            <div>
-              <label className="text-sm font-medium">CEP</label>
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium">Rua</label>
               <Input
-                value={zip}
-                onChange={(e) => setZip(e.target.value)}
+                value={street}
+                onChange={(e) => setStreet(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium">Bairro</label>
+              <Input
+                value={neighborhood}
+                onChange={(e) => setNeighborhood(e.target.value)}
                 className="mt-1"
               />
             </div>

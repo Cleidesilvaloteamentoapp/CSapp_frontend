@@ -47,6 +47,8 @@ import {
 import { useSicrediBoletos } from "@/hooks/use-sicredi";
 import { formatCurrency } from "@/lib/format";
 import { isValidCpfCnpj } from "@/lib/validators";
+import { useCepLookup } from "@/hooks/use-cep-lookup";
+import { onlyDigits } from "@/lib/cep";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -165,7 +167,7 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
 
   // Individual boleto form
   const form = useForm<BoletoFormValues>({
-    resolver: zodResolver(boletoSchema) as any,
+    resolver: zodResolver(boletoSchema) as never,
     mode: "onChange",
     defaultValues: {
       tipo_cobranca: "HIBRIDO",
@@ -215,6 +217,21 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
     if (addr.city) form.setValue("cidade", addr.city);
     if (addr.state) form.setValue("uf", addr.state);
     if (addr.zip) form.setValue("cep", addr.zip.replace(/\D/g, ""));
+  });
+
+  const cep = useCepLookup({
+    onFound: (address) => {
+      if (address.street) {
+        form.setValue("endereco", address.street, { shouldValidate: true, shouldDirty: true });
+      }
+      if (address.city) {
+        form.setValue("cidade", address.city, { shouldValidate: true, shouldDirty: true });
+      }
+      if (address.state && UF_OPTIONS.includes(address.state)) {
+        form.setValue("uf", address.state, { shouldValidate: true, shouldDirty: true });
+      }
+    },
+    onError: (message) => toast.error(message),
   });
 
   const installments = useMemo(() => {
@@ -475,9 +492,29 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
                       <FormItem>
                         <FormLabel>
                           CEP
-                          <HelpHint text="Apenas números, sem traço. 8 dígitos." />
+                          <HelpHint text="Digite o CEP para preencher endereço, cidade e UF automaticamente. Apenas números, 8 dígitos." />
                         </FormLabel>
-                        <FormControl><Input {...field} maxLength={8} /></FormControl>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              {...field}
+                              maxLength={8}
+                              inputMode="numeric"
+                              onChange={(e) => {
+                                const digits = onlyDigits(e.target.value).slice(0, 8);
+                                field.onChange(digits);
+                                if (digits.length === 8) cep.lookup(digits);
+                              }}
+                              onBlur={(e) => {
+                                field.onBlur();
+                                cep.lookup(e.target.value);
+                              }}
+                            />
+                            {cep.loading && (
+                              <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                            )}
+                          </div>
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
