@@ -45,6 +45,8 @@ interface ConfirmSaleDialogProps {
   /** Values from the sale form used to build the dry-run preview. */
   request: PlanPreviewRequest | null;
   submitting?: boolean;
+  /** Cliente antigo: vincula sem gerar faturas/boletos (contrato em andamento). */
+  isLegacy?: boolean;
   /** Called when the admin confirms; receives any rate edits made here. */
   onConfirm: (overrides: RateOverrides) => void | Promise<void>;
 }
@@ -59,7 +61,7 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
 }
 
 export function ConfirmSaleDialog({
-  open, onOpenChange, request, submitting, onConfirm,
+  open, onOpenChange, request, submitting, isLegacy, onConfirm,
 }: ConfirmSaleDialogProps) {
   const [preview, setPreview] = useState<PlanPreview | null>(null);
   const [loading, setLoading] = useState(false);
@@ -109,9 +111,11 @@ export function ConfirmSaleDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Confirmar venda</DialogTitle>
+          <DialogTitle>{isLegacy ? "Confirmar vínculo (cliente antigo)" : "Confirmar venda"}</DialogTitle>
           <DialogDescription>
-            Revise os valores e as taxas aplicadas antes de gerar o contrato e as parcelas.
+            {isLegacy
+              ? "Revise os dados do contrato. O vínculo será registrado sem gerar faturas nem boletos."
+              : "Revise os valores e as taxas aplicadas antes de gerar o contrato e as parcelas."}
           </DialogDescription>
         </DialogHeader>
 
@@ -208,11 +212,22 @@ export function ConfirmSaleDialog({
               )}
             </div>
 
-            <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
-              <p className="text-xs text-yellow-800">
-                <strong>Atenção:</strong> confirmar irá gerar o contrato e as parcelas com os valores
-                acima. As taxas aplicadas seguem para a geração dos boletos.
+            <div className={isLegacy
+              ? "flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3"
+              : "flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3"}>
+              <AlertTriangle className={isLegacy ? "mt-0.5 h-4 w-4 shrink-0 text-amber-600" : "mt-0.5 h-4 w-4 shrink-0 text-yellow-600"} />
+              <p className={isLegacy ? "text-xs text-amber-800" : "text-xs text-yellow-800"}>
+                {isLegacy ? (
+                  <>
+                    <strong>Cliente antigo:</strong> o vínculo será registrado <strong>sem gerar
+                    faturas nem boletos</strong>. Os valores e taxas ficam salvos para a próxima emissão.
+                  </>
+                ) : (
+                  <>
+                    <strong>Atenção:</strong> confirmar irá gerar o contrato e as parcelas com os valores
+                    acima. As taxas aplicadas seguem para a geração dos boletos.
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -228,7 +243,7 @@ export function ConfirmSaleDialog({
             disabled={submitting || loading || !!error || !preview}
             className="bg-success hover:bg-success/90"
           >
-            {submitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</>) : "Confirmar venda"}
+            {submitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</>) : (isLegacy ? "Confirmar vínculo" : "Confirmar venda")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -69,12 +69,18 @@ export default function CadastroWizardPage() {
   }, [clearClient, setLotMode, setLot, setCreatedLotId, setClientLot, setBoletoMode, setBoletoResult]);
 
   const handleImovelComplete = useCallback(
-    (clientLot: ClientLotResponse, invoiceCount: number) => {
+    (clientLot: ClientLotResponse, invoiceCount: number, isLegacy: boolean) => {
       setClientLot(clientLot);
       setInvoiceCount(invoiceCount);
-      setStep(2);
+      if (isLegacy) {
+        // Cliente antigo: nenhum boleto é gerado — pula direto para documentos.
+        setBoletoMode("SKIP");
+        setStep(3);
+      } else {
+        setStep(2);
+      }
     },
-    [setClientLot, setInvoiceCount, setStep]
+    [setClientLot, setInvoiceCount, setBoletoMode, setStep]
   );
 
   const handleBoletoSkip = useCallback(() => {

@@ -48,6 +48,7 @@ import {
   getFinancialSettings, getClientLotDetail, updateClientLotFinancialRules,
   getInstallmentInfo, getClientDocuments,
 } from "@/services/admin";
+import { getAdminDocumentDownloadUrl } from "@/services/portal";
 import { InstallmentInfoCard } from "@/components/shared/installment-info-card";
 import { ConfirmSaleDialog, type RateOverrides } from "@/components/financial/confirm-sale-dialog";
 import type { PlanPreviewRequest } from "@/lib/pricing";
@@ -375,18 +376,39 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
   function DocumentCard({ doc }: { doc: any }) {
     const docType = (doc.document_type || "OUTROS") as DocumentType;
     const typeLabel = DOCUMENT_TYPE_LABELS[docType] || "Documento";
-    const fileName = doc.file_name || doc.path || doc.url || "Documento";
-    const fileUrl = doc.file_url || doc.url || "#";
+    const fileName = doc.file_name || doc.path || "Documento";
+    // Prefer the pre-signed Supabase URL returned by the API: it opens directly
+    // in a new tab / download without an Authorization header. The admin
+    // download endpoint requires a bearer token, which a plain <a> navigation
+    // cannot send, so it is only a last-resort fallback.
+    const downloadUrl =
+      doc.file_url || doc.url || (doc.id ? getAdminDocumentDownloadUrl(doc.id) : "#");
+    const tags: string[] = Array.isArray(doc.tags) ? doc.tags : [];
 
     return (
       <div className="flex items-center gap-3 rounded-lg border px-4 py-3">
         <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{fileName}</p>
-          <Badge variant="secondary" className="text-[10px] mt-1">{typeLabel}</Badge>
+          <div className="flex flex-wrap items-center gap-1 mt-1">
+            <Badge variant="secondary" className="text-[10px]">{typeLabel}</Badge>
+            {doc.visible_to_client && (
+              <Badge className="gap-1 bg-green-100 text-green-700 text-[10px] hover:bg-green-100">
+                Cliente
+              </Badge>
+            )}
+            {tags.map((t) => (
+              <Badge key={t} variant="outline" className="text-[10px]">{t}</Badge>
+            ))}
+          </div>
         </div>
-        <Button variant="ghost" size="sm" asChild className="flex-shrink-0">
-          <a href={fileUrl} target="_blank" rel="noopener noreferrer" download>
+        <Button variant="ghost" size="sm" asChild className="flex-shrink-0" title="Visualizar">
+          <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        </Button>
+        <Button variant="ghost" size="sm" asChild className="flex-shrink-0" title="Baixar">
+          <a href={downloadUrl} target="_blank" rel="noopener noreferrer" download>
             <Download className="h-4 w-4" />
           </a>
         </Button>

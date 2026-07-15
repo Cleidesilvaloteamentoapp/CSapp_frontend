@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Home, Link2, Plus, Loader2, AlertTriangle, Unlink, Info, Ban, ImageIcon } from "lucide-react";
+import { Home, Link2, Plus, Loader2, AlertTriangle, Unlink, Info, Ban, ImageIcon, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Form,
   FormControl,
@@ -40,7 +41,7 @@ import { computePlanLocal, type PlanPreviewRequest } from "@/lib/pricing";
 
 interface StepImovelProps {
   client: ClientResponse;
-  onComplete: (clientLot: ClientLotResponse, invoiceCount: number) => void;
+  onComplete: (clientLot: ClientLotResponse, invoiceCount: number, isLegacy: boolean) => void;
   onBack: () => void;
 }
 
@@ -93,6 +94,11 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
 
   // Whether the down payment participates in the installment math (default yes).
   const [considerDownPayment, setConsiderDownPayment] = useState(true);
+
+  // Cliente antigo (legacy): contrato já em andamento. Vincula o lote sem gerar
+  // faturas/boletos agora — só registra o vínculo para a próxima emissão.
+  const [isLegacy, setIsLegacy] = useState(false);
+  const [paidInstallments, setPaidInstallments] = useState("");
 
   // Live payment-plan preview.
   const wTotal = assignForm.watch("total_value");
@@ -224,6 +230,8 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
       ...data,
       total_value: finalTotal,
       total_installments: finalInstallments,
+      is_legacy: isLegacy,
+      paid_installments: isLegacy ? (parseInt(paidInstallments, 10) || 0) : undefined,
       payment_plan: {
         ...plan,
         installments: finalInstallments,
@@ -257,16 +265,20 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
     try {
       const payload = { ...pendingData, ...overrides };
       const res = await api.post<ClientLotResponse>("/admin/lots/assign", payload);
-      toast.success("Lote atrelado com sucesso! Parcelas geradas automaticamente.");
       let invoiceCount = 0;
-      try {
-        const plan = res.payment_plan as { installments?: number } | null;
-        invoiceCount = plan?.installments ?? 0;
-      } catch {
-        // ignore
+      if (isLegacy) {
+        toast.success("Lote vinculado ao cliente antigo. Nenhum boleto gerado — pronto para a próxima emissão.");
+      } else {
+        toast.success("Lote atrelado com sucesso! Parcelas geradas automaticamente.");
+        try {
+          const plan = res.payment_plan as { installments?: number } | null;
+          invoiceCount = plan?.installments ?? 0;
+        } catch {
+          // ignore
+        }
       }
       setConfirmOpen(false);
-      onComplete(res, invoiceCount);
+      onComplete(res, invoiceCount, isLegacy);
     } catch (error) {
       if (error instanceof ApiError) toast.error(typeof error.detail === "string" ? error.detail : "Erro ao atrelar lote");
       else toast.error("Erro ao atrelar lote");
@@ -277,6 +289,72 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
 
   return (
     <div className="space-y-4">
+      {/* Cliente antigo (legacy) — botão bem destacado para liberar o cadastro
+          sem gerar boletos. Contratos já em andamento (mais de 200) precisam ser
+          apenas vinculados para ficarem corretos na próxima emissão. */}
+      <Card
+        className={cn(
+          "border-2 transition-colors",
+          isLegacy
+            ? "border-amber-400 bg-amber-50 ring-2 ring-amber-200"
+            : "border-amber-300 bg-amber-50/40"
+        )}
+      >
+        <CardContent className="pt-5">
+          <div className="flex items-start gap-4">
+            <div className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
+              isLegacy ? "bg-amber-500 text-white" : "bg-amber-100 text-amber-600"
+            )}>
+              <History className="h-6 w-6" />
+            </div>
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center gap-2">
+                <p className="text-base font-bold text-amber-900">Cliente Antigo</p>
+                {isLegacy && (
+                  <Badge className="bg-amber-500 hover:bg-amber-500 text-white">Ativado</Badge>
+                )}
+              </div>
+              <p className="text-sm text-amber-800">
+                Contrato <strong>já em andamento</strong>? Ative para vincular o terreno ao cliente
+                <strong> sem gerar boletos agora</strong>. O cadastro fica pronto para a próxima emissão.
+              </p>
+            </div>
+            <Switch
+              checked={isLegacy}
+              onCheckedChange={setIsLegacy}
+              aria-label="Marcar como cliente antigo"
+              className="mt-1 data-[state=checked]:bg-amber-500"
+            />
+          </div>
+
+          {isLegacy && (
+            <div className="mt-4 grid gap-4 rounded-lg border border-amber-200 bg-background p-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Parcelas já pagas
+                  <HelpHint text="Quantas parcelas o cliente já pagou fora do sistema. Usado para calcular as parcelas restantes e em qual ciclo a próxima emissão deve começar. Deixe 0 se não souber." />
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  placeholder="Ex: 24"
+                  value={paidInstallments}
+                  onChange={(e) => setPaidInstallments(e.target.value)}
+                />
+              </div>
+              <div className="flex items-end">
+                <p className="text-xs text-amber-800">
+                  Nenhuma fatura ou boleto será gerado neste cadastro. Você poderá emitir os
+                  próximos boletos normalmente no ciclo seguinte.
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Existing lots section */}
       {!loadingExisting && existingLots.length > 0 && (
         <Card className="border-blue-200 bg-blue-50/50">
@@ -896,19 +974,29 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
-                  <p className="text-xs text-yellow-800">
-                    <strong>Atenção:</strong> Confirmar esta venda irá gerar automaticamente as parcelas (faturas) no sistema. Se quiser gerar boletos bancários também, você poderá fazer isso na próxima etapa.
-                  </p>
-                </div>
+                {isLegacy ? (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                    <History className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <p className="text-xs text-amber-800">
+                      <strong>Cliente antigo:</strong> o vínculo do terreno será registrado <strong>sem gerar
+                      faturas nem boletos</strong>. Os dados servem para que a próxima emissão saia correta.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
+                    <p className="text-xs text-yellow-800">
+                      <strong>Atenção:</strong> Confirmar esta venda irá gerar automaticamente as parcelas (faturas) no sistema. Se quiser gerar boletos bancários também, você poderá fazer isso na próxima etapa.
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex justify-between pt-2">
                   <Button type="button" variant="outline" onClick={onBack}>
                     Voltar
                   </Button>
-                  <Button type="submit" disabled={submitting} className="bg-success hover:bg-success/90">
-                    Revisar e confirmar
+                  <Button type="submit" disabled={submitting} className={cn(isLegacy ? "bg-amber-500 hover:bg-amber-500/90" : "bg-success hover:bg-success/90")}>
+                    {isLegacy ? "Vincular sem gerar boletos" : "Revisar e confirmar"}
                   </Button>
                 </div>
               </CardContent>
@@ -922,6 +1010,7 @@ export function StepImovel({ client, onComplete, onBack }: StepImovelProps) {
         onOpenChange={setConfirmOpen}
         request={previewRequest}
         submitting={submitting}
+        isLegacy={isLegacy}
         onConfirm={doAssign}
       />
     </div>

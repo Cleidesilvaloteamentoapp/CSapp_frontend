@@ -312,7 +312,7 @@ export function StepDocumentos({
                         </div>
                       </div>
                       <a
-                        href={getAdminDocumentDownloadUrl(doc.id)}
+                        href={doc.file_url || getAdminDocumentDownloadUrl(doc.id)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="shrink-0"

@@ -184,6 +184,8 @@ export const lotAssignSchema = z.object({
   total_value: z.coerce.number().positive("Valor deve ser maior que 0"),
   down_payment: z.coerce.number().min(0).optional(),
   total_installments: z.coerce.number().int().positive().optional(),
+  is_legacy: z.boolean().optional(),
+  paid_installments: z.coerce.number().int().min(0).max(360).optional(),
   annual_adjustment_rate: z.coerce.number().min(0).max(100).optional(),
   penalty_rate: z.coerce.number().min(0).max(100).optional(),
   daily_interest_rate: z.coerce.number().min(0).max(1).optional(),
