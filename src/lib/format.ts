@@ -8,7 +8,16 @@ export function formatCurrency(value: string | number): string {
 
 export function formatDate(dateStr: string): string {
   if (!dateStr) return "—";
-  const date = new Date(dateStr);
+  // Date-only values ("YYYY-MM-DD" — vencimentos, datas de compra, etc.) must be
+  // shown as the exact calendar day that was stored. `new Date("2026-08-10")`
+  // parses as UTC midnight, so formatting in a negative-offset timezone (Brasil,
+  // UTC-3) shifts the displayed day. Build the Date from the local parts instead
+  // so the screen always matches the date generated pelo motor de boletos.
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  const date = dateOnly
+    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+    : new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("pt-BR").format(date);
 }
 

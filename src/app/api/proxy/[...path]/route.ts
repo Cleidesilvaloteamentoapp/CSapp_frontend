@@ -81,7 +81,15 @@ async function proxyRequest(
   });
 
   try {
-    const body = ["POST", "PUT", "PATCH"].includes(method) ? await request.text() : undefined;
+    // Forward the raw body as binary. Using request.text() here decodes the
+    // payload as UTF-8, which corrupts binary uploads (PDF/imagens) in
+    // multipart/form-data — invalid byte sequences become U+FFFD, so the file
+    // stored no Supabase chega em branco/corrompido. arrayBuffer() preserves the
+    // exact bytes (and works for JSON bodies too, since the content-type header
+    // — incluindo o boundary do multipart — is forwarded above).
+    const body = ["POST", "PUT", "PATCH"].includes(method)
+      ? await request.arrayBuffer()
+      : undefined;
 
     const response = await fetch(url, {
       method,
