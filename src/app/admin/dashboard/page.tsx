@@ -13,6 +13,15 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Loader2,
+  UserPlus,
+  FileSignature,
+  Handshake,
+  UserX,
+  CalendarClock,
+  Clock,
+  FileText,
+  Receipt,
+  Activity as ActivityIcon,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +48,68 @@ import {
   AreaChart,
   Area,
 } from "recharts";
+
+/** Compact clickable KPI tile used in the client-control command row. */
+function QuickStat({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  href,
+  accent = "text-foreground",
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number | string;
+  hint?: string;
+  href: string;
+  accent?: string;
+}) {
+  return (
+    <Link href={href} className="transition-transform hover:scale-[1.02]">
+      <Card className="h-full cursor-pointer hover:border-primary/40 transition-colors">
+        <CardContent className="flex items-center gap-3 p-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+            <Icon className={`h-5 w-5 ${accent}`} />
+          </div>
+          <div className="min-w-0">
+            <div className={`text-2xl font-bold leading-tight ${accent}`}>{value}</div>
+            <p className="text-xs font-medium text-muted-foreground truncate">{label}</p>
+            {hint && <p className="text-[11px] text-muted-foreground/80 truncate">{hint}</p>}
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
+/** Pick an icon for a recent-activity row based on its type label. */
+function activityIcon(type: string) {
+  const t = type.toLowerCase();
+  if (t.includes("cliente")) return Users;
+  if (t.includes("contrato") || t.includes("transfer")) return FileSignature;
+  if (t.includes("fatura")) return FileText;
+  if (t.includes("boleto")) return Receipt;
+  if (t.includes("distrato") || t.includes("renegocia")) return Handshake;
+  if (t.includes("documento")) return FileText;
+  return ActivityIcon;
+}
+
+/** Short relative time like "há 5 min" / "há 2 h" / "há 3 d". */
+function timeAgo(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const diffMs = Date.now() - then;
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min} min`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `há ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `há ${days} d`;
+  const months = Math.floor(days / 30);
+  return `há ${months} ${months === 1 ? "mês" : "meses"}`;
+}
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -148,10 +219,15 @@ export default function AdminDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{stats?.total_lots ?? 0}</div>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex flex-wrap items-center gap-2 mt-1">
                 <Badge variant="secondary" className="text-xs bg-success/10 text-success border-0">
                   {stats?.available_lots ?? 0} disponíveis
                 </Badge>
+                {(stats?.reserved_lots ?? 0) > 0 && (
+                  <Badge variant="secondary" className="text-xs bg-yellow-500/10 text-yellow-700 border-0">
+                    {stats?.reserved_lots} reservados
+                  </Badge>
+                )}
                 <Badge variant="secondary" className="text-xs">
                   {stats?.sold_lots ?? 0} vendidos
                 </Badge>
@@ -192,6 +268,65 @@ export default function AdminDashboardPage() {
           </Card>
         </Link>
       </div>
+
+      {/* Client command row — controle de clientes */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <QuickStat
+          icon={UserPlus}
+          label="Novos no mês"
+          value={stats?.new_clients_this_month ?? 0}
+          hint="Clientes cadastrados"
+          href="/admin/clients"
+          accent="text-success"
+        />
+        <QuickStat
+          icon={FileSignature}
+          label="Contratos ativos"
+          value={stats?.active_contracts ?? 0}
+          hint="Lotes vinculados"
+          href="/admin/financial"
+        />
+        <QuickStat
+          icon={Handshake}
+          label="Em negociação"
+          value={stats?.in_negotiation_clients ?? 0}
+          hint="Clientes renegociando"
+          href="/admin/clients"
+          accent={(stats?.in_negotiation_clients ?? 0) > 0 ? "text-yellow-600" : "text-foreground"}
+        />
+        <QuickStat
+          icon={UserX}
+          label="Inativos"
+          value={stats?.inactive_clients ?? 0}
+          hint="Sem contrato ativo"
+          href="/admin/clients"
+          accent="text-muted-foreground"
+        />
+      </div>
+
+      {/* Upcoming collections — próximos vencimentos */}
+      {financial && parseFloat(financial.due_soon_amount) > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-center gap-4 py-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <CalendarClock className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold">Vencendo nos próximos 7 dias</p>
+              <p className="text-sm text-muted-foreground">
+                {formatCurrency(financial.due_soon_amount)} em {financial.due_soon_count} fatura
+                {financial.due_soon_count !== 1 ? "s" : ""} a receber
+              </p>
+            </div>
+            <Link
+              href="/admin/financial"
+              className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/80 whitespace-nowrap"
+            >
+              Ver faturas
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Financial Alert */}
       {financial && parseFloat(financial.total_overdue) > 0 && (
@@ -320,33 +455,67 @@ export default function AdminDashboardPage() {
                   {financial ? formatCurrency(financial.total_overdue) : "—"}
                 </span>
               </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                    <CalendarClock className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Vencendo em 7 dias</p>
+                    <p className="text-xs text-muted-foreground">
+                      {financial?.due_soon_count ?? 0} fatura{(financial?.due_soon_count ?? 0) !== 1 ? "s" : ""} a receber
+                    </p>
+                  </div>
+                </div>
+                <span className="text-lg font-bold text-primary">
+                  {financial ? formatCurrency(financial.due_soon_amount) : "—"}
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Activities */}
+      {/* Recent Activities — trilha real de auditoria */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Atividades Recentes</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              Atividades Recentes
+            </CardTitle>
+            <CardDescription>Últimas ações registradas no sistema</CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           {activities.length > 0 ? (
-            <div className="space-y-3">
-              {activities.map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-center justify-between rounded-lg border px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{activity.description}</p>
-                    <p className="text-xs text-muted-foreground">{activity.type}</p>
+            <div className="space-y-2">
+              {activities.map((activity) => {
+                const Icon = activityIcon(activity.type);
+                return (
+                  <div
+                    key={activity.id}
+                    className="flex items-start gap-3 rounded-lg border px-4 py-3"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted mt-0.5">
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{activity.description}</p>
+                      <Badge variant="outline" className="mt-1 text-[11px] font-normal">
+                        {activity.type}
+                      </Badge>
+                    </div>
+                    <span
+                      className="text-xs text-muted-foreground whitespace-nowrap ml-2 mt-0.5"
+                      title={formatDate(activity.created_at)}
+                    >
+                      {timeAgo(activity.created_at)}
+                    </span>
                   </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
-                    {formatDate(activity.created_at)}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-8">

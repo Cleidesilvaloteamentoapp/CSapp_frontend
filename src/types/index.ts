@@ -504,10 +504,15 @@ export interface AdminStats {
   total_clients: number;
   active_clients: number;
   defaulter_clients: number;
+  inactive_clients: number;
+  in_negotiation_clients: number;
+  new_clients_this_month: number;
+  active_contracts: number;
   open_service_orders: number;
   completed_service_orders: number;
   total_lots: number;
   available_lots: number;
+  reserved_lots: number;
   sold_lots: number;
 }
 
@@ -516,6 +521,8 @@ export interface FinancialOverview {
   total_received: string;
   total_overdue: string;
   overdue_count: number;
+  due_soon_amount: string;
+  due_soon_count: number;
 }
 
 export interface RevenueChart {
