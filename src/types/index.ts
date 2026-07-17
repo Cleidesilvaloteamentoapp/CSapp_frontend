@@ -778,10 +778,16 @@ export interface SicrediEventResponse {
   nosso_numero: string | null;
   boleto_id: string | null;
   invoice_id: string | null;
+  webhook_event_id: string | null;
   http_status: number | null;
   success: boolean | null;
   payload: Record<string, unknown> | null;
   created_at: string;
+}
+
+export interface SicrediEventListResponse {
+  items: SicrediEventResponse[];
+  total: number;
 }
 
 // ===================== Manual Writeoff =====================

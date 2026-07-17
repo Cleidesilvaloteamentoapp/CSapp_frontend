@@ -364,7 +364,11 @@ export default function BoletoDetailsPage() {
     );
   }
 
-  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.NORMAL;
+  const cfg = STATUS_CONFIG[status] || {
+    label: status,
+    variant: "outline" as const,
+    color: "text-muted-foreground",
+  };
   const isEditable = status !== "CANCELADO" && status !== "LIQUIDADO";
   const isNegativado = status === "NEGATIVADO";
   const isVencido = status === "VENCIDO";

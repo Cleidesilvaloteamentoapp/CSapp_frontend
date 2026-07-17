@@ -516,6 +516,7 @@ export default function BoletosListPage() {
                 <SelectItem value="VENCIDO">Vencidos</SelectItem>
                 <SelectItem value="CANCELADO">Cancelados</SelectItem>
                 <SelectItem value="NEGATIVADO">Negativados</SelectItem>
+                <SelectItem value="PENDING_APPROVAL">Aguardando Aprovação</SelectItem>
               </SelectContent>
             </Select>
             <Select
@@ -655,7 +656,11 @@ export default function BoletosListPage() {
                   </TableHeader>
                   <TableBody>
                     {boletos.map((boleto) => {
-                      const cfg = StatusConfig[boleto.status] || StatusConfig.NORMAL;
+                      const cfg = StatusConfig[boleto.status] || {
+                        label: boleto.status,
+                        variant: "outline" as const,
+                        color: "text-muted-foreground",
+                      };
                       return (
                         <TableRow
                           key={boleto.id}

@@ -18,6 +18,7 @@ import type {
   AdminNotification,
   RescissionResponse,
   SicrediEventResponse,
+  SicrediEventListResponse,
   ClientResponse,
 } from "@/types";
 import type { Boleto } from "@/types/sicredi";
@@ -208,7 +209,7 @@ export async function listSicrediEvents(params?: {
   event_type?: string;
   limit?: number;
   offset?: number;
-}): Promise<SicrediEventResponse[]> {
+}): Promise<SicrediEventListResponse> {
   const query = new URLSearchParams();
   if (params?.direction) query.set("direction", params.direction);
   if (params?.nosso_numero) query.set("nosso_numero", params.nosso_numero);
@@ -216,7 +217,7 @@ export async function listSicrediEvents(params?: {
   if (params?.limit) query.set("limit", String(params.limit));
   if (params?.offset) query.set("offset", String(params.offset));
   const qs = query.toString();
-  return api.get<SicrediEventResponse[]>(`/admin/sicredi-events${qs ? `?${qs}` : ""}`);
+  return api.get<SicrediEventListResponse>(`/admin/sicredi-events${qs ? `?${qs}` : ""}`);
 }
 
 // ===================== Early Payoff Requests (Admin) =====================

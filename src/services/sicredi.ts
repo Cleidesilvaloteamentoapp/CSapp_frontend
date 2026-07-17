@@ -43,6 +43,19 @@ export async function saveCredentials(
   );
 }
 
+export interface IntegrationHealth {
+  webhook_contract: { status: string; data?: unknown; detail?: string } | null;
+  last_webhook_received_at: string | null;
+  last_sync_run_at: string | null;
+  last_reconcile_at: string | null;
+  open_boletos: number;
+  events_last_24h: number;
+}
+
+export async function getIntegrationHealth(): Promise<IntegrationHealth> {
+  return api.get<IntegrationHealth>("/admin/sicredi/integration-health");
+}
+
 // ===================== Boletos (Admin) =====================
 
 export async function createBoleto(

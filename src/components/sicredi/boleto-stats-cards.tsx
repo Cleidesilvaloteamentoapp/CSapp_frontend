@@ -11,6 +11,7 @@ import {
   Clock,
   XCircle,
   AlertTriangle,
+  Hourglass,
 } from "lucide-react";
 
 interface BoletoStatsCardsProps {
@@ -74,6 +75,15 @@ const STATUS_CARDS: {
     textColor: "text-red-700 dark:text-red-400",
     iconColor: "text-red-500",
   },
+  {
+    status: "PENDING_APPROVAL",
+    label: "Aguardando Aprovação",
+    icon: Hourglass,
+    bgActive: "bg-amber-50 border-amber-300 dark:bg-amber-950 dark:border-amber-700",
+    bgHover: "hover:bg-amber-50/50 dark:hover:bg-amber-950/50",
+    textColor: "text-amber-700 dark:text-amber-400",
+    iconColor: "text-amber-500",
+  },
 ];
 
 export function BoletoStatsCards({
@@ -84,8 +94,8 @@ export function BoletoStatsCards({
 }: BoletoStatsCardsProps) {
   if (loading) {
     return (
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
           <Card key={i}>
             <CardContent className="p-4">
               <Skeleton className="h-4 w-20 mb-2" />

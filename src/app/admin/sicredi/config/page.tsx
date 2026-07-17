@@ -1,11 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Eye, EyeOff, Loader2, ShieldCheck, ShieldAlert } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Loader2,
+  ShieldCheck,
+  ShieldAlert,
+  Activity,
+  AlertTriangle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +45,8 @@ import { PermissionGuard } from "@/components/shared/permission-guard";
 import { PageSkeleton } from "@/components/shared/loading-skeleton";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useSicrediCredentials } from "@/hooks/use-sicredi";
+import { getIntegrationHealth, type IntegrationHealth } from "@/services/sicredi";
+import { formatDateTime } from "@/lib/format";
 import type { SicrediCredentialsRequest } from "@/types/sicredi";
 
 const credentialsSchema = z.object({
@@ -61,6 +71,19 @@ export default function SicrediConfigPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingData, setPendingData] =
     useState<SicrediCredentialsRequest | null>(null);
+  const [health, setHealth] = useState<IntegrationHealth | null>(null);
+
+  useEffect(() => {
+    if (!credentials) return;
+    getIntegrationHealth()
+      .then(setHealth)
+      .catch(() => setHealth(null));
+  }, [credentials]);
+
+  const syncIsStale =
+    !health?.last_sync_run_at ||
+    Date.now() - new Date(health.last_sync_run_at).getTime() > 2 * 60 * 60 * 1000;
+  const contractOk = health?.webhook_contract?.status === "ok";
 
   const form = useForm<CredentialsFormValues>({
     resolver: zodResolver(credentialsSchema) as any,
@@ -178,6 +201,90 @@ export default function SicrediConfigPage() {
                 </span>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {credentials && health && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Saúde da Integração
+            </CardTitle>
+            <CardDescription>
+              Confirma que os webhooks e a sincronização automática estão ativos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Contrato de webhook:</span>
+                {contractOk ? (
+                  <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                    <ShieldCheck className="mr-1 h-3 w-3" />
+                    Ativo
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive">
+                    <ShieldAlert className="mr-1 h-3 w-3" />
+                    Não registrado / erro
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Sincronização automática:</span>
+                {syncIsStale ? (
+                  <Badge variant="destructive">
+                    <AlertTriangle className="mr-1 h-3 w-3" />
+                    Sem execução recente
+                  </Badge>
+                ) : (
+                  <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                    <ShieldCheck className="mr-1 h-3 w-3" />
+                    Ativa
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <div className="grid gap-2 text-sm sm:grid-cols-2">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Último webhook recebido:</span>
+                <span className="font-medium">
+                  {health.last_webhook_received_at
+                    ? formatDateTime(health.last_webhook_received_at)
+                    : "Nunca"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Última sincronização:</span>
+                <span className="font-medium">
+                  {health.last_sync_run_at
+                    ? formatDateTime(health.last_sync_run_at)
+                    : "Nunca"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Última reconciliação:</span>
+                <span className="font-medium">
+                  {health.last_reconcile_at
+                    ? formatDateTime(health.last_reconcile_at)
+                    : "Nunca"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Boletos em aberto:</span>
+                <span className="font-medium">{health.open_boletos}</span>
+              </div>
+            </div>
+            {(syncIsStale || !contractOk) && (
+              <p className="text-xs text-amber-600">
+                Verifique os serviços de background (beat/worker) e o registro do contrato de webhook.
+                Consulte a{" "}
+                <a href="/admin/sicredi-events" className="underline">Auditoria Sicredi</a>{" "}
+                para detalhes.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

@@ -23,30 +23,60 @@ import { ApiError } from "@/lib/api";
 import { listSicrediEvents } from "@/services/admin";
 import type { SicrediEventResponse } from "@/types";
 
+const PAGE_SIZE = 50;
+
+// Curated event types most useful to filter on. The value "all" clears the filter.
+const EVENT_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: "all", label: "Todos os tipos" },
+  { value: "SYNC_RUN", label: "Sincronização periódica (heartbeat)" },
+  { value: "SYNC_LIQUIDADOS_DIA", label: "Reconciliação de liquidados" },
+  { value: "CREATE_BOLETO", label: "Emissão de boleto" },
+  { value: "BAIXA_BOLETO", label: "Baixa de boleto" },
+  { value: "CONSULTA_BOLETO", label: "Consulta de boleto" },
+  { value: "WEBHOOK_LIQUIDACAO_PIX", label: "Webhook liquidação (Pix)" },
+  { value: "WEBHOOK_DUPLICATE", label: "Webhook duplicado" },
+  { value: "WEBHOOK_PARSE_ERROR", label: "Webhook inválido" },
+  { value: "UNKNOWN_SITUACAO", label: "Situação desconhecida" },
+];
+
 export default function SicrediEventsPage() {
   const [events, setEvents] = useState<SicrediEventResponse[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [direction, setDirection] = useState<string>("all");
+  const [eventType, setEventType] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [nossoNumero, setNossoNumero] = useState("");
+  const [page, setPage] = useState(0);
   const [detail, setDetail] = useState<SicrediEventResponse | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const params: { direction?: string; nosso_numero?: string; limit: number } = { limit: 200 };
+      const params: {
+        direction?: string;
+        nosso_numero?: string;
+        event_type?: string;
+        limit: number;
+        offset: number;
+      } = { limit: PAGE_SIZE, offset: page * PAGE_SIZE };
       if (direction !== "all") params.direction = direction;
+      if (eventType !== "all") params.event_type = eventType;
       if (nossoNumero.trim()) params.nosso_numero = nossoNumero.trim();
       const data = await listSicrediEvents(params);
-      setEvents(Array.isArray(data) ? data : []);
+      setEvents(data.items ?? []);
+      setTotal(data.total ?? 0);
     } catch (err) {
       if (err instanceof ApiError) toast.error("Erro ao carregar eventos Sicredi");
     } finally {
       setLoading(false);
     }
-  }, [direction, nossoNumero]);
+  }, [direction, eventType, nossoNumero, page]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Reset to the first page whenever a filter changes.
+  useEffect(() => { setPage(0); }, [direction, eventType, nossoNumero]);
 
   function directionBadge(d: string) {
     return d === "INBOUND" ? (
@@ -67,6 +97,14 @@ export default function SicrediEventsPage() {
             <SelectItem value="all">Todas as direções</SelectItem>
             <SelectItem value="OUTBOUND">Enviados (requisições)</SelectItem>
             <SelectItem value="INBOUND">Recebidos (webhooks)</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={eventType} onValueChange={setEventType}>
+          <SelectTrigger className="w-full sm:w-64"><SelectValue placeholder="Tipo de evento" /></SelectTrigger>
+          <SelectContent>
+            {EVENT_TYPE_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <div className="flex w-full gap-2 sm:w-auto">
@@ -110,7 +148,14 @@ export default function SicrediEventsPage() {
                     <TableRow key={ev.id}>
                       <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{formatDateTime(ev.created_at)}</TableCell>
                       <TableCell>{directionBadge(ev.direction)}</TableCell>
-                      <TableCell className="font-medium">{ev.event_type}</TableCell>
+                      <TableCell className="font-medium">
+                        {ev.event_type}
+                        {ev.company_id === null && (
+                          <Badge variant="outline" className="ml-2 text-amber-600 border-amber-300">
+                            Empresa não identificada
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{ev.nosso_numero || "—"}</TableCell>
                       <TableCell>
                         {ev.success === null ? (
@@ -134,6 +179,32 @@ export default function SicrediEventsPage() {
           )}
         </CardContent>
       </Card>
+
+      {total > PAGE_SIZE && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} de {total}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 0 || loading}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={(page + 1) * PAGE_SIZE >= total || loading}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-w-2xl">

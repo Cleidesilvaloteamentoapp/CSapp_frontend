@@ -98,7 +98,9 @@ export type BoletoSituacao =
   | "VENCIDO"
   | "CANCELADO"
   | "NEGATIVADO"
-  | "EM_ABERTO";
+  | "EM_ABERTO"
+  | "PENDING_APPROVAL"
+  | "BAIXA_MANUAL";
 
 // ===================== Boleto Details (Sicredi API response) =====================
 export interface BoletoDetails {
@@ -357,6 +359,8 @@ export const STATUS_CONFIG: Record<
   VENCIDO: { label: "Vencido", variant: "destructive", color: "text-yellow-600" },
   CANCELADO: { label: "Cancelado", variant: "secondary", color: "text-gray-500" },
   NEGATIVADO: { label: "Negativado", variant: "destructive", color: "text-red-600" },
+  PENDING_APPROVAL: { label: "Aguardando Aprovação", variant: "secondary", color: "text-amber-600" },
+  BAIXA_MANUAL: { label: "Baixa Manual", variant: "secondary", color: "text-gray-500" },
 };
 
 export const ACTIONS_BY_STATUS: Record<string, BatchAction[]> = {
@@ -365,6 +369,8 @@ export const ACTIONS_BY_STATUS: Record<string, BatchAction[]> = {
   NEGATIVADO: ["SUSTAR_NEGATIVACAO_BAIXAR"],
   LIQUIDADO: [],
   CANCELADO: [],
+  PENDING_APPROVAL: [],
+  BAIXA_MANUAL: [],
 };
 
 export const BATCH_ACTION_LABELS: Record<BatchAction, string> = {

@@ -647,7 +647,11 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
                 ) : (
                   <div className="space-y-3">
                     {boletos.map((boleto) => {
-                      const cfg = STATUS_CONFIG[boleto.status] || STATUS_CONFIG.NORMAL;
+                      const cfg = STATUS_CONFIG[boleto.status] || {
+                        label: boleto.status,
+                        variant: "outline" as const,
+                        color: "text-muted-foreground",
+                      };
                       return (
                         <div key={boleto.id} className="rounded-lg border p-4 space-y-3">
                           <div className="flex justify-between items-start">
