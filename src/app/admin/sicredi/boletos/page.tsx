@@ -58,6 +58,7 @@ import { ClientSelector } from "@/components/sicredi/client-selector";
 import { ClientFormDialog } from "@/app/admin/clients/client-form-dialog";
 import { useSicrediBoletos } from "@/hooks/use-sicredi";
 import { updateBoleto, syncAllBoletos, type SyncAllSummary } from "@/services/sicredi";
+import { listSicrediEvents } from "@/services/admin";
 import { ApiError } from "@/lib/api";
 import { formatCurrency, formatDate, formatCpfCnpj } from "@/lib/format";
 import type {
@@ -198,7 +199,48 @@ export default function BoletosListPage() {
   async function handleSyncAll() {
     setSyncing(true);
     try {
-      const summary = await syncAllBoletos();
+      // Snapshot the latest SYNC_RUN so we can detect the new one the worker
+      // produces (the request only enqueues the job — it runs in the background).
+      const before = await listSicrediEvents({
+        direction: "OUTBOUND",
+        event_type: "SYNC_RUN",
+        limit: 1,
+      });
+      const beforeId = before.items[0]?.id ?? null;
+
+      await syncAllBoletos(); // enqueue
+
+      // Poll the audit trail for the resulting SYNC_RUN event (~2 min max).
+      let latest: (typeof before.items)[number] | null = null;
+      for (let i = 0; i < 40; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const res = await listSicrediEvents({
+          direction: "OUTBOUND",
+          event_type: "SYNC_RUN",
+          limit: 1,
+        });
+        const ev = res.items[0];
+        if (ev && ev.id !== beforeId) {
+          latest = ev;
+          break;
+        }
+      }
+
+      if (!latest) {
+        toast.error(
+          "A sincronização está demorando. Verifique a Auditoria Sicredi em instantes."
+        );
+        return;
+      }
+
+      const p = (latest.payload ?? {}) as Partial<SyncAllSummary>;
+      const summary: SyncAllSummary = {
+        checked: p.checked ?? 0,
+        updated: p.updated ?? 0,
+        consult_errors: p.consult_errors ?? 0,
+        unknown_situacoes: p.unknown_situacoes ?? [],
+        error_samples: p.error_samples ?? [],
+      };
       setSyncSummary(summary);
       setSyncDialogOpen(true);
       if (summary.updated > 0) {

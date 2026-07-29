@@ -64,8 +64,17 @@ export interface SyncAllSummary {
   error_samples: { error: string; nosso_numero: string }[];
 }
 
-export async function syncAllBoletos(): Promise<SyncAllSummary> {
-  return api.post<SyncAllSummary>("/admin/sicredi/boletos/sync-all", {});
+export interface SyncTriggerResponse {
+  status: string;
+  started_at: string;
+}
+
+/**
+ * Enqueue an on-demand reconciliation of open boletos. Returns immediately;
+ * the result lands as a SYNC_RUN audit event that the caller polls for.
+ */
+export async function syncAllBoletos(): Promise<SyncTriggerResponse> {
+  return api.post<SyncTriggerResponse>("/admin/sicredi/boletos/sync-all", {});
 }
 
 // ===================== Boletos (Admin) =====================
