@@ -287,6 +287,20 @@ export interface DevelopmentResponse {
   updated_at: string;
 }
 
+/** Resumo do que a exclusão de um empreendimento apagaria (etapa de confirmação). */
+export interface DevelopmentDeletePreview {
+  development_id: string;
+  name: string;
+  lots_total: number;
+  lots_by_status: Partial<Record<LotStatus, number>>;
+  contracts_total: number;
+  active_contracts: number;
+  invoices_total: number;
+  paid_invoices: number;
+  can_delete: boolean;
+  blocked_reason: string | null;
+}
+
 // ===================== Lot =====================
 export type LotStatus = "AVAILABLE" | "RESERVED" | "SOLD";
 
@@ -327,6 +341,19 @@ export interface LotResponse {
   photos: Photo[];
   created_at: string;
   updated_at: string;
+}
+
+/** Resumo do que a exclusão de um lote apagaria (etapa de confirmação). */
+export interface LotDeletePreview {
+  lot_id: string;
+  lot_number: string;
+  block: string | null;
+  contracts_total: number;
+  active_contracts: number;
+  invoices_total: number;
+  paid_invoices: number;
+  can_delete: boolean;
+  blocked_reason: string | null;
 }
 
 // ===================== Lot Assignment =====================

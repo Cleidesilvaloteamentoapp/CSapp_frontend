@@ -56,6 +56,18 @@ export async function getIntegrationHealth(): Promise<IntegrationHealth> {
   return api.get<IntegrationHealth>("/admin/sicredi/integration-health");
 }
 
+export interface SyncAllSummary {
+  checked: number;
+  updated: number;
+  consult_errors: number;
+  unknown_situacoes: string[];
+  error_samples: { error: string; nosso_numero: string }[];
+}
+
+export async function syncAllBoletos(): Promise<SyncAllSummary> {
+  return api.post<SyncAllSummary>("/admin/sicredi/boletos/sync-all", {});
+}
+
 // ===================== Boletos (Admin) =====================
 
 export async function createBoleto(

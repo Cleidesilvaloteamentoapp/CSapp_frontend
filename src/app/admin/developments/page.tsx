@@ -36,7 +36,7 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 import { api, ApiError } from "@/lib/api";
 import { developmentCreateSchema, lotUpdateSchema, type DevelopmentCreateFormData, type LotUpdateFormData } from "@/lib/validators";
 import { formatDate, formatCurrency, formatArea } from "@/lib/format";
-import type { DevelopmentResponse, PropertyType, PaginatedResponse, LotResponse, Photo } from "@/types";
+import type { DevelopmentResponse, DevelopmentDeletePreview, LotDeletePreview, PropertyType, PaginatedResponse, LotResponse, Photo } from "@/types";
 import { PROPERTY_TYPE_LABELS, PROPERTY_TYPE_ICONS } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -56,6 +56,9 @@ function LotEditDialog({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>(lot.photos ?? []);
+  const [deletePreview, setDeletePreview] = useState<LotDeletePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const form = useForm<LotUpdateFormData>({
     resolver: zodResolver(lotUpdateSchema) as never,
@@ -78,17 +81,40 @@ function LotEditDialog({
     }
   }
 
+  // Abre o diálogo de exclusão e carrega o resumo do que será apagado.
+  async function openDelete() {
+    setConfirmDelete(true);
+    setDeletePreview(null);
+    setPreviewError(null);
+    setPreviewLoading(true);
+    try {
+      setDeletePreview(await api.get<LotDeletePreview>(`/admin/lots/${lot.id}/delete-preview`));
+    } catch (error) {
+      setPreviewError(
+        error instanceof ApiError && typeof error.detail === "string"
+          ? error.detail
+          : "Não foi possível carregar o resumo da exclusão."
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   async function handleDelete() {
     setDeleting(true);
     try {
       await api.delete(`/admin/lots/${lot.id}`);
-      toast.success("Lote excluído");
+      toast.success(
+        deletePreview && deletePreview.contracts_total > 0
+          ? `Lote excluído (${deletePreview.contracts_total} contrato(s) removidos)`
+          : "Lote excluído"
+      );
+      setConfirmDelete(false);
       onDeleted();
     } catch (error) {
       toast.error(error instanceof ApiError && typeof error.detail === "string" ? error.detail : "Erro ao excluir lote");
     } finally {
       setDeleting(false);
-      setConfirmDelete(false);
     }
   }
 
@@ -187,9 +213,8 @@ function LotEditDialog({
                       type="button"
                       variant="destructive"
                       size="sm"
-                      onClick={() => setConfirmDelete(true)}
-                      disabled={lot.status === "SOLD"}
-                      title={lot.status === "SOLD" ? "Lotes vendidos não podem ser excluídos" : "Excluir lote"}
+                      onClick={openDelete}
+                      title="Excluir lote"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Excluir lote
@@ -219,24 +244,80 @@ function LotEditDialog({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+      <AlertDialog
+        open={confirmDelete}
+        onOpenChange={(open) => {
+          setConfirmDelete(open);
+          if (!open) { setDeletePreview(null); setPreviewError(null); }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir lote?</AlertDialogTitle>
-            <AlertDialogDescription>
-              O lote <strong>{lot.lot_number}{lot.block ? ` · Quadra ${lot.block}` : ""}</strong> será excluído permanentemente.
-              Esta ação não pode ser desfeita.
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Excluir lote?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                O lote <strong>{lot.lot_number}{lot.block ? ` · Quadra ${lot.block}` : ""}</strong> será
+                excluído permanentemente, junto com tudo que está atrelado a ele.
+                Esta ação não pode ser desfeita.
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {previewLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Verificando o que será excluído...
+            </div>
+          )}
+
+          {previewError && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              {previewError}
+            </div>
+          )}
+
+          {deletePreview && (
+            <div className="space-y-3">
+              <div className="rounded-md border bg-muted/40 p-3 text-sm">
+                <p className="mb-2 font-medium">Será excluído:</p>
+                <ul className="space-y-1">
+                  <li className="flex justify-between">
+                    <span className="text-muted-foreground">Contratos (vínculos com clientes)</span>
+                    <span className="font-medium">{deletePreview.contracts_total}</span>
+                  </li>
+                  <li className="flex justify-between">
+                    <span className="text-muted-foreground">Faturas / parcelas</span>
+                    <span className="font-medium">{deletePreview.invoices_total}</span>
+                  </li>
+                  {deletePreview.paid_invoices > 0 && (
+                    <li className="flex justify-between pl-4 text-xs text-destructive">
+                      <span>Parcelas já pagas (histórico financeiro)</span>
+                      <span>{deletePreview.paid_invoices}</span>
+                    </li>
+                  )}
+                </ul>
+              </div>
+
+              {!deletePreview.can_delete && (
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                  {deletePreview.blocked_reason}
+                </div>
+              )}
+            </div>
+          )}
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleDelete}
-              disabled={deleting}
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting || previewLoading || !deletePreview?.can_delete}
             >
               {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Excluir
+              Excluir lote
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -270,6 +351,9 @@ export default function DevelopmentsPage() {
   // Delete development confirmation
   const [deletingDev, setDeletingDev] = useState<DevelopmentResponse | null>(null);
   const [deletingDevLoading, setDeletingDevLoading] = useState(false);
+  const [deletePreview, setDeletePreview] = useState<DevelopmentDeletePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const form = useForm<DevelopmentCreateFormData>({
     resolver: zodResolver(developmentCreateSchema) as never,
@@ -384,13 +468,52 @@ export default function DevelopmentsPage() {
     }
   }
 
+  // Abre o diálogo de exclusão e carrega o resumo do que será apagado.
+  async function openDeleteDev(dev: DevelopmentResponse) {
+    setDeletingDev(dev);
+    setDeletePreview(null);
+    setPreviewError(null);
+    setPreviewLoading(true);
+    try {
+      const preview = await api.get<DevelopmentDeletePreview>(
+        `/admin/developments/${dev.id}/delete-preview`
+      );
+      setDeletePreview(preview);
+    } catch (error) {
+      setPreviewError(
+        error instanceof ApiError && typeof error.detail === "string"
+          ? error.detail
+          : "Não foi possível carregar o resumo da exclusão."
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  function closeDeleteDev() {
+    setDeletingDev(null);
+    setDeletePreview(null);
+    setPreviewError(null);
+  }
+
   async function handleDeleteDev() {
     if (!deletingDev) return;
     setDeletingDevLoading(true);
     try {
       await api.delete(`/admin/developments/${deletingDev.id}`);
-      toast.success("Empreendimento excluído");
+      toast.success(
+        deletePreview && deletePreview.lots_total > 0
+          ? `Empreendimento excluído (${deletePreview.lots_total} lote(s) removidos)`
+          : "Empreendimento excluído"
+      );
       setDevelopments((prev) => prev.filter((d) => d.id !== deletingDev.id));
+      setChildLotsMap((prev) => {
+        const next = { ...prev };
+        delete next[deletingDev.id];
+        return next;
+      });
+      loadData();
+      closeDeleteDev();
     } catch (error) {
       toast.error(
         error instanceof ApiError && typeof error.detail === "string"
@@ -399,7 +522,6 @@ export default function DevelopmentsPage() {
       );
     } finally {
       setDeletingDevLoading(false);
-      setDeletingDev(null);
     }
   }
 
@@ -543,7 +665,7 @@ export default function DevelopmentsPage() {
                               variant="ghost"
                               size="sm"
                               className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              onClick={() => setDeletingDev(dev)}
+                              onClick={() => openDeleteDev(dev)}
                               title="Excluir empreendimento"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -829,27 +951,87 @@ export default function DevelopmentsPage() {
       )}
 
       {/* Delete development confirmation */}
-      <AlertDialog open={!!deletingDev} onOpenChange={(open) => { if (!open) setDeletingDev(null); }}>
+      <AlertDialog open={!!deletingDev} onOpenChange={(open) => { if (!open) closeDeleteDev(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
               Excluir empreendimento?
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              <strong>{deletingDev?.name}</strong> e todos os seus lotes (sem contrato ativo) serão excluídos permanentemente.
-              Lotes com contratos ativos bloqueiam a exclusão.
+            <AlertDialogDescription asChild>
+              <div>
+                <strong>{deletingDev?.name}</strong> será excluído permanentemente, junto com
+                tudo que está atrelado a ele. Esta ação não pode ser desfeita.
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {previewLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Verificando o que será excluído...
+            </div>
+          )}
+
+          {previewError && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              {previewError}
+            </div>
+          )}
+
+          {deletePreview && (
+            <div className="space-y-3">
+              <div className="rounded-md border bg-muted/40 p-3 text-sm">
+                <p className="mb-2 font-medium">Será excluído:</p>
+                <ul className="space-y-1">
+                  <li className="flex justify-between">
+                    <span className="text-muted-foreground">Lotes</span>
+                    <span className="font-medium">{deletePreview.lots_total}</span>
+                  </li>
+                  {(["AVAILABLE", "RESERVED", "SOLD"] as const)
+                    .filter((st) => (deletePreview.lots_by_status[st] ?? 0) > 0)
+                    .map((st) => (
+                      <li key={st} className="flex justify-between pl-4 text-xs text-muted-foreground">
+                        <span>{LOT_STATUS_LABEL[st]}</span>
+                        <span>{deletePreview.lots_by_status[st]}</span>
+                      </li>
+                    ))}
+                  <li className="flex justify-between">
+                    <span className="text-muted-foreground">Contratos (vínculos com clientes)</span>
+                    <span className="font-medium">{deletePreview.contracts_total}</span>
+                  </li>
+                  <li className="flex justify-between">
+                    <span className="text-muted-foreground">Faturas / parcelas</span>
+                    <span className="font-medium">{deletePreview.invoices_total}</span>
+                  </li>
+                  {deletePreview.paid_invoices > 0 && (
+                    <li className="flex justify-between pl-4 text-xs text-destructive">
+                      <span>Parcelas já pagas (histórico financeiro)</span>
+                      <span>{deletePreview.paid_invoices}</span>
+                    </li>
+                  )}
+                </ul>
+              </div>
+
+              {!deletePreview.can_delete && (
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                  {deletePreview.blocked_reason}
+                </div>
+              )}
+            </div>
+          )}
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletingDevLoading}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleDeleteDev}
-              disabled={deletingDevLoading}
+              onClick={(e) => { e.preventDefault(); handleDeleteDev(); }}
+              disabled={deletingDevLoading || previewLoading || !deletePreview?.can_delete}
             >
               {deletingDevLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Excluir
+              {deletePreview && deletePreview.lots_total > 0
+                ? `Excluir empreendimento e ${deletePreview.lots_total} lote(s)`
+                : "Excluir empreendimento"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

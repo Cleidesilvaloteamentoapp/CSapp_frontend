@@ -11,7 +11,10 @@ import {
   Layers,
   X,
   RefreshCw,
+  RotateCw,
   Users,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,7 +57,8 @@ import type { ActionType } from "@/components/sicredi/boleto-actions-menu";
 import { ClientSelector } from "@/components/sicredi/client-selector";
 import { ClientFormDialog } from "@/app/admin/clients/client-form-dialog";
 import { useSicrediBoletos } from "@/hooks/use-sicredi";
-import { updateBoleto } from "@/services/sicredi";
+import { updateBoleto, syncAllBoletos, type SyncAllSummary } from "@/services/sicredi";
+import { ApiError } from "@/lib/api";
 import { formatCurrency, formatDate, formatCpfCnpj } from "@/lib/format";
 import type {
   Boleto,
@@ -136,6 +140,11 @@ export default function BoletosListPage() {
   // Selection for batch
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // Sync-all with Sicredi
+  const [syncing, setSyncing] = useState(false);
+  const [syncSummary, setSyncSummary] = useState<SyncAllSummary | null>(null);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+
   // ==================== Data Loading ====================
 
   const loadData = useCallback(async () => {
@@ -185,6 +194,33 @@ export default function BoletosListPage() {
     loadStatsData();
     setSelectedIds(new Set());
   }, [loadData, loadStatsData]);
+
+  async function handleSyncAll() {
+    setSyncing(true);
+    try {
+      const summary = await syncAllBoletos();
+      setSyncSummary(summary);
+      setSyncDialogOpen(true);
+      if (summary.updated > 0) {
+        toast.success(`${summary.updated} boleto(s) atualizado(s) pelo Sicredi`);
+        refresh();
+      } else if (summary.consult_errors > 0) {
+        toast.error(
+          `${summary.consult_errors} consulta(s) falharam no Sicredi. Veja os detalhes.`
+        );
+      } else {
+        toast.info("Sincronização concluída: nenhuma mudança de status.");
+      }
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : "Erro ao sincronizar com o Sicredi";
+      toast.error(msg);
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   // ==================== Filter Handlers ====================
 
@@ -450,6 +486,18 @@ export default function BoletosListPage() {
             <RefreshCw className={`mr-2 h-4 w-4 ${pageLoading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
+          <PermissionGuard permission="manage_sicredi">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSyncAll}
+              disabled={syncing}
+              title="Consulta o status atual de todos os boletos em aberto no Sicredi"
+            >
+              <RotateCw className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Sincronizando..." : "Sincronizar Sicredi"}
+            </Button>
+          </PermissionGuard>
           <PermissionGuard permission="manage_sicredi">
             <Button
               variant="outline"
@@ -1066,6 +1114,81 @@ export default function BoletosListPage() {
           toast.success("Cliente criado com sucesso");
         }}
       />
+
+      {/* Sync-all summary */}
+      <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Sincronização com o Sicredi</DialogTitle>
+            <DialogDescription>
+              Status consultado no Sicredi para os boletos em aberto.
+            </DialogDescription>
+          </DialogHeader>
+          {syncSummary && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-lg border p-3">
+                  <p className="text-2xl font-bold">{syncSummary.checked}</p>
+                  <p className="text-xs text-muted-foreground">Consultados</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-2xl font-bold text-green-600 flex items-center justify-center gap-1">
+                    <CheckCircle2 className="h-5 w-5" />
+                    {syncSummary.updated}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Atualizados</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p
+                    className={`text-2xl font-bold flex items-center justify-center gap-1 ${
+                      syncSummary.consult_errors > 0 ? "text-red-600" : ""
+                    }`}
+                  >
+                    {syncSummary.consult_errors > 0 && (
+                      <AlertTriangle className="h-5 w-5" />
+                    )}
+                    {syncSummary.consult_errors}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Erros</p>
+                </div>
+              </div>
+
+              {syncSummary.error_samples.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Erros retornados pelo Sicredi</p>
+                  <div className="space-y-2">
+                    {syncSummary.error_samples.map((s, i) => (
+                      <div
+                        key={i}
+                        className="rounded-md border border-red-200 bg-red-50 dark:bg-red-950/30 p-2 text-xs"
+                      >
+                        <p className="font-mono break-words">{s.error}</p>
+                        <p className="text-muted-foreground mt-1">
+                          ex.: boleto {s.nosso_numero}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {syncSummary.unknown_situacoes.length > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  Situações não mapeadas: {syncSummary.unknown_situacoes.join(", ")}
+                </div>
+              )}
+
+              {syncSummary.consult_errors > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Falhas em massa geralmente indicam token/credencial inválidos ou
+                  ambiente (sandbox × produção) incorreto nas configurações do
+                  Sicredi.
+                </p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
