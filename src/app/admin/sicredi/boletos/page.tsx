@@ -8,6 +8,7 @@ import {
   Search,
   Loader2,
   FileText,
+  FileDown,
   Layers,
   X,
   RefreshCw,
@@ -58,7 +59,6 @@ import { ClientSelector } from "@/components/sicredi/client-selector";
 import { ClientFormDialog } from "@/app/admin/clients/client-form-dialog";
 import { useSicrediBoletos } from "@/hooks/use-sicredi";
 import { updateBoleto, syncAllBoletos, type SyncAllSummary } from "@/services/sicredi";
-import { listSicrediEvents } from "@/services/admin";
 import { ApiError } from "@/lib/api";
 import { formatCurrency, formatDate, formatCpfCnpj } from "@/lib/format";
 import type {
@@ -77,6 +77,7 @@ export default function BoletosListPage() {
   const {
     cancel,
     downloadPdf,
+    downloadLote,
     loadLocalBoletos,
     loadStats,
     negativar,
@@ -88,7 +89,9 @@ export default function BoletosListPage() {
     grantAbatimento,
     revokeAbatimento,
     loading,
+    error: loteError,
   } = useSicrediBoletos();
+  const [downloadingLote, setDownloadingLote] = useState(false);
 
   // Data
   const [boletos, setBoletos] = useState<Boleto[]>([]);
@@ -199,48 +202,7 @@ export default function BoletosListPage() {
   async function handleSyncAll() {
     setSyncing(true);
     try {
-      // Snapshot the latest SYNC_RUN so we can detect the new one the worker
-      // produces (the request only enqueues the job — it runs in the background).
-      const before = await listSicrediEvents({
-        direction: "OUTBOUND",
-        event_type: "SYNC_RUN",
-        limit: 1,
-      });
-      const beforeId = before.items[0]?.id ?? null;
-
-      await syncAllBoletos(); // enqueue
-
-      // Poll the audit trail for the resulting SYNC_RUN event (~2 min max).
-      let latest: (typeof before.items)[number] | null = null;
-      for (let i = 0; i < 40; i++) {
-        await new Promise((r) => setTimeout(r, 3000));
-        const res = await listSicrediEvents({
-          direction: "OUTBOUND",
-          event_type: "SYNC_RUN",
-          limit: 1,
-        });
-        const ev = res.items[0];
-        if (ev && ev.id !== beforeId) {
-          latest = ev;
-          break;
-        }
-      }
-
-      if (!latest) {
-        toast.error(
-          "A sincronização está demorando. Verifique a Auditoria Sicredi em instantes."
-        );
-        return;
-      }
-
-      const p = (latest.payload ?? {}) as Partial<SyncAllSummary>;
-      const summary: SyncAllSummary = {
-        checked: p.checked ?? 0,
-        updated: p.updated ?? 0,
-        consult_errors: p.consult_errors ?? 0,
-        unknown_situacoes: p.unknown_situacoes ?? [],
-        error_samples: p.error_samples ?? [],
-      };
+      const summary = await syncAllBoletos();
       setSyncSummary(summary);
       setSyncDialogOpen(true);
       if (summary.updated > 0) {
@@ -288,6 +250,25 @@ export default function BoletosListPage() {
   }
 
   const hasActiveFilters = statusFilter || searchTerm || dateStart || dateEnd || clientFilter || tagFilter;
+
+  async function handleDownloadLote() {
+    const filters: BoletoListFilters = {};
+    if (statusFilter) filters.status = statusFilter;
+    if (searchTerm.trim()) filters.search = searchTerm.trim();
+    if (dateStart) filters.data_inicio = dateStart;
+    if (dateEnd) filters.data_fim = dateEnd;
+    if (clientFilter) filters.client_id = clientFilter;
+    if (tagFilter) filters.tag = tagFilter;
+
+    setDownloadingLote(true);
+    const ok = await downloadLote(filters);
+    setDownloadingLote(false);
+    if (ok) {
+      toast.success("PDF em lote gerado.");
+    } else {
+      toast.error(loteError || "Erro ao baixar boletos em lote");
+    }
+  }
 
   // ==================== Selection ====================
 
@@ -540,6 +521,20 @@ export default function BoletosListPage() {
               {syncing ? "Sincronizando..." : "Sincronizar Sicredi"}
             </Button>
           </PermissionGuard>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadLote}
+            disabled={downloadingLote || pageLoading || boletos.length === 0}
+            title="Baixa todos os boletos dos filtros atuais em um único PDF"
+          >
+            {downloadingLote ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FileDown className="mr-2 h-4 w-4" />
+            )}
+            Baixar em Lote (PDF)
+          </Button>
           <PermissionGuard permission="manage_sicredi">
             <Button
               variant="outline"

@@ -18,6 +18,7 @@ import {
   sustarNegativacaoBaixar,
   downloadBoletoPdf,
   downloadBatchCarne,
+  downloadBoletosLotePdf,
   triggerPdfDownload,
   listLocalBoletos,
   getBoletoStats,
@@ -443,6 +444,26 @@ export function useSicrediBoletos() {
     }
   };
 
+  const downloadLote = async (
+    filters?: BoletoListFilters,
+    filename?: string
+  ): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const blob = await downloadBoletosLotePdf(filters);
+      triggerPdfDownload(blob, filename || "boletos_lote.pdf");
+      return true;
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erro ao baixar boletos em lote"
+      );
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     error,
@@ -465,5 +486,6 @@ export function useSicrediBoletos() {
     batchOperation,
     downloadPdf,
     downloadCarne,
+    downloadLote,
   };
 }

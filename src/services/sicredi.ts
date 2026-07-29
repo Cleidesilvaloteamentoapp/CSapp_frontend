@@ -64,17 +64,12 @@ export interface SyncAllSummary {
   error_samples: { error: string; nosso_numero: string }[];
 }
 
-export interface SyncTriggerResponse {
-  status: string;
-  started_at: string;
-}
-
 /**
- * Enqueue an on-demand reconciliation of open boletos. Returns immediately;
- * the result lands as a SYNC_RUN audit event that the caller polls for.
+ * Reconcile all open boletos with Sicredi on demand. Runs synchronously in the
+ * backend (concurrent queries) and returns the overview directly.
  */
-export async function syncAllBoletos(): Promise<SyncTriggerResponse> {
-  return api.post<SyncTriggerResponse>("/admin/sicredi/boletos/sync-all", {});
+export async function syncAllBoletos(): Promise<SyncAllSummary> {
+  return api.post<SyncAllSummary>("/admin/sicredi/boletos/sync-all", {});
 }
 
 // ===================== Boletos (Admin) =====================
@@ -143,6 +138,47 @@ export async function downloadBatchCarne(batchId: string): Promise<Blob> {
 
   if (!response.ok) {
     throw new Error("Erro ao gerar carnê");
+  }
+
+  return response.blob();
+}
+
+/**
+ * Baixa todos os boletos que correspondem aos filtros atuais da central
+ * (status/abertos, cliente, datas, etc.) em um único PDF.
+ */
+export async function downloadBoletosLotePdf(
+  filters?: BoletoListFilters
+): Promise<Blob> {
+  const token = getTokenFromCookies();
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+  const params = new URLSearchParams();
+  if (filters?.client_id) params.set("client_id", filters.client_id);
+  if (filters?.status) params.set("status", filters.status);
+  if (filters?.tag) params.set("tag", filters.tag);
+  if (filters?.data_inicio) params.set("data_inicio", filters.data_inicio);
+  if (filters?.data_fim) params.set("data_fim", filters.data_fim);
+  if (filters?.search) params.set("search", filters.search);
+  const query = params.toString();
+
+  const response = await fetch(
+    `${API_URL}/admin/boletos/lote-pdf${query ? `?${query}` : ""}`,
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }
+  );
+
+  if (!response.ok) {
+    let detail = "Erro ao gerar PDF em lote";
+    try {
+      const body = await response.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {
+      /* keep default */
+    }
+    throw new Error(detail);
   }
 
   return response.blob();
