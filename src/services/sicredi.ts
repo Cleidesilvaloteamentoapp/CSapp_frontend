@@ -59,7 +59,10 @@ export async function getIntegrationHealth(): Promise<IntegrationHealth> {
 export interface SyncAllSummary {
   checked: number;
   updated: number;
+  /** Boletos the Sicredi query itself could not answer for. */
   consult_errors: number;
+  /** Boletos Sicredi answered for but whose local update was rejected. */
+  write_errors?: number;
   unknown_situacoes: string[];
   error_samples: { error: string; nosso_numero: string }[];
 }

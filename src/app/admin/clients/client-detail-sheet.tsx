@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   Pencil, FileText, Upload, Loader2, Download, ExternalLink,
   ArrowLeftRight, FastForward, RefreshCw, CheckCircle, DollarSign, Plus, ChevronDown,
+  Trash2, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -48,7 +53,8 @@ import {
   getFinancialSettings, getClientLotDetail, updateClientLotFinancialRules,
   getInstallmentInfo, getClientDocuments,
 } from "@/services/admin";
-import { getAdminDocumentDownloadUrl } from "@/services/portal";
+import { getAdminDocumentDownloadUrl, deleteAdminDocument } from "@/services/portal";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 import { InstallmentInfoCard } from "@/components/shared/installment-info-card";
 import { ConfirmSaleDialog, type RateOverrides } from "@/components/financial/confirm-sale-dialog";
 import type { PlanPreviewRequest } from "@/lib/pricing";
@@ -116,6 +122,10 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
   // Documents
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
+
+  // Document deletion
+  const [deletingDoc, setDeletingDoc] = useState<ClientDocument | null>(null);
+  const [deletingDocLoading, setDeletingDocLoading] = useState(false);
 
   // Document upload
   const [uploadDocType, setUploadDocType] = useState<DocumentType>("OUTROS");
@@ -372,6 +382,25 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
     }
   }
 
+  async function handleDeleteDocument() {
+    if (!deletingDoc?.id) return;
+    setDeletingDocLoading(true);
+    try {
+      await deleteAdminDocument(deletingDoc.id);
+      toast.success("Documento excluído");
+      setDocuments((prev) => (prev || []).filter((d) => d.id !== deletingDoc.id));
+      setDeletingDoc(null);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        toast.error(typeof error.detail === "string" ? error.detail : "Erro ao excluir documento");
+      } else {
+        toast.error("Erro ao excluir documento");
+      }
+    } finally {
+      setDeletingDocLoading(false);
+    }
+  }
+
   // Document card component
   function DocumentCard({ doc }: { doc: any }) {
     const docType = (doc.document_type || "OUTROS") as DocumentType;
@@ -412,6 +441,19 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
             <Download className="h-4 w-4" />
           </a>
         </Button>
+        {doc.id && (
+          <PermissionGuard permission="manage_documents">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+              title="Excluir"
+              onClick={() => setDeletingDoc(doc)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </PermissionGuard>
+        )}
       </div>
     );
   }
@@ -1363,7 +1405,7 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
               className="mt-1"
               onChange={handleFileSelect}
             />
-            <p className="text-xs text-muted-foreground mt-1">PDF, JPG ou PNG (máx 10MB)</p>
+            <p className="text-xs text-muted-foreground mt-1">PDF, JPG ou PNG (máx 100MB)</p>
             {selectedFile && (
               <p className="text-xs text-green-600 mt-1">
                 Arquivo selecionado: {selectedFile.name}
@@ -1383,6 +1425,43 @@ export function ClientDetailSheet({ client, onClose, onEdit }: ClientDetailSheet
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Document Delete Confirmation */}
+    <AlertDialog
+      open={!!deletingDoc}
+      onOpenChange={(open) => {
+        if (!open && !deletingDocLoading) setDeletingDoc(null);
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            Excluir documento?
+          </AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div>
+              <strong>{deletingDoc?.file_name || "Este documento"}</strong> será excluído
+              permanentemente, junto com o arquivo armazenado. Esta ação não pode ser desfeita.
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={deletingDocLoading}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={(e) => { e.preventDefault(); handleDeleteDocument(); }}
+            disabled={deletingDocLoading}
+          >
+            {deletingDocLoading ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Excluindo...</>
+            ) : (
+              "Excluir"
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </>
   );
 }

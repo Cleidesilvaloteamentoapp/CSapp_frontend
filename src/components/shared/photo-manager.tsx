@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { api, ApiError } from "@/lib/api";
 import type { Photo } from "@/types";
 
-const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+const MAX_PHOTO_BYTES = 100 * 1024 * 1024;
 
 interface PhotoManagerProps {
   /** Backend base path of the owning entity, e.g. "/admin/developments/<id>" or "/admin/lots/<id>". */
@@ -39,7 +39,7 @@ export function PhotoManager({ basePath, photos: initialPhotos, onChange }: Phot
 
   function handleFileSelect(file: File | null) {
     if (file && file.size > MAX_PHOTO_BYTES) {
-      toast.error(`Imagem muito grande (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo: 10MB.`);
+      toast.error(`Imagem muito grande (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo: 100MB.`);
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
@@ -134,7 +134,7 @@ export function PhotoManager({ basePath, photos: initialPhotos, onChange }: Phot
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          A primeira foto vira a principal automaticamente. Máximo 10MB (JPG, PNG, WEBP).
+          A primeira foto vira a principal automaticamente. Máximo 100MB (JPG, PNG, WEBP).
         </p>
       </div>
 

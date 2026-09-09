@@ -147,6 +147,10 @@ export default function BoletosListPage() {
   // Sync-all with Sicredi
   const [syncing, setSyncing] = useState(false);
   const [syncSummary, setSyncSummary] = useState<SyncAllSummary | null>(null);
+  // Consultas que o Sicredi recusou + gravações locais recusadas pelo banco.
+  const syncErrorCount = syncSummary
+    ? syncSummary.consult_errors + (syncSummary.write_errors ?? 0)
+    : 0;
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 
   // ==================== Data Loading ====================
@@ -205,12 +209,13 @@ export default function BoletosListPage() {
       const summary = await syncAllBoletos();
       setSyncSummary(summary);
       setSyncDialogOpen(true);
+      const failed = summary.consult_errors + (summary.write_errors ?? 0);
       if (summary.updated > 0) {
         toast.success(`${summary.updated} boleto(s) atualizado(s) pelo Sicredi`);
         refresh();
-      } else if (summary.consult_errors > 0) {
+      } else if (failed > 0) {
         toast.error(
-          `${summary.consult_errors} consulta(s) falharam no Sicredi. Veja os detalhes.`
+          `${failed} boleto(s) falharam na sincronização. Veja os detalhes.`
         );
       } else {
         toast.info("Sincronização concluída: nenhuma mudança de status.");
@@ -1178,13 +1183,11 @@ export default function BoletosListPage() {
                 <div className="rounded-lg border p-3">
                   <p
                     className={`text-2xl font-bold flex items-center justify-center gap-1 ${
-                      syncSummary.consult_errors > 0 ? "text-red-600" : ""
+                      syncErrorCount > 0 ? "text-red-600" : ""
                     }`}
                   >
-                    {syncSummary.consult_errors > 0 && (
-                      <AlertTriangle className="h-5 w-5" />
-                    )}
-                    {syncSummary.consult_errors}
+                    {syncErrorCount > 0 && <AlertTriangle className="h-5 w-5" />}
+                    {syncErrorCount}
                   </p>
                   <p className="text-xs text-muted-foreground">Erros</p>
                 </div>
@@ -1192,7 +1195,7 @@ export default function BoletosListPage() {
 
               {syncSummary.error_samples.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Erros retornados pelo Sicredi</p>
+                  <p className="text-sm font-medium">Erros da sincronização</p>
                   <div className="space-y-2">
                     {syncSummary.error_samples.map((s, i) => (
                       <div
@@ -1220,6 +1223,13 @@ export default function BoletosListPage() {
                   Falhas em massa geralmente indicam token/credencial inválidos ou
                   ambiente (sandbox × produção) incorreto nas configurações do
                   Sicredi.
+                </p>
+              )}
+
+              {(syncSummary.write_errors ?? 0) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  O Sicredi respondeu, mas a gravação local foi recusada — em
+                  geral uma migração de banco pendente.
                 </p>
               )}
             </div>
