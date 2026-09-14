@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/auth-context";
+import { BrandingProvider } from "@/contexts/branding-context";
+import { PRE_PAINT_SCRIPT } from "@/lib/branding/storage";
 import { ErrorOverlayProvider } from "@/components/debug/error-overlay";
 import "./globals.css";
 
@@ -72,14 +74,19 @@ export default function RootLayout({
     <html lang="pt-BR">
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        {/* Replays the cached company palette before the first paint, so a
+            branded tenant never flashes the platform colours on load. */}
+        <script dangerouslySetInnerHTML={{ __html: PRE_PAINT_SCRIPT }} />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ErrorOverlayProvider>
           <AuthProvider>
-            {children}
-            <Toaster richColors position="top-right" />
+            <BrandingProvider>
+              {children}
+              <Toaster richColors position="top-right" />
+            </BrandingProvider>
           </AuthProvider>
         </ErrorOverlayProvider>
       </body>

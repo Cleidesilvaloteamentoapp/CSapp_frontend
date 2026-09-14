@@ -8,6 +8,7 @@ import { PortalSidebar } from "@/components/layout/portal-sidebar";
 import { MobileBackButton } from "@/components/layout/mobile-back-button";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { BrandMark } from "@/components/layout/brand-mark";
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -34,7 +35,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           <SidebarTrigger />
           <MobileBackButton />
           <Separator orientation="vertical" className="h-6" />
-          <span className="text-sm font-semibold">CSApp — Portal do Cliente</span>
+          <BrandMark variant="mobile" fallbackTagline="Portal do Cliente" />
         </header>
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">{children}</main>
       </SidebarInset>

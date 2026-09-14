@@ -1,20 +1,15 @@
 "use client";
 
-import { Building2, WifiOff } from "lucide-react";
+import { WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { BrandMark } from "@/components/layout/brand-mark";
 
 export default function OfflinePage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-md space-y-8">
-        <div className="flex flex-col items-center space-y-2">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
-            <Building2 className="h-7 w-7 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">CSApp</h1>
-          <p className="text-sm text-muted-foreground">Gestão de Loteamentos</p>
-        </div>
+        <BrandMark variant="login" fallbackTagline="Gestão de Loteamentos" />
 
         <Card>
           <CardContent className="flex flex-col items-center gap-6 py-8 text-center">

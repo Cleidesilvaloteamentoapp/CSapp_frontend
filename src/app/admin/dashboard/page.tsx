@@ -359,19 +359,19 @@ export default function AdminDashboardPage() {
                 <AreaChart data={revenueChartData}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#27AE60" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#27AE60" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--success)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--success)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ECF0F1" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis
                     dataKey="month"
-                    tick={{ fontSize: 12, fill: "#7F8C8D" }}
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis
-                    tick={{ fontSize: 12, fill: "#7F8C8D" }}
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
@@ -379,15 +379,17 @@ export default function AdminDashboardPage() {
                   <RechartsTooltip
                     formatter={(value: number) => [formatCurrency(value), "Receita"]}
                     contentStyle={{
+                      background: "var(--popover)",
+                      color: "var(--popover-foreground)",
                       borderRadius: "8px",
-                      border: "1px solid #DDE1E3",
+                      border: "1px solid var(--border)",
                       boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
                     }}
                   />
                   <Area
                     type="monotone"
                     dataKey="amount"
-                    stroke="#27AE60"
+                    stroke="var(--success)"
                     strokeWidth={2}
                     fill="url(#colorRevenue)"
                   />

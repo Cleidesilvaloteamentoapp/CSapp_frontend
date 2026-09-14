@@ -102,7 +102,7 @@ async function proxyRequest(
     const responseHeaders = new Headers();
     
     // Forward response headers
-    ["content-type", "cache-control", "etag"].forEach((headerName) => {
+    ["content-type", "cache-control", "etag", "content-disposition"].forEach((headerName) => {
       const value = response.headers.get(headerName);
       if (value) {
         responseHeaders.set(headerName, value);
@@ -117,7 +117,11 @@ async function proxyRequest(
       });
     }
 
-    const responseBody = await response.text();
+    // Read the response as raw bytes for the same reason the request body is
+    // sent as one: response.text() decodes as UTF-8, so any binary payload
+    // (logos, favicons, PDFs) would come back corrupted. arrayBuffer() is
+    // equally correct for JSON, which NextResponse serves fine as bytes.
+    const responseBody = await response.arrayBuffer();
 
     return new NextResponse(responseBody, {
       status: response.status,

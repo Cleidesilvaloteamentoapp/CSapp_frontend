@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import type { MeResponse, StaffPermissions } from "@/types";
 import { getMe, logout as authLogout, canAccessAdmin, getStaffPermissions } from "@/lib/auth";
+import { clearCachedBranding } from "@/lib/branding/storage";
 
 interface AuthContextType {
   user: MeResponse | null;
@@ -48,6 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleLogout = useCallback(async () => {
     setUser(null);
     setStaffPermissions(null);
+    // Drop the cached palette so the next login on this device does not
+    // briefly paint the previous company's brand.
+    clearCachedBranding();
     await authLogout();
   }, []);
 

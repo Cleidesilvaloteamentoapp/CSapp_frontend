@@ -18,7 +18,6 @@ import {
   FileSpreadsheet,
   Cog,
   MessageSquare,
-  Building2,
   LogOut,
   RefreshCw,
   FileX,
@@ -44,6 +43,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { BrandMark } from "@/components/layout/brand-mark";
 
 type StaffNavItem = {
   href: string;
@@ -94,13 +94,7 @@ export function StaffSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="flex h-16 items-center gap-3 px-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
-          <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
-        </div>
-        <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-          <span className="text-sm font-bold tracking-tight text-sidebar-foreground">CSApp</span>
-          <span className="text-[11px] text-sidebar-foreground/60">Loteamentos</span>
-        </div>
+        <BrandMark variant="sidebar" fallbackTagline="Loteamentos" />
         <div className="ml-auto">
           <Tooltip>
             <TooltipTrigger asChild>
