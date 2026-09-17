@@ -80,22 +80,32 @@ function isPristine(branding: Branding): boolean {
   );
 }
 
+/**
+ * Create or update one of our own <link> tags in <head>.
+ *
+ * It only ever touches nodes carrying `data-branding` — nodes this function
+ * created. Removing or reordering the <link> elements React rendered (the ones
+ * Next emits from the `metadata` export) corrupts React's reconciliation and
+ * crashes the next commit with "Cannot read properties of null (reading
+ * 'removeChild')". So: append ours, never delete theirs.
+ *
+ * Ours is appended last, which is the icon browsers pick when several are
+ * declared. To keep that unambiguous, `layout.tsx` deliberately declares no
+ * `icons` or `manifest` metadata.
+ */
 function setLinkTag(rel: string, href: string, type?: string) {
   if (typeof document === "undefined") return;
-  const selector = `link[rel="${rel}"][data-branding="1"]`;
-  let link = document.head.querySelector<HTMLLinkElement>(selector);
+  let link = document.head.querySelector<HTMLLinkElement>(
+    `link[rel="${rel}"][data-branding="1"]`
+  );
   if (!link) {
-    // Drop the build-time tags for this rel so the browser cannot prefer them.
-    document.head
-      .querySelectorAll<HTMLLinkElement>(`link[rel="${rel}"]`)
-      .forEach((el) => el.parentElement?.removeChild(el));
     link = document.createElement("link");
     link.rel = rel;
     link.dataset.branding = "1";
     document.head.appendChild(link);
   }
   if (type) link.type = type;
-  link.href = href;
+  if (link.href !== href) link.href = href;
 }
 
 /** Platform assets, restored when a company has none of its own. */

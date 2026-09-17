@@ -17,10 +17,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// NOTE: no `icons` and no `manifest` here on purpose. BrandingProvider owns
+// those <link> tags at runtime so they can follow each company, and React must
+// not also be managing them — mixing the two crashes the commit phase.
 export const metadata: Metadata = {
   title: "CSApp — Gestão de Loteamentos",
   description: "Sistema completo de gestão imobiliária com foco em loteamentos, clientes, financeiro e serviços",
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -40,15 +42,6 @@ export const metadata: Metadata = {
   other: {
     "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "black-translucent",
-  },
-  icons: {
-    icon: [
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
-    ],
   },
   keywords: ["loteamentos", "gestão imobiliária", "clientes", "financeiro", "boletos", "CSApp"],
 };
@@ -73,7 +66,6 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         {/* Replays the cached company palette before the first paint, so a
             branded tenant never flashes the platform colours on load. */}
         <script dangerouslySetInnerHTML={{ __html: PRE_PAINT_SCRIPT }} />
