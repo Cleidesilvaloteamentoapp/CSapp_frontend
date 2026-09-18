@@ -6,15 +6,18 @@ import { getUnreadCount } from "@/services/portal";
 const POLL_INTERVAL = 30_000; // 30 seconds
 
 export function useNotifications() {
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState<number | null>(null);
+  const [error, setError] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchCount = useCallback(async () => {
     try {
       const res = await getUnreadCount();
       setUnreadCount(res.unread_count ?? 0);
+      setError(false);
     } catch {
-      // Silently ignore polling errors
+      // Keep the last known count rather than implying "nothing unread".
+      setError(true);
     }
   }, []);
 
@@ -26,5 +29,5 @@ export function useNotifications() {
     };
   }, [fetchCount]);
 
-  return { unreadCount, refresh: fetchCount };
+  return { unreadCount: unreadCount ?? 0, loaded: unreadCount !== null, error, refresh: fetchCount };
 }

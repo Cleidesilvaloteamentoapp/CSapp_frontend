@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { normalizeRole, getDefaultRedirect } from "@/lib/auth";
 import { PortalSidebar } from "@/components/layout/portal-sidebar";
 import { MobileBackButton } from "@/components/layout/mobile-back-button";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -13,13 +14,22 @@ import { BrandMark } from "@/components/layout/brand-mark";
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/login");
-    }
-  }, [user, loading, router]);
+  // Only CLIENT belongs here. Admins keep access for support purposes, but a
+  // STAFF user must never land here: every /client/* endpoint rejects STAFF,
+  // so the portal would render with empty data and look like a real account.
+  const isPortalUser = user ? normalizeRole(user.role) !== "staff" : false;
 
-  if (loading || !user) {
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        router.replace("/login");
+      } else if (!isPortalUser) {
+        router.replace(getDefaultRedirect(user.role));
+      }
+    }
+  }, [user, loading, isPortalUser, router]);
+
+  if (loading || !user || !isPortalUser) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

@@ -70,28 +70,37 @@ export async function getMe(): Promise<MeResponse | null> {
   }
 }
 
+// The API returns roles upper-cased ("STAFF", "COMPANY_ADMIN"). Every role
+// comparison must go through these helpers -- comparing against a lowercase
+// literal silently fails and locks the user out of their own area.
+export function normalizeRole(role: string | null | undefined): string {
+  return (role ?? "").toLowerCase();
+}
+
+export function isStaffRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "staff";
+}
+
 export function canAccessAdmin(role: string): boolean {
-  const normalized = role.toLowerCase();
-  return ["super_admin", "company_admin"].includes(normalized);
+  return ["super_admin", "company_admin"].includes(normalizeRole(role));
 }
 
 export function canAccessSuperAdmin(role: string): boolean {
-  return role.toLowerCase() === "super_admin";
+  return normalizeRole(role) === "super_admin";
 }
 
 export function getDefaultRedirect(role: string): string {
-  if (role.toLowerCase() === "staff") return "/staff/dashboard";
+  if (isStaffRole(role)) return "/staff/dashboard";
   if (canAccessAdmin(role)) return "/admin/dashboard";
   return "/portal/dashboard";
 }
 
 export async function getStaffPermissions(staffId: string): Promise<StaffPermissions> {
-  try {
-    const staff = await api.get<StaffResponse>(`/admin/staff/${staffId}`);
-    return staff.permissions ?? ALL_FALSE_PERMISSIONS;
-  } catch {
-    return ALL_FALSE_PERMISSIONS;
-  }
+  const staff = await api.get<StaffResponse>(`/admin/staff/${staffId}`);
+  // A staff account with no permission row genuinely has nothing granted.
+  // That is NOT the same as failing to load: a load failure propagates so the
+  // caller can tell the user, instead of silently denying every screen.
+  return staff.permissions ?? ALL_FALSE_PERMISSIONS;
 }
 
 export async function forgotPassword(data: ForgotPasswordRequest): Promise<PasswordResetResponse> {

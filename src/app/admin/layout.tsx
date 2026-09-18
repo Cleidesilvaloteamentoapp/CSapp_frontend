@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
-import { canAccessAdmin } from "@/lib/auth";
+import { canAccessAdmin, getDefaultRedirect } from "@/lib/auth";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { MobileBackButton } from "@/components/layout/mobile-back-button";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -19,7 +19,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (!user) {
         router.replace("/login");
       } else if (!canAccessAdmin(user.role)) {
-        router.replace("/portal/dashboard");
+        // Send them to their own area: a STAFF user pushed into /portal would
+        // hit 403 on every /client/* call and see an empty account.
+        router.replace(getDefaultRedirect(user.role));
       }
     }
   }, [user, loading, router]);
