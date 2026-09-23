@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -46,7 +46,16 @@ import {
 } from "@/components/ui/table";
 import { useSicrediBoletos } from "@/hooks/use-sicredi";
 import { formatCurrency } from "@/lib/format";
+import { api } from "@/lib/api";
 import { isValidCpfCnpj } from "@/lib/validators";
+import {
+  DESCONTO_OPTIONS,
+  JUROS_OPTIONS,
+  MULTA_OPTIONS,
+  jurosAmountLabel,
+  jurosMonthlyEquivalent,
+  validateFeePair,
+} from "@/lib/boleto-fees";
 import { useCepLookup } from "@/hooks/use-cep-lookup";
 import { onlyDigits } from "@/lib/cep";
 import {
@@ -205,9 +214,39 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
   const [juros, setJuros] = useState("");
   const [tipoMulta, setTipoMulta] = useState<TipoMulta>("ISENTO");
   const [multa, setMulta] = useState("");
+  const [feesFromContract, setFeesFromContract] = useState(false);
   const [diasNegativacao, setDiasNegativacao] = useState("");
   const [batchId, setBatchId] = useState<string | null>(null);
   const [progressOpen, setProgressOpen] = useState(false);
+
+  // Prefill the late-payment rules from the contract in force (per-lot ->
+  // company -> system default). They used to default to "Isento", which is how a
+  // carne could be registered with no interest at all without anyone noticing.
+  useEffect(() => {
+    if (!clientLot?.id) return;
+    let cancelled = false;
+    api
+      .get<ClientLotResponse>(`/admin/client-lots/${clientLot.id}`)
+      .then((lot) => {
+        const rates = lot?.effective_rates;
+        if (cancelled || !rates) return;
+        if (rates.penalty_rate > 0) {
+          setTipoMulta("PERCENTUAL");
+          setMulta(String(rates.penalty_rate));
+        }
+        if (rates.daily_interest_rate > 0) {
+          setTipoJuros("PERCENTUAL_DIA");
+          setJuros(String(rates.daily_interest_rate));
+        }
+        setFeesFromContract(true);
+      })
+      .catch(() => {
+        // Non-fatal: the operator can still type the rules by hand.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientLot?.id]);
 
   const addr = (client.address as Record<string, string>) || {};
   useState(() => {
@@ -258,6 +297,15 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
       toast.error("CPF/CNPJ do pagador inválido. Corrija antes de gerar o boleto.");
       return;
     }
+    // A fee type with no amount used to be dropped from the payload silently,
+    // registering the boleto exempt without anyone noticing.
+    const feeError =
+      validateFeePair("juros", data.tipo_juros as TipoJuros, data.juros) ??
+      validateFeePair("multa", data.tipo_multa as TipoMulta, data.multa);
+    if (feeError) {
+      toast.error(feeError);
+      return;
+    }
     const isPF = data.documento.length <= 11;
     const payload: CreateBoletoRequest = {
       client_id: client.id,
@@ -286,11 +334,11 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
     }
     if (data.tipo_juros && data.tipo_juros !== "ISENTO") {
       payload.tipo_juros = data.tipo_juros as TipoJuros;
-      if (data.juros) payload.juros = data.juros;
+      payload.juros = data.juros;
     }
     if (data.tipo_multa && data.tipo_multa !== "ISENTO") {
       payload.tipo_multa = data.tipo_multa as TipoMulta;
-      if (data.multa) payload.multa = data.multa;
+      payload.multa = data.multa;
     }
     if (data.informativos?.trim()) {
       payload.informativos = data.informativos.split("\n").filter((l) => l.trim());
@@ -326,6 +374,15 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
       toast.error("CPF/CNPJ do pagador inválido. Corrija antes de gerar os boletos.");
       return;
     }
+    // A fee type with no amount used to be dropped from the payload silently,
+    // registering the whole carnê exempt without anyone noticing.
+    const feeError =
+      validateFeePair("juros", tipoJuros, juros) ??
+      validateFeePair("multa", tipoMulta, multa);
+    if (feeError) {
+      toast.error(feeError);
+      return;
+    }
     const isPF = documento.length <= 11;
     const payload: BatchCreateRequest = {
       client_id: client.id,
@@ -344,11 +401,11 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
       data_primeiro_vencimento: dataInicio,
     };
 
-    if (tipoJuros !== "ISENTO" && juros) {
+    if (tipoJuros !== "ISENTO") {
       payload.tipo_juros = tipoJuros;
       payload.juros = parseFloat(juros);
     }
-    if (tipoMulta !== "ISENTO" && multa) {
+    if (tipoMulta !== "ISENTO") {
       payload.tipo_multa = tipoMulta;
       payload.multa = parseFloat(multa);
     }
@@ -683,9 +740,9 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                               <SelectContent>
-                                <SelectItem value="ISENTO">Isento</SelectItem>
-                                <SelectItem value="VALOR">Valor Fixo</SelectItem>
-                                <SelectItem value="PERCENTUAL">Percentual</SelectItem>
+                                {DESCONTO_OPTIONS.map((o) => (
+                                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -727,14 +784,14 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
                           <FormItem>
                             <FormLabel>
                               Tipo de Juros
-                              <HelpHint text="Juros cobrados após vencimento. VALOR_DIA = R$/dia. PERCENTUAL_MES = % ao mês." />
+                              <HelpHint text="Juros cobrados após vencimento. O contrato normalmente traz % ao dia; o Sicredi registra o equivalente ao mês." />
                             </FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                               <SelectContent>
-                                <SelectItem value="ISENTO">Isento</SelectItem>
-                                <SelectItem value="VALOR_DIA">Valor por Dia</SelectItem>
-                                <SelectItem value="PERCENTUAL_MES">% ao Mês</SelectItem>
+                                {JUROS_OPTIONS.map((o) => (
+                                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -747,8 +804,13 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
                           name="juros"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>{form.watch("tipo_juros") === "VALOR_DIA" ? "Valor/Dia (R$)" : "% ao Mês"}</FormLabel>
+                              <FormLabel>{jurosAmountLabel(form.watch("tipo_juros") as TipoJuros)}</FormLabel>
                               <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                              {jurosMonthlyEquivalent(form.watch("tipo_juros") as TipoJuros, field.value) && (
+                                <p className="text-xs text-muted-foreground">
+                                  {jurosMonthlyEquivalent(form.watch("tipo_juros") as TipoJuros, field.value)}
+                                </p>
+                              )}
                               <FormMessage />
                             </FormItem>
                           )}
@@ -768,9 +830,9 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                               <SelectContent>
-                                <SelectItem value="ISENTO">Isento</SelectItem>
-                                <SelectItem value="VALOR">Valor Fixo</SelectItem>
-                                <SelectItem value="PERCENTUAL">Percentual</SelectItem>
+                                {MULTA_OPTIONS.map((o) => (
+                                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -955,28 +1017,36 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
 
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Juros e Multa (Opcional)</CardTitle>
+                    <CardTitle className="text-base">Juros e Multa</CardTitle>
+                    {feesFromContract && (
+                      <CardDescription>
+                        Preenchido com as regras de atraso do contrato. Pode ser ajustado.
+                      </CardDescription>
+                    )}
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="flex items-center gap-1">
                           Tipo de Juros
-                          <HelpHint text="Juros cobrados após vencimento. VALOR_DIA = R$/dia. PERCENTUAL_MES = % ao mês." />
+                          <HelpHint text="Juros cobrados após vencimento. O contrato normalmente traz % ao dia; o Sicredi registra o equivalente ao mês." />
                         </Label>
                         <Select value={tipoJuros} onValueChange={(v) => setTipoJuros(v as TipoJuros)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="ISENTO">Isento</SelectItem>
-                            <SelectItem value="VALOR_DIA">Valor por Dia</SelectItem>
-                            <SelectItem value="PERCENTUAL_MES">% ao Mês</SelectItem>
+                            {JUROS_OPTIONS.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
                       {tipoJuros !== "ISENTO" && (
                         <div className="space-y-2">
-                          <Label>{tipoJuros === "VALOR_DIA" ? "Valor/Dia (R$)" : "% ao Mês"}</Label>
-                          <Input type="number" step="0.01" min="0" value={juros} onChange={(e) => setJuros(e.target.value)} placeholder="2.00" />
+                          <Label>{jurosAmountLabel(tipoJuros)}</Label>
+                          <Input type="number" step="0.01" min="0" value={juros} onChange={(e) => setJuros(e.target.value)} placeholder="0.33" />
+                          {jurosMonthlyEquivalent(tipoJuros, juros) && (
+                            <p className="text-xs text-muted-foreground">{jurosMonthlyEquivalent(tipoJuros, juros)}</p>
+                          )}
                         </div>
                       )}
                       <div className="space-y-2">
@@ -987,9 +1057,9 @@ export function StepBoletos({ client, clientLot, invoiceCount, onSkip, onComplet
                         <Select value={tipoMulta} onValueChange={(v) => setTipoMulta(v as TipoMulta)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="ISENTO">Isento</SelectItem>
-                            <SelectItem value="VALOR">Valor Fixo</SelectItem>
-                            <SelectItem value="PERCENTUAL">Percentual</SelectItem>
+                            {MULTA_OPTIONS.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>

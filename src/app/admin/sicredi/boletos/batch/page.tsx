@@ -43,6 +43,13 @@ import { ClientFormDialog } from "@/app/admin/clients/client-form-dialog";
 import { BatchProgressDialog } from "@/components/sicredi/batch-progress-dialog";
 import { useSicrediBoletos } from "@/hooks/use-sicredi";
 import { formatCurrency, formatDate } from "@/lib/format";
+import {
+  JUROS_OPTIONS,
+  MULTA_OPTIONS,
+  jurosAmountLabel,
+  jurosMonthlyEquivalent,
+  validateFeePair,
+} from "@/lib/boleto-fees";
 import { FREQ_MONTHS } from "@/types/sicredi";
 import type {
   BatchFrequency,
@@ -151,6 +158,16 @@ export default function BatchCreatePage() {
   async function handleSubmit() {
     if (!selectedClient || !canSubmit) return;
 
+    // A fee type with no amount used to be dropped from the payload silently,
+    // registering the whole carnê exempt without anyone noticing.
+    const feeError =
+      validateFeePair("juros", tipoJuros, juros) ??
+      validateFeePair("multa", tipoMulta, multa);
+    if (feeError) {
+      toast.error(feeError);
+      return;
+    }
+
     const isPF = pagadorDocumento.length <= 11;
 
     const payload: BatchCreateRequest = {
@@ -170,11 +187,11 @@ export default function BatchCreatePage() {
       data_primeiro_vencimento: dataInicio,
     };
 
-    if (tipoJuros !== "ISENTO" && juros) {
+    if (tipoJuros !== "ISENTO") {
       payload.tipo_juros = tipoJuros;
       payload.juros = parseFloat(juros);
     }
-    if (tipoMulta !== "ISENTO" && multa) {
+    if (tipoMulta !== "ISENTO") {
       payload.tipo_multa = tipoMulta;
       payload.multa = parseFloat(multa);
     }
@@ -330,15 +347,17 @@ export default function BatchCreatePage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ISENTO">Isento</SelectItem>
-                    <SelectItem value="VALOR_DIA">Valor por Dia</SelectItem>
-                    <SelectItem value="PERCENTUAL_MES">% ao Mês</SelectItem>
+                    {JUROS_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               {tipoJuros !== "ISENTO" && (
                 <div className="space-y-2">
-                  <Label>{tipoJuros === "VALOR_DIA" ? "Valor/Dia (R$)" : "% ao Mês"}</Label>
+                  <Label>{jurosAmountLabel(tipoJuros)}</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -347,6 +366,11 @@ export default function BatchCreatePage() {
                     onChange={(e) => setJuros(e.target.value)}
                     placeholder="2.00"
                   />
+                  {jurosMonthlyEquivalent(tipoJuros, juros) && (
+                    <p className="text-xs text-muted-foreground">
+                      {jurosMonthlyEquivalent(tipoJuros, juros)}
+                    </p>
+                  )}
                 </div>
               )}
               <div className="space-y-2">
@@ -356,9 +380,11 @@ export default function BatchCreatePage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ISENTO">Isento</SelectItem>
-                    <SelectItem value="VALOR">Valor Fixo</SelectItem>
-                    <SelectItem value="PERCENTUAL">Percentual</SelectItem>
+                    {MULTA_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

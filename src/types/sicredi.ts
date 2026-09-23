@@ -54,7 +54,13 @@ export type EspecieDocumento =
   | "OUTROS";
 
 export type TipoDesconto = "VALOR" | "PERCENTUAL" | "ISENTO";
-export type TipoJuros = "VALOR_DIA" | "PERCENTUAL_MES" | "ISENTO";
+// PERCENTUAL_DIA is how contracts state juros de mora ("0,33% ao dia").
+// The backend converts it to the monthly percentage Sicredi registers.
+export type TipoJuros =
+  | "VALOR_DIA"
+  | "PERCENTUAL_MES"
+  | "PERCENTUAL_DIA"
+  | "ISENTO";
 export type TipoMulta = "VALOR" | "PERCENTUAL" | "ISENTO";
 
 export interface CreateBoletoRequest {

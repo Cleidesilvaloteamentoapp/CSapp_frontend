@@ -373,6 +373,14 @@ export interface LotAssignRequest {
 export type AdjustmentIndex = "IPCA" | "IGPM" | "CUB" | "INPC";
 export type AdjustmentFrequency = "MONTHLY" | "QUARTERLY" | "SEMIANNUAL" | "ANNUAL";
 
+export interface EffectiveRates {
+  penalty_rate: number;
+  daily_interest_rate: number;
+  adjustment_index: AdjustmentIndex;
+  adjustment_frequency: AdjustmentFrequency;
+  adjustment_custom_rate: number;
+}
+
 export interface ClientLotResponse {
   id: string;
   company_id: string;
@@ -398,6 +406,10 @@ export interface ClientLotResponse {
   status: string;
   created_at: string;
   updated_at: string;
+  // Late-payment rules actually in force (per-lot -> company -> system default),
+  // as percentages. Populated by GET /admin/client-lots/{id}; used to prefill the
+  // carne form so the contract's rules reach the bank as structured fields.
+  effective_rates?: EffectiveRates | null;
   // Optional property context (populated by the client portal my-lots endpoint)
   lot_number?: string | null;
   block?: string | null;
