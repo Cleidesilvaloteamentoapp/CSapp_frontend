@@ -1,3 +1,16 @@
+/**
+ * Coerces an API numeric field to a JS number.
+ *
+ * Pydantic serialises Decimal as a JSON *string*, so every rate and amount
+ * arrives as "2.00", not 2. Calling .toFixed() on that throws at runtime, which
+ * is what broke the financial-settings screen.
+ */
+export function toNumber(value: string | number | null | undefined, fallback = 0): number {
+  if (value === null || value === undefined) return fallback;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export function formatCurrency(value: string | number): string {
   const num = typeof value === "string" ? parseFloat(value) : value;
   return new Intl.NumberFormat("pt-BR", {

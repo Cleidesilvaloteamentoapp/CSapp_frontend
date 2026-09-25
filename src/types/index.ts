@@ -422,11 +422,14 @@ export interface ClientLotResponse {
 export interface CompanyFinancialSettingsResponse {
   id: string;
   company_id: string;
-  penalty_rate: number;
-  daily_interest_rate: number;
+  // Decimal fields arrive as strings (Pydantic serialises Decimal to a JSON
+  // string). Declaring them `number` made .toFixed() crash the screen at
+  // runtime -- pass them through toNumber() from lib/format.
+  penalty_rate: string | number;
+  daily_interest_rate: string | number;
   adjustment_index: AdjustmentIndex;
   adjustment_frequency: AdjustmentFrequency;
-  adjustment_custom_rate: number;
+  adjustment_custom_rate: string | number;
   created_at: string;
   updated_at: string;
 }

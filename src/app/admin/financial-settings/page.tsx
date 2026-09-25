@@ -22,6 +22,7 @@ import { financialSettingsSchema, type FinancialSettingsFormData } from "@/lib/v
 import { getFinancialSettings, updateFinancialSettings } from "@/services/admin";
 import { PermissionGuard } from "@/components/shared/permission-guard";
 import type { CompanyFinancialSettingsResponse } from "@/types";
+import { toNumber } from "@/lib/format";
 
 const INDEX_LABELS: Record<string, string> = {
   IPCA: "IPCA",
@@ -63,12 +64,20 @@ export default function FinancialSettingsPage() {
     try {
       const data = await getFinancialSettings();
       setSettings(data);
+      // Coerce before seeding the form: the API sends these as strings, and the
+      // number inputs would otherwise round-trip "2.00" back as a string.
       form.reset({
-        penalty_rate: data.penalty_rate,
-        daily_interest_rate: data.daily_interest_rate,
+        penalty_rate: toNumber(data.penalty_rate, HARDCODED_DEFAULTS.penalty_rate),
+        daily_interest_rate: toNumber(
+          data.daily_interest_rate,
+          HARDCODED_DEFAULTS.daily_interest_rate
+        ),
         adjustment_index: data.adjustment_index,
         adjustment_frequency: data.adjustment_frequency,
-        adjustment_custom_rate: data.adjustment_custom_rate,
+        adjustment_custom_rate: toNumber(
+          data.adjustment_custom_rate,
+          HARDCODED_DEFAULTS.adjustment_custom_rate
+        ),
       });
     } catch (error) {
       if (error instanceof ApiError) {
@@ -276,12 +285,12 @@ export default function FinancialSettingsPage() {
           <CardContent className="space-y-4">
             <SummaryRow
               label="Multa por Atraso"
-              value={`${(settings?.penalty_rate ?? HARDCODED_DEFAULTS.penalty_rate).toFixed(1)}%`}
+              value={`${toNumber(settings?.penalty_rate, HARDCODED_DEFAULTS.penalty_rate).toFixed(1)}%`}
               isDefault={!settings}
             />
             <SummaryRow
               label="Juros Diários"
-              value={`${(settings?.daily_interest_rate ?? HARDCODED_DEFAULTS.daily_interest_rate).toFixed(3)}%/dia`}
+              value={`${toNumber(settings?.daily_interest_rate, HARDCODED_DEFAULTS.daily_interest_rate).toFixed(3)}%/dia`}
               isDefault={!settings}
             />
             <SummaryRow
@@ -296,7 +305,7 @@ export default function FinancialSettingsPage() {
             />
             <SummaryRow
               label="Taxa Fixa Adicional"
-              value={`${(settings?.adjustment_custom_rate ?? HARDCODED_DEFAULTS.adjustment_custom_rate).toFixed(1)}%`}
+              value={`${toNumber(settings?.adjustment_custom_rate, HARDCODED_DEFAULTS.adjustment_custom_rate).toFixed(1)}%`}
               isDefault={!settings}
             />
 
