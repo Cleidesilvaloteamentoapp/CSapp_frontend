@@ -132,7 +132,8 @@ export interface StaffToggleResponse {
 }
 
 // ===================== Company =====================
-export type CompanyStatus = "active" | "suspended" | "inactive";
+// The API serialises enum values verbatim, and these are upper-case.
+export type CompanyStatus = "ACTIVE" | "SUSPENDED" | "INACTIVE";
 
 export interface CompanyCreate {
   name: string;
@@ -712,6 +713,91 @@ export interface CycleApprovalResponse {
   suggested_adjustment_details: Record<string, unknown> | null;
   remaining_installments: number | null;
   installments_to_generate: number | null;
+
+  // Settlement snapshot stored when the renewal was raised.
+  unpaid_count: number;
+  overdue_amount: number;
+  is_final_cycle: boolean;
+  forced: boolean;
+  forced_reason: string | null;
+  forced_by: string | null;
+
+  // Live settlement, recomputed on read -- the renewal is raised ahead of the
+  // cycle's last due date, so payments keep landing after the snapshot.
+  cycle_installments: number | null;
+  cycle_settled: number | null;
+  cycle_unpaid: number | null;
+  cycle_overdue_amount: number | null;
+  can_approve: boolean;
+  blocked_reason: string | null;
+}
+
+export interface CyclePendingCount {
+  pending: number;
+  final_cycle: number;
+  blocked_by_unpaid: number;
+}
+
+export interface DeedChecklistItem {
+  document_type: string;
+  label: string;
+  done: boolean;
+  note: string | null;
+  updated_at: string | null;
+}
+
+export interface DeedChecklistResponse {
+  id: string;
+  client_lot_id: string;
+  items: DeedChecklistItem[];
+  notes: string | null;
+  completed_at: string | null;
+  uploaded_document_types: string[];
+}
+
+// ===================== Dashboard control panel =====================
+
+export interface ActionQueueItem {
+  key: string;
+  label: string;
+  count: number;
+  hint: string;
+  href: string;
+  severity: "info" | "warning" | "critical";
+}
+
+export interface ActionQueue {
+  items: ActionQueueItem[];
+  total: number;
+}
+
+export interface BoletoStatusCount {
+  status: string;
+  count: number;
+  total_value: string;
+}
+
+export interface BillingPipeline {
+  invoices_without_boleto: number;
+  invoices_without_boleto_amount: string;
+  boletos_by_status: BoletoStatusCount[];
+  batches_in_progress: number;
+  batches_failed_recently: number;
+  last_sicredi_sync: string | null;
+  sicredi_errors_24h: number;
+}
+
+// ===================== Companies (platform console) =====================
+
+export interface CompanyAdminResponse {
+  id: string;
+  company_id: string;
+  full_name: string;
+  email: string;
+  cpf_cnpj: string;
+  phone: string;
+  role: string;
+  is_active: boolean;
 }
 
 // ===================== Contract Transfer =====================

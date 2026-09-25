@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useUrlFilter } from "@/hooks/use-url-filter";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Search, MoreHorizontal, Eye, Pencil, Trash2, Ban, Loader2, Sparkles, KeyRound, ShieldCheck } from "lucide-react";
@@ -50,7 +51,8 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<PaginatedResponse<ClientResponse> | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("active");
+  // Read from the URL so the dashboard can link straight to a filtered list.
+  const [statusFilter, setStatusFilter] = useUrlFilter("status", "active");
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientResponse | null>(null);

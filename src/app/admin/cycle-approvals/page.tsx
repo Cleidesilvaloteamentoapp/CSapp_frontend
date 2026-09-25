@@ -1,139 +1,108 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCircle, XCircle, Loader2, Eye, Clock, Bell } from "lucide-react";
+import {
+  CheckCircle,
+  FileSignature,
+  Info,
+  Loader2,
+  RefreshCw,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Card, CardContent, CardHeader, CardTitle, CardDescription,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { ApiError } from "@/lib/api";
-import {
-  listCycleApprovals,
-  getCycleApprovalDetail,
-  approveCycle,
-  rejectCycle,
-  getInstallmentInfo,
-  generateNextBatch,
-} from "@/services/admin";
-import { createBatchBoletos } from "@/services/sicredi";
-import type { CycleApprovalResponse, CycleApprovalStatus, InstallmentInfo } from "@/types";
+import { listCycleApprovals, rejectCycle } from "@/services/admin";
+import type { CycleApprovalResponse, CycleApprovalStatus } from "@/types";
 import { WORKFLOW_STATUS_CONFIG } from "@/types";
-import { InstallmentInfoCard } from "@/components/shared/installment-info-card";
 import { PermissionGuard } from "@/components/shared/permission-guard";
+import { ApproveCycleDialog } from "./_components/approve-dialog";
+import { DeedChecklistDialog } from "./_components/deed-checklist-dialog";
+import { FinalCycleBadge, SettlementBadge } from "./_components/settlement-badge";
 
 export default function CycleApprovalsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Filters live in the URL so the dashboard can deep-link straight to the
+  // rows it is counting, and so a reload keeps the admin where they were.
+  const statusFilter = searchParams.get("status") ?? "PENDING";
+  const finalOnly = searchParams.get("final") === "1";
+
   const [approvals, setApprovals] = useState<CycleApprovalResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("PENDING");
+  const [showHelp, setShowHelp] = useState(false);
 
-  // Detail
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detail, setDetail] = useState<CycleApprovalResponse | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-
-  // Approve
-  const [approveOpen, setApproveOpen] = useState(false);
   const [approveTarget, setApproveTarget] = useState<CycleApprovalResponse | null>(null);
-  const [newValue, setNewValue] = useState("");
-  const [approveNotes, setApproveNotes] = useState("");
-  const [approving, setApproving] = useState(false);
+  const [approveOpen, setApproveOpen] = useState(false);
 
-  // Reject
-  const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<CycleApprovalResponse | null>(null);
+  const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectNotes, setRejectNotes] = useState("");
   const [rejecting, setRejecting] = useState(false);
 
-  // New Cycle Management (12x12)
-  const [selectedClientLotId, setSelectedClientLotId] = useState<string | null>(null);
-  const [installmentInfo, setInstallmentInfo] = useState<InstallmentInfo | null>(null);
-  const [infoLoading, setInfoLoading] = useState(false);
-  
-  // Renew Cycle Dialog
-  const [renewDialogOpen, setRenewDialogOpen] = useState(false);
-  const [renewClientLotId, setRenewClientLotId] = useState<string | null>(null);
-  const [renewClientName, setRenewClientName] = useState<string>("");
-  const [renewInstallmentInfo, setRenewInstallmentInfo] = useState<InstallmentInfo | null>(null);
-  const [adjustmentRate, setAdjustmentRate] = useState<string>("5.00");
-  const [renewLoading, setRenewLoading] = useState(false);
-  const [renewStep, setRenewStep] = useState<"prepare" | "create">("prepare");
-  const [prepareResult, setPrepareResult] = useState<{ new_installment_value: number; remaining_installments: number } | null>(null);
+  const [deedTarget, setDeedTarget] = useState<CycleApprovalResponse | null>(null);
+  const [deedOpen, setDeedOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const params: { status?: string } = {};
-      if (statusFilter !== "all") params.status = statusFilter;
-      const data = await listCycleApprovals(params);
-      setApprovals(Array.isArray(data) ? data : []);
+      setApprovals(await listCycleApprovals({ status: statusFilter }));
     } catch (err) {
-      if (err instanceof ApiError) toast.error("Erro ao carregar aprovações");
+      toast.error(
+        err instanceof ApiError && typeof err.detail === "string"
+          ? err.detail
+          : "Erro ao carregar as renovações"
+      );
     } finally {
       setLoading(false);
     }
   }, [statusFilter]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  const pendingCount = approvals.filter((a) => a.status === "PENDING").length;
-
-  async function handleViewDetail(item: CycleApprovalResponse) {
-    setDetailLoading(true);
-    setDetailOpen(true);
-    setSelectedClientLotId(item.client_lot_id);
-    try {
-      const [data, installmentData] = await Promise.all([
-        getCycleApprovalDetail(item.id),
-        getInstallmentInfo(item.client_lot_id).catch(() => null),
-      ]);
-      setDetail(data);
-      setInstallmentInfo(installmentData);
-    } catch {
-      setDetail(item);
-      setInstallmentInfo(null);
-    } finally {
-      setDetailLoading(false);
-    }
-  }
-
-  async function handleApprove() {
-    if (!approveTarget || !newValue) return;
-    setApproving(true);
-    try {
-      await approveCycle(approveTarget.id, {
-        new_installment_value: parseFloat(newValue),
-        adjustment_details: approveTarget.suggested_adjustment_details || undefined,
-        admin_notes: approveNotes || undefined,
-      });
-      toast.success("Ciclo aprovado com sucesso");
-      setApproveOpen(false);
-      setApproveTarget(null);
-      setNewValue("");
-      setApproveNotes("");
-      loadData();
-    } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(typeof err.detail === "string" ? err.detail : "Erro ao aprovar");
-      }
-    } finally {
-      setApproving(false);
-    }
+  function setParam(key: string, value: string | null) {
+    const next = new URLSearchParams(searchParams.toString());
+    if (value === null) next.delete(key);
+    else next.set(key, value);
+    router.replace(`?${next.toString()}`);
   }
 
   async function handleReject() {
@@ -141,226 +110,241 @@ export default function CycleApprovalsPage() {
     setRejecting(true);
     try {
       await rejectCycle(rejectTarget.id, { admin_notes: rejectNotes });
-      toast.success("Ciclo rejeitado");
+      toast.success("Renovação rejeitada");
       setRejectOpen(false);
-      setRejectTarget(null);
       setRejectNotes("");
       loadData();
     } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(typeof err.detail === "string" ? err.detail : "Erro ao rejeitar");
-      }
+      toast.error(
+        err instanceof ApiError && typeof err.detail === "string"
+          ? err.detail
+          : "Erro ao rejeitar"
+      );
     } finally {
       setRejecting(false);
     }
   }
 
-  async function loadInstallmentInfo(clientLotId: string) {
-    setInfoLoading(true);
-    try {
-      const info = await getInstallmentInfo(clientLotId);
-      setInstallmentInfo(info);
-      setSelectedClientLotId(clientLotId);
-    } catch (err) {
-      toast.error("Erro ao carregar informações de parcelas");
-    } finally {
-      setInfoLoading(false);
-    }
-  }
+  const visible = finalOnly ? approvals.filter((a) => a.is_final_cycle) : approvals;
+  const pendingCount = approvals.filter((a) => a.status === "PENDING").length;
+  const blockedCount = approvals.filter(
+    (a) => a.status === "PENDING" && !a.can_approve
+  ).length;
+  const finalCount = approvals.filter(
+    (a) => a.status === "PENDING" && a.is_final_cycle
+  ).length;
 
-  function openRenewDialog(clientLotId: string, clientName: string) {
-    setRenewClientLotId(clientLotId);
-    setRenewClientName(clientName);
-    setRenewStep("prepare");
-    setAdjustmentRate("5.00");
-    setPrepareResult(null);
-    setRenewDialogOpen(true);
-    // Load installment info
-    getInstallmentInfo(clientLotId)
-      .then((info) => setRenewInstallmentInfo(info))
-      .catch(() => toast.error("Erro ao carregar informações do contrato"));
-  }
-
-  async function handlePrepareRenew() {
-    if (!renewClientLotId) return;
-    setRenewLoading(true);
-    try {
-      const rate = parseFloat(adjustmentRate) / 100;
-      const result = await generateNextBatch(renewClientLotId, rate);
-      setPrepareResult({
-        new_installment_value: result.new_installment_value,
-        remaining_installments: result.remaining_installments,
-      });
-      setRenewStep("create");
-      toast.success(result.message);
-    } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(typeof err.detail === "string" ? err.detail : "Erro ao preparar ciclo");
-      }
-    } finally {
-      setRenewLoading(false);
-    }
-  }
-
-  async function handleCreateBatch() {
-    if (!renewClientLotId || !prepareResult) return;
-    setRenewLoading(true);
-    try {
-      const duration = Math.min(12, prepareResult.remaining_installments);
-      // Calculate first due date (next month from today)
-      const nextDue = new Date();
-      nextDue.setMonth(nextDue.getMonth() + 1);
-      nextDue.setDate(10); // Due on 10th of each month
-      
-      await createBatchBoletos({
-        client_id: renewInstallmentInfo?.client_lot_id || "",
-        pagador: {} as any, // Will be filled from client data
-        valor: prepareResult.new_installment_value,
-        frequency: "MENSAL",
-        duration_months: duration,
-        data_primeiro_vencimento: nextDue.toISOString().split("T")[0],
-      });
-      
-      toast.success(`✅ ${duration} boletos gerados para o ciclo ${(renewInstallmentInfo?.current_cycle || 0) + 1}`);
-      setRenewDialogOpen(false);
-      loadData();
-    } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(typeof err.detail === "string" ? err.detail : "Erro ao criar boletos");
-      }
-    } finally {
-      setRenewLoading(false);
-    }
-  }
-
-  function getStatusBadge(status: CycleApprovalStatus) {
+  function statusBadge(status: CycleApprovalStatus) {
     const cfg = WORKFLOW_STATUS_CONFIG[status] || WORKFLOW_STATUS_CONFIG.PENDING;
     return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Aprovação de Ciclos" description="Gerencie aprovações de ciclos de 12 parcelas">
-        {pendingCount > 0 && (
-          <Badge className="bg-yellow-500 text-white hover:bg-yellow-600">
-            {pendingCount} pendente{pendingCount > 1 ? "s" : ""}
-          </Badge>
+    <PermissionGuard permission="manage_financial">
+      <div className="space-y-6">
+        <PageHeader
+          title="Renovação de ciclos"
+          description="Libere os próximos boletos de cada contrato, com o reajuste do período"
+        >
+          <Button variant="outline" size="sm" onClick={() => setShowHelp((v) => !v)}>
+            <Info className="mr-2 h-4 w-4" />
+            Como funciona
+          </Button>
+        </PageHeader>
+
+        {showHelp && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Como funciona o ciclo</CardTitle>
+              <CardDescription>
+                O contrato é cobrado em ciclos de até 12 parcelas.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-muted-foreground">
+              <p>
+                <strong className="text-foreground">1. O sistema avisa com antecedência.</strong>{" "}
+                Cerca de 45 dias antes do vencimento da última parcela do ciclo, a
+                renovação aparece aqui e o menu mostra o contador.
+              </p>
+              <p>
+                <strong className="text-foreground">2. Você revisa o reajuste.</strong> O
+                valor sugerido já vem calculado pelo índice do contrato mais a taxa
+                fixa. Dá para editar antes de liberar.
+              </p>
+              <p>
+                <strong className="text-foreground">3. Aprovar gera os boletos.</strong> As
+                próximas parcelas são criadas e enviadas para registro no banco.
+              </p>
+              <p>
+                <strong className="text-foreground">4. Parcela em aberto trava a aprovação.</strong>{" "}
+                Se o ciclo anterior não foi todo liquidado, use{" "}
+                <strong className="text-foreground">Renovar agora</strong>: libera mesmo
+                assim, mediante justificativa, e fica registrado no histórico.
+              </p>
+              <p>
+                <strong className="text-foreground">5. Último ciclo inicia a escrituração.</strong>{" "}
+                Quando restam 12 parcelas ou menos, o contrato é marcado como último
+                ciclo e o checklist de documentos é aberto.
+              </p>
+            </CardContent>
+          </Card>
         )}
-      </PageHeader>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="PENDING">Pendentes</SelectItem>
-            <SelectItem value="APPROVED">Aprovados</SelectItem>
-            <SelectItem value="REJECTED">Rejeitados</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-2xl font-bold">{pendingCount}</p>
+              <p className="text-xs text-muted-foreground">Aguardando sua decisão</p>
+            </CardContent>
+          </Card>
+          <Card className={blockedCount > 0 ? "border-destructive/40" : undefined}>
+            <CardContent className="p-4">
+              <p
+                className={`text-2xl font-bold ${blockedCount > 0 ? "text-destructive" : ""}`}
+              >
+                {blockedCount}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Com parcela em aberto — exigem &quot;Renovar agora&quot;
+              </p>
+            </CardContent>
+          </Card>
+          <Card className={finalCount > 0 ? "border-amber-300" : undefined}>
+            <CardContent className="p-4">
+              <p className={`text-2xl font-bold ${finalCount > 0 ? "text-amber-600" : ""}`}>
+                {finalCount}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Último ciclo — iniciar escrituração
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="pt-6">
-          {loading ? (
-            <TableSkeleton />
-          ) : approvals.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <CheckCircle className="h-10 w-10 mb-3" />
-              <p className="text-sm font-medium">Nenhuma aprovação encontrada</p>
-            </div>
-          ) : (
-            <div className="rounded-md border">
+        <div className="flex flex-wrap items-center gap-3">
+          <Select value={statusFilter} onValueChange={(v) => setParam("status", v)}>
+            <SelectTrigger className="w-[190px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="PENDING">Pendentes</SelectItem>
+              <SelectItem value="APPROVED">Aprovados</SelectItem>
+              <SelectItem value="REJECTED">Rejeitados</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant={finalOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => setParam("final", finalOnly ? null : "1")}
+          >
+            <FileSignature className="mr-2 h-4 w-4" />
+            Só último ciclo
+          </Button>
+          <Button variant="ghost" size="sm" onClick={loadData}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Atualizar
+          </Button>
+        </div>
+
+        <Card>
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="p-4">
+                <TableSkeleton rows={5} />
+              </div>
+            ) : visible.length === 0 ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                Nenhuma renovação {statusFilter === "PENDING" ? "pendente" : "nesta situação"}.
+              </p>
+            ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Lote</TableHead>
-                    <TableHead>Ciclo #</TableHead>
-                    <TableHead>Valor Anterior</TableHead>
-                    <TableHead>Novo Valor</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Data Solicitação</TableHead>
-                    <TableHead className="w-28"></TableHead>
+                    <TableHead>Ciclo</TableHead>
+                    <TableHead>Quitação do ciclo anterior</TableHead>
+                    <TableHead className="text-right">Valor atual</TableHead>
+                    <TableHead>Situação</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {approvals.map((item) => (
+                  {visible.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">
-                        {item.client_name || "—"}
+                        <div className="flex items-center gap-2">
+                          {item.client_name ?? "—"}
+                          {item.is_final_cycle && <FinalCycleBadge />}
+                        </div>
+                        {item.forced && (
+                          <p className="mt-0.5 text-[11px] text-destructive">
+                            Renovado com pendência
+                          </p>
+                        )}
                       </TableCell>
-                      <TableCell>{item.lot_identifier || "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {item.lot_identifier ?? "—"}
+                      </TableCell>
+                      <TableCell>#{item.cycle_number}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">#{item.cycle_number}</Badge>
+                        <SettlementBadge item={item} />
                       </TableCell>
-                      <TableCell className="font-semibold">
+                      <TableCell className="text-right">
                         {formatCurrency(item.previous_installment_value)}
                       </TableCell>
-                      <TableCell className="font-semibold">
-                        {item.new_installment_value
-                          ? formatCurrency(item.new_installment_value)
-                          : "—"}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(item.status)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(item.requested_at)}
-                      </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => handleViewDetail(item)}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
+                        <div className="space-y-1">
+                          {statusBadge(item.status)}
+                          <p className="text-[11px] text-muted-foreground">
+                            {formatDate(item.requested_at)}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          {item.is_final_cycle && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setDeedTarget(item);
+                                setDeedOpen(true);
+                              }}
+                            >
+                              <FileSignature className="mr-1 h-4 w-4" />
+                              Escrituração
+                            </Button>
+                          )}
                           {item.status === "PENDING" && (
-                            <PermissionGuard permission="manage_financial">
-                              <>
-                                {/* New Cycle Management Button */}
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 px-2 text-blue-600 hover:text-blue-700"
-                                  onClick={() => openRenewDialog(item.client_lot_id, item.client_name || "Cliente")}
-                                  title="Gerar Próximo Ciclo (12x12)"
-                                >
-                                  <Bell className="h-3.5 w-3.5 mr-1" />
-                                  Renovar
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
-                                  onClick={() => {
-                                    setApproveTarget(item);
-                                    setNewValue(String(item.suggested_new_value ?? item.previous_installment_value));
-                                    setApproveNotes("");
-                                    setApproveOpen(true);
-                                  }}
-                                >
-                                  <CheckCircle className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                  onClick={() => {
-                                    setRejectTarget(item);
-                                    setRejectNotes("");
-                                    setRejectOpen(true);
-                                  }}
-                                >
-                                  <XCircle className="h-3.5 w-3.5" />
-                                </Button>
-                              </>
-                            </PermissionGuard>
+                            <>
+                              <Button
+                                size="sm"
+                                className={
+                                  item.can_approve
+                                    ? "bg-green-600 hover:bg-green-700"
+                                    : "bg-destructive hover:bg-destructive/90"
+                                }
+                                onClick={() => {
+                                  setApproveTarget(item);
+                                  setApproveOpen(true);
+                                }}
+                              >
+                                <CheckCircle className="mr-1 h-4 w-4" />
+                                {item.can_approve ? "Aprovar" : "Renovar agora"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setRejectTarget(item);
+                                  setRejectNotes("");
+                                  setRejectOpen(true);
+                                }}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>
@@ -368,372 +352,67 @@ export default function CycleApprovalsPage() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Detail Dialog */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Detalhes do Ciclo</DialogTitle>
-            <DialogDescription>
-              {detail?.client_name} — {detail?.lot_identifier}
-            </DialogDescription>
-          </DialogHeader>
-          {detailLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : detail ? (
+        <ApproveCycleDialog
+          target={approveTarget}
+          open={approveOpen}
+          onOpenChange={setApproveOpen}
+          onDone={loadData}
+        />
+
+        <DeedChecklistDialog
+          clientLotId={deedTarget?.client_lot_id ?? null}
+          clientName={deedTarget?.client_name ?? ""}
+          open={deedOpen}
+          onOpenChange={setDeedOpen}
+        />
+
+        <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rejeitar renovação</DialogTitle>
+              <DialogDescription>
+                {rejectTarget?.client_name} — Ciclo #{rejectTarget?.cycle_number}
+              </DialogDescription>
+            </DialogHeader>
             <div className="space-y-4">
-              {/* Installment Info Card */}
-              {installmentInfo && (
-                <InstallmentInfoCard 
-                  info={installmentInfo}
-                  showActions={false}
+              <p className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
+                Rejeitar não gera parcelas nem boletos. O contrato fica sem cobrança
+                até que uma nova renovação seja aberta.
+              </p>
+              <div>
+                <label className="text-sm font-medium">Motivo da rejeição *</label>
+                <Textarea
+                  value={rejectNotes}
+                  onChange={(e) => setRejectNotes(e.target.value)}
+                  className="mt-1"
+                  rows={3}
+                  placeholder="Mínimo 5 caracteres..."
                 />
-              )}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Ciclo</p>
-                  <p className="font-semibold">#{detail.cycle_number}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Status</p>
-                  {getStatusBadge(detail.status)}
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Valor Anterior</p>
-                  <p className="font-semibold">{formatCurrency(detail.previous_installment_value)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Novo Valor</p>
-                  <p className="font-semibold">
-                    {detail.new_installment_value
-                      ? formatCurrency(detail.new_installment_value)
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Solicitado em</p>
-                  <p className="text-sm">{formatDate(detail.requested_at)}</p>
-                </div>
-                {detail.approved_at && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      {detail.status === "APPROVED" ? "Aprovado em" : "Rejeitado em"}
-                    </p>
-                    <p className="text-sm">{formatDate(detail.approved_at)}</p>
-                  </div>
+                {rejectNotes.length > 0 && rejectNotes.length < 5 && (
+                  <p className="mt-1 text-xs text-destructive">Mínimo 5 caracteres</p>
                 )}
               </div>
-              {detail.adjustment_details && Object.keys(detail.adjustment_details).length > 0 && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Detalhes do Ajuste</p>
-                  <pre className="rounded-lg bg-muted p-3 text-xs overflow-auto max-h-40">
-                    {JSON.stringify(detail.adjustment_details, null, 2)}
-                  </pre>
-                </div>
-              )}
-              {detail.admin_notes && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Observações do Admin</p>
-                  <p className="text-sm bg-muted rounded-lg p-3">{detail.admin_notes}</p>
-                </div>
-              )}
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
-      {/* Approve Dialog */}
-      <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Aprovar Ciclo</DialogTitle>
-            <DialogDescription>
-              {approveTarget?.client_name} — Ciclo #{approveTarget?.cycle_number}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="rounded-lg bg-muted p-3 space-y-1.5 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Valor anterior:</span>
-                <span className="font-semibold">
-                  {approveTarget ? formatCurrency(approveTarget.previous_installment_value) : "—"}
-                </span>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setRejectOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleReject}
+                  disabled={rejecting || rejectNotes.length < 5}
+                >
+                  {rejecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Rejeitar
+                </Button>
               </div>
-              {approveTarget?.remaining_installments != null && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Débito do ciclo:</span>
-                  <span className="font-medium">
-                    gera {approveTarget.installments_to_generate ?? 0} — restam {approveTarget.remaining_installments} de {approveTarget.total_installments ?? "?"}
-                  </span>
-                </div>
-              )}
-              {approveTarget?.last_adjustment_date && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Último reajuste:</span>
-                  <span className="font-medium">{formatDate(approveTarget.last_adjustment_date)}</span>
-                </div>
-              )}
             </div>
-
-            {/* Taxas aplicadas anteriormente — destaque para revisão */}
-            {approveTarget?.effective_rates && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-amber-800">
-                  Taxas aplicadas (revise antes de aprovar)
-                </p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-amber-900">
-                  <span>Multa: <strong>{approveTarget.effective_rates.penalty_rate}%</strong></span>
-                  <span>Juros/dia: <strong>{approveTarget.effective_rates.daily_interest_rate}%</strong></span>
-                  <span>Índice: <strong>{approveTarget.effective_rates.adjustment_index}</strong></span>
-                  <span>Taxa fixa: <strong>{approveTarget.effective_rates.adjustment_custom_rate}%</strong></span>
-                </div>
-                {approveTarget.previous_adjustment_details && Object.keys(approveTarget.previous_adjustment_details).length > 0 && (
-                  <p className="mt-2 text-xs text-amber-700">
-                    Reajuste anterior: {JSON.stringify(approveTarget.previous_adjustment_details)}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Sugestão de cálculo (IPCA acumulado + taxa fixa) */}
-            {approveTarget?.suggested_new_value != null && (
-              <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-                <div className="flex items-center justify-between">
-                  <span>Valor sugerido (IPCA + taxa fixa):</span>
-                  <span className="font-semibold">{formatCurrency(approveTarget.suggested_new_value)}</span>
-                </div>
-                <p className="mt-1 text-xs text-green-700">
-                  Pré-preenchido abaixo. Edite se necessário antes de aprovar.
-                </p>
-              </div>
-            )}
-
-            <div>
-              <label className="text-sm font-medium">Novo Valor da Parcela *</label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={newValue}
-                onChange={(e) => setNewValue(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Observações (opcional)</label>
-              <Textarea
-                value={approveNotes}
-                onChange={(e) => setApproveNotes(e.target.value)}
-                className="mt-1"
-                rows={3}
-                placeholder="Detalhes sobre o ajuste..."
-              />
-            </div>
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setApproveOpen(false)}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleApprove}
-                disabled={approving || !newValue}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {approving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Aprovar Ciclo
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject Dialog */}
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rejeitar Ciclo</DialogTitle>
-            <DialogDescription>
-              {rejectTarget?.client_name} — Ciclo #{rejectTarget?.cycle_number}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Motivo da Rejeição *</label>
-              <Textarea
-                value={rejectNotes}
-                onChange={(e) => setRejectNotes(e.target.value)}
-                className="mt-1"
-                rows={3}
-                placeholder="Mínimo 5 caracteres..."
-              />
-              {rejectNotes.length > 0 && rejectNotes.length < 5 && (
-                <p className="text-xs text-destructive mt-1">Mínimo 5 caracteres</p>
-              )}
-            </div>
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setRejectOpen(false)}>
-                Cancelar
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleReject}
-                disabled={rejecting || rejectNotes.length < 5}
-              >
-                {rejecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Rejeitar Ciclo
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Renew Cycle Dialog */}
-      <Dialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-yellow-500" />
-              {renewStep === "prepare" 
-                ? `Ciclo ${renewInstallmentInfo?.current_cycle || 1} Completo — ${renewClientName}`
-                : `Confirmar Geração do Ciclo ${(renewInstallmentInfo?.current_cycle || 1) + 1}`
-              }
-            </DialogTitle>
-            <DialogDescription>
-              {renewStep === "prepare" 
-                ? "Defina o percentual de reajuste para o próximo ciclo."
-                : "Verifique os dados antes de gerar os boletos."
-              }
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            {renewStep === "prepare" ? (
-              <>
-                {/* Current Info */}
-                {renewInstallmentInfo && (
-                  <div className="rounded-lg bg-muted p-3 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Parcelas restantes:</span>
-                      <span className="font-medium">
-                        {renewInstallmentInfo.remaining_installments} de {renewInstallmentInfo.total_installments}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Valor atual:</span>
-                      <span className="font-medium">
-                        {renewInstallmentInfo.current_installment_value 
-                          ? formatCurrency(renewInstallmentInfo.current_installment_value)
-                          : "—"}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Adjustment Rate Input */}
-                <div>
-                  <label className="text-sm font-medium">Reajuste para o ciclo {renewInstallmentInfo ? renewInstallmentInfo.current_cycle + 1 : 2} (%)</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={adjustmentRate}
-                      onChange={(e) => setAdjustmentRate(e.target.value)}
-                      className="w-32"
-                    />
-                    <span className="text-muted-foreground">%</span>
-                  </div>
-                </div>
-
-                {/* Real-time calculation */}
-                {renewInstallmentInfo?.current_installment_value && (
-                  <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-                    <p className="text-sm text-green-800">
-                      <span className="font-medium">Novo valor estimado: </span>
-                      {formatCurrency(
-                        renewInstallmentInfo.current_installment_value * 
-                        (1 + (parseFloat(adjustmentRate) || 0) / 100)
-                      )}
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="outline" onClick={() => setRenewDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button
-                    onClick={handlePrepareRenew}
-                    disabled={renewLoading}
-                  >
-                    {renewLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Preparar Próximo Ciclo
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Create Step */}
-                {prepareResult && (
-                  <div className="rounded-lg bg-muted p-3 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Novo valor da parcela:</span>
-                      <span className="font-semibold text-green-600">
-                        {formatCurrency(prepareResult.new_installment_value)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Quantidade de boletos:</span>
-                      <span className="font-medium">
-                        {Math.min(12, prepareResult.remaining_installments)} boletos
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Primeiro vencimento:</span>
-                      <span className="font-medium">
-                        {(() => {
-                          const nextDue = new Date();
-                          nextDue.setMonth(nextDue.getMonth() + 1);
-                          nextDue.setDate(10);
-                          return nextDue.toLocaleDateString("pt-BR");
-                        })()}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-                  <p className="font-medium">⚠️ Atenção</p>
-                  <p className="mt-1">
-                    Os boletos serão criados no Sicredi com o valor reajustado. 
-                    Esta ação não pode ser desfeita.
-                  </p>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="outline" onClick={() => setRenewStep("prepare")}>
-                    Voltar
-                  </Button>
-                  <Button
-                    onClick={handleCreateBatch}
-                    disabled={renewLoading}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    {renewLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Confirmar e Gerar Lote
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </PermissionGuard>
   );
 }

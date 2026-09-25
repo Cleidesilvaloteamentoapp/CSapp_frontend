@@ -49,16 +49,20 @@ const STATUS_FLOW: Record<TransferStatus, { next: string; color: string }> = {
 
 export default function TransfersPage() {
   const router = useRouter();
-  const { isSuperAdmin, loading: authLoading } = useAuth();
+  // Listing, creating and cancelling a transfer need manage_clients; only
+  // approving and completing are platform-level, and those buttons are gated
+  // individually below. Bouncing the whole page hid it from the admins who run it.
+  const { can, isSuperAdmin, loading: authLoading } = useAuth();
+  const allowed = can("manage_clients");
   const [transfers, setTransfers] = useState<ContractTransferResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   useEffect(() => {
-    if (!authLoading && !isSuperAdmin) {
+    if (!authLoading && !allowed) {
       router.replace("/admin/dashboard");
     }
-  }, [authLoading, isSuperAdmin, router]);
+  }, [authLoading, allowed, router]);
 
   // Create
   const [createOpen, setCreateOpen] = useState(false);
@@ -312,29 +316,27 @@ export default function TransfersPage() {
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
-                          {t.status === "PENDING" && (
-                            <PermissionGuard permission="manage_clients">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
-                                onClick={() => setConfirmAction({ type: "approve", transfer: t })}
-                              >
-                                <CheckCircle className="h-3.5 w-3.5" />
-                              </Button>
-                            </PermissionGuard>
+                          {t.status === "PENDING" && isSuperAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                              title="Aprovar (somente super admin)"
+                              onClick={() => setConfirmAction({ type: "approve", transfer: t })}
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                            </Button>
                           )}
-                          {t.status === "APPROVED" && (
-                            <PermissionGuard permission="manage_clients">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
-                                onClick={() => setConfirmAction({ type: "complete", transfer: t })}
-                              >
-                                <PlayCircle className="h-3.5 w-3.5" />
-                              </Button>
-                            </PermissionGuard>
+                          {t.status === "APPROVED" && isSuperAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                              title="Concluir (somente super admin)"
+                              onClick={() => setConfirmAction({ type: "complete", transfer: t })}
+                            >
+                              <PlayCircle className="h-3.5 w-3.5" />
+                            </Button>
                           )}
                           {(t.status === "PENDING" || t.status === "APPROVED") && (
                             <PermissionGuard permission="manage_clients">

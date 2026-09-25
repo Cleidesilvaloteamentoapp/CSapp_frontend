@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Building2,
   LayoutDashboard,
   Users,
   MapPin,
@@ -39,7 +40,9 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
 import { ChangePasswordDialog } from "@/components/shared/change-password-dialog";
+import { normalizeRole } from "@/lib/auth";
 import { useAdminNotifications } from "@/hooks/use-admin-notifications";
+import { usePendingCycles } from "@/hooks/use-pending-cycles";
 import type { StaffPermissions } from "@/types";
 import {
   Sidebar,
@@ -63,7 +66,7 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
   badge?: "pending" | "coming-soon";
   separator?: boolean;
-  permission?: keyof StaffPermissions | "adminOnly";
+  permission?: keyof StaffPermissions | "adminOnly" | "superAdminOnly";
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -89,6 +92,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/settings/whatsapp", label: "WhatsApp", icon: MessageSquare, permission: "manage_whatsapp", separator: true },
   { href: "/admin/staff", label: "Funcionários", icon: UserCog, permission: "adminOnly", separator: true },
   { href: "/admin/settings", label: "Identidade Visual", icon: Palette, permission: "adminOnly" },
+  { href: "/admin/companies", label: "Empresas", icon: Building2, permission: "superAdminOnly", separator: true },
 ];
 
 const ROLE_LABEL: Record<string, string> = {
@@ -100,19 +104,34 @@ const ROLE_LABEL: Record<string, string> = {
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const { user, logout, isAdmin, loading, can } = useAuth();
+  const { user, logout, isAdmin, isSuperAdmin, loading, can } = useAuth();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const { unreadCount } = useAdminNotifications();
+  const { counts: pendingCycles } = usePendingCycles();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
   const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (loading) return true;
+    if (loading) return item.permission !== "superAdminOnly";
     if (!item.permission) return true;
+    if (item.permission === "superAdminOnly") return isSuperAdmin;
     if (item.permission === "adminOnly") return isAdmin;
     if (isAdmin) return true;
     return can(item.permission);
   });
+
+  // The badge has to say why it is lit, or it is just another dot to ignore.
+  const badgeTitle = [
+    `${pendingCycles.pending} renovação(ões) aguardando aprovação`,
+    pendingCycles.blocked_by_unpaid > 0
+      ? `${pendingCycles.blocked_by_unpaid} com parcela em aberto`
+      : null,
+    pendingCycles.final_cycle > 0
+      ? `${pendingCycles.final_cycle} no último ciclo (escrituração)`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const initials = user?.full_name
     ?.split(" ")
@@ -179,9 +198,16 @@ export function AdminSidebar() {
                                   Em breve
                                 </span>
                               )}
-                              {item.badge === "pending" && (
-                                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-yellow-500 px-1.5 text-[10px] font-bold text-white">
-                                  !
+                              {item.badge === "pending" && pendingCycles.pending > 0 && (
+                                <span
+                                  className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white ${
+                                    pendingCycles.blocked_by_unpaid > 0 || pendingCycles.final_cycle > 0
+                                      ? "bg-destructive"
+                                      : "bg-yellow-500"
+                                  }`}
+                                  title={badgeTitle}
+                                >
+                                  {pendingCycles.pending > 9 ? "9+" : pendingCycles.pending}
                                 </span>
                               )}
                             </span>
@@ -209,7 +235,7 @@ export function AdminSidebar() {
               <span className="truncate text-sm font-medium">{user?.full_name}</span>
               <div className="flex items-center gap-1.5">
                 <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-bold uppercase">
-                  {user?.role ? ROLE_LABEL[user.role] ?? user.role : ""}
+                  {user?.role ? ROLE_LABEL[normalizeRole(user.role)] ?? user.role : ""}
                 </Badge>
               </div>
             </div>

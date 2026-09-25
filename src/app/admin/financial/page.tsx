@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useUrlFilter } from "@/hooks/use-url-filter";
 import { toast } from "sonner";
 import { DollarSign, AlertTriangle, TrendingUp, ArrowDownRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +32,8 @@ export default function FinancialPage() {
   const [receivables, setReceivables] = useState<PaginatedResponse<InvoiceResponse> | null>(null);
   const [defaulters, setDefaulters] = useState<DefaulterInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  // Read from the URL so the dashboard can link straight to a filtered list.
+  const [statusFilter, setStatusFilter] = useUrlFilter("status", "all");
   const [page, setPage] = useState(1);
 
   useEffect(() => {

@@ -56,15 +56,18 @@ const UF_LIST = [
 
 export default function EconomicIndicesPage() {
   const router = useRouter();
-  const { isSuperAdmin, loading: authLoading } = useAuth();
+  // The API gates this on view_financial_settings, so requiring the platform
+  // role here locked out company admins that the sidebar had just offered it to.
+  const { can, loading: authLoading } = useAuth();
+  const allowed = can("view_financial_settings");
   const [indices, setIndices] = useState<EconomicIndexResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !isSuperAdmin) {
+    if (!authLoading && !allowed) {
       router.replace("/admin/dashboard");
     }
-  }, [authLoading, isSuperAdmin, router]);
+  }, [authLoading, allowed, router]);
 
   // Filters
   const [filterType, setFilterType] = useState<string>("all");

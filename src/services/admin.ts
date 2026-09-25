@@ -14,7 +14,12 @@ import type {
   ClientLotResponse,
   ClientLotFinancialRulesUpdate,
   InstallmentInfo,
-  GenerateNextBatchResponse,
+  CyclePendingCount,
+  DeedChecklistResponse,
+  ActionQueue,
+  BillingPipeline,
+  CompanyResponse,
+  CompanyAdminResponse,
   AdminNotification,
   RescissionResponse,
   SicrediEventResponse,
@@ -82,12 +87,75 @@ export async function deleteEconomicIndex(id: string): Promise<void> {
 
 export async function listCycleApprovals(params?: {
   status?: string;
+  client_id?: string;
+  client_lot_id?: string;
 }): Promise<CycleApprovalResponse[]> {
   const query = new URLSearchParams();
   if (params?.status) query.set("status", params.status);
+  if (params?.client_id) query.set("client_id", params.client_id);
+  if (params?.client_lot_id) query.set("client_lot_id", params.client_lot_id);
   const qs = query.toString();
   return api.get<CycleApprovalResponse[]>(
     `/admin/cycle-approvals${qs ? `?${qs}` : ""}`
+  );
+}
+
+/**
+ * Counters for the sidebar badge and the dashboard queue.
+ *
+ * Deliberately not derived from listCycleApprovals: that endpoint enriches
+ * every row with rates and an index lookup, so counting through it costs
+ * hundreds of round-trips to render one number.
+ */
+export async function getPendingCycleCount(): Promise<CyclePendingCount> {
+  return api.get<CyclePendingCount>("/admin/cycle-approvals/pending-count");
+}
+
+/** Open a renewal now, ahead of the scheduled trigger. */
+export async function requestCycle(
+  clientLotId: string,
+  adminNotes?: string
+): Promise<CycleApprovalResponse> {
+  return api.post<CycleApprovalResponse>("/admin/cycle-approvals/request", {
+    client_lot_id: clientLotId,
+    admin_notes: adminNotes,
+  });
+}
+
+/**
+ * Renovar agora: release the next cycle even with installments still open.
+ * The justification is stored on the approval and audited.
+ */
+export async function forceApproveCycle(
+  id: string,
+  data: {
+    new_installment_value: number;
+    justification: string;
+    adjustment_details?: Record<string, unknown>;
+    admin_notes?: string;
+  }
+): Promise<CycleApprovalResponse> {
+  return api.post<CycleApprovalResponse>(
+    `/admin/cycle-approvals/${id}/force-approve`,
+    data
+  );
+}
+
+export async function getDeedChecklist(
+  clientLotId: string
+): Promise<DeedChecklistResponse> {
+  return api.get<DeedChecklistResponse>(
+    `/admin/cycle-approvals/deed-checklist/${clientLotId}`
+  );
+}
+
+export async function updateDeedChecklist(
+  clientLotId: string,
+  data: { document_type?: string; done?: boolean; note?: string; notes?: string }
+): Promise<DeedChecklistResponse> {
+  return api.patch<DeedChecklistResponse>(
+    `/admin/cycle-approvals/deed-checklist/${clientLotId}`,
+    data
   );
 }
 
@@ -319,17 +387,7 @@ export async function getInstallmentInfo(
   return api.get<InstallmentInfo>(`/admin/lots/client-lots/${clientLotId}/installments`);
 }
 
-export async function generateNextBatch(
-  clientLotId: string,
-  adjustmentRate: number
-): Promise<GenerateNextBatchResponse> {
-  const query = new URLSearchParams();
-  query.set("adjustment_rate", String(adjustmentRate));
-  return api.post<GenerateNextBatchResponse>(
-    `/admin/lots/client-lots/${clientLotId}/generate-next-batch?${query.toString()}`,
-    null
-  );
-}
+
 
 // ===================== Admin Notifications =====================
 
@@ -372,4 +430,76 @@ export async function markAllAdminNotificationsRead(): Promise<void> {
 
 export async function getClientDocuments(clientId: string): Promise<ClientDocument[]> {
   return api.get<ClientDocument[]>(`/admin/clients/${clientId}/documents`);
+}
+
+// ===================== Dashboard control panel =====================
+
+/** Everything awaiting a decision, with where to go and act on it. */
+export async function getActionQueue(companyId?: string): Promise<ActionQueue> {
+  const qs = companyId ? `?company_id=${companyId}` : "";
+  return api.get<ActionQueue>(`/admin/dashboard/action-queue${qs}`);
+}
+
+/** Health of the billing chain: invoices with no boleto, Sicredi errors, batches. */
+export async function getBillingPipeline(
+  companyId?: string
+): Promise<BillingPipeline> {
+  const qs = companyId ? `?company_id=${companyId}` : "";
+  return api.get<BillingPipeline>(`/admin/dashboard/billing-pipeline${qs}`);
+}
+
+// ===================== Companies (super admin only) =====================
+
+export async function listCompanies(params?: {
+  page?: number;
+  per_page?: number;
+  status?: string;
+  search?: string;
+}): Promise<{ items: CompanyResponse[]; total: number; page: number; pages: number }> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.per_page) query.set("per_page", String(params.per_page));
+  if (params?.status) query.set("status", params.status);
+  if (params?.search) query.set("search", params.search);
+  const qs = query.toString();
+  return api.get(`/companies${qs ? `?${qs}` : ""}`);
+}
+
+export async function createCompany(data: {
+  name: string;
+  slug: string;
+}): Promise<CompanyResponse> {
+  return api.post<CompanyResponse>("/companies", data);
+}
+
+export async function updateCompanyStatus(
+  companyId: string,
+  status: string
+): Promise<CompanyResponse> {
+  return api.patch<CompanyResponse>(`/companies/${companyId}/status`, { status });
+}
+
+export async function listCompanyAdmins(
+  companyId: string
+): Promise<CompanyAdminResponse[]> {
+  return api.get<CompanyAdminResponse[]>(`/companies/${companyId}/admins`);
+}
+
+/**
+ * Create a company's first administrator.
+ *
+ * Without this a new company is a shell nobody can log into -- which is what
+ * made the reseller flow a dead end.
+ */
+export async function createCompanyAdmin(
+  companyId: string,
+  data: {
+    full_name: string;
+    email: string;
+    cpf_cnpj: string;
+    phone: string;
+    password: string;
+  }
+): Promise<CompanyAdminResponse> {
+  return api.post<CompanyAdminResponse>(`/companies/${companyId}/admins`, data);
 }
