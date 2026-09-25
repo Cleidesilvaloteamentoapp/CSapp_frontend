@@ -22,7 +22,7 @@ import {
 import { PageHeader } from "@/components/layout/page-header";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { formatDate } from "@/lib/format";
+import { formatDate, toNumber } from "@/lib/format";
 import { ApiError } from "@/lib/api";
 import {
   listEconomicIndices,
@@ -307,7 +307,7 @@ export default function EconomicIndicesPage() {
                               setEditValue(String(idx.value));
                             }}
                           >
-                            {idx.value.toFixed(4)}%
+                            {toNumber(idx.value).toFixed(4)}%
                           </span>
                         )}
                       </TableCell>

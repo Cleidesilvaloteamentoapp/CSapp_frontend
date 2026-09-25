@@ -164,6 +164,8 @@ export default function ClientsPage() {
             <SelectItem value="active">Ativos</SelectItem>
             <SelectItem value="inactive">Inativos</SelectItem>
             <SelectItem value="defaulter">Inadimplentes</SelectItem>
+            <SelectItem value="in_negotiation">Em negociação</SelectItem>
+            <SelectItem value="rescinded">Rescindidos</SelectItem>
           </SelectContent>
         </Select>
       </div>

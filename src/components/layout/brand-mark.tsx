@@ -104,12 +104,16 @@ export function BrandMark({
   return (
     <>
       {mark}
-      <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-        <span className="text-sm font-bold tracking-tight text-sidebar-foreground">
+      {/* min-w-0 + truncate: sem isso um nome de empresa longo nao encolhe,
+          empurra os botoes do cabecalho e transborda por cima do menu. */}
+      <div className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
+        <span className="truncate text-sm font-bold leading-tight tracking-tight text-sidebar-foreground">
           {displayName}
         </span>
         {shownTagline && (
-          <span className="text-[11px] text-sidebar-foreground/60">{shownTagline}</span>
+          <span className="truncate text-[11px] leading-tight text-sidebar-foreground/60">
+            {shownTagline}
+          </span>
         )}
       </div>
     </>

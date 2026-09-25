@@ -50,9 +50,9 @@ export function PortalSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <SidebarHeader className="flex h-16 items-center gap-3 px-4">
+      <SidebarHeader className="flex h-16 shrink-0 items-center gap-3 overflow-hidden px-4">
         <BrandMark variant="sidebar" fallbackTagline="Portal do Cliente" />
-        <div className="ml-auto">
+        <div className="ml-auto shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <SidebarTrigger className="h-9 w-9 bg-sidebar-accent hover:bg-sidebar-accent/80" />

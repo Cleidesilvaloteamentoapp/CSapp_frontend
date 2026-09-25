@@ -46,6 +46,7 @@ import type {
 } from "@/types";
 import { ActionQueuePanel } from "./action-queue-panel";
 import { BillingPipelinePanel } from "./billing-pipeline-panel";
+import { MonthPanel } from "./month-panel";
 import { getActionQueue, getBillingPipeline, listDashboardDefaulters } from "@/services/admin";
 import {
   BarChart,
@@ -217,6 +218,10 @@ export function DashboardView({ basePath = "/admin" }: { basePath?: string }) {
           of the screen, and it used to be absent entirely. */}
       <ActionQueuePanel queue={queue} basePath={basePath} />
 
+      {/* O mês antes dos totais acumulados: é ele que responde "estamos no
+          ritmo?", que os números de vida inteira nunca respondem. */}
+      <MonthPanel financial={financial} basePath={basePath} />
+
       <BillingPipelinePanel pipeline={pipeline} basePath={basePath} />
 
       {/* KPI Cards */}
@@ -317,14 +322,14 @@ export function DashboardView({ basePath = "/admin" }: { basePath?: string }) {
           label="Contratos ativos"
           value={stats?.active_contracts ?? 0}
           hint="Lotes vinculados"
-          href={`${basePath}/financial?status=PENDING`}
+          href={`${basePath}/financial?status=pending`}
         />
         <QuickStat
           icon={Handshake}
           label="Em negociação"
           value={stats?.in_negotiation_clients ?? 0}
           hint="Clientes renegociando"
-          href={`${basePath}/clients?status=IN_NEGOTIATION`}
+          href={`${basePath}/clients?status=in_negotiation`}
           accent={(stats?.in_negotiation_clients ?? 0) > 0 ? "text-yellow-600" : "text-foreground"}
         />
         <QuickStat
@@ -332,7 +337,7 @@ export function DashboardView({ basePath = "/admin" }: { basePath?: string }) {
           label="Inativos"
           value={stats?.inactive_clients ?? 0}
           hint="Sem contrato ativo"
-          href={`${basePath}/clients?status=INACTIVE`}
+          href={`${basePath}/clients?status=inactive`}
           accent="text-muted-foreground"
         />
       </div>
@@ -352,7 +357,7 @@ export function DashboardView({ basePath = "/admin" }: { basePath?: string }) {
               </p>
             </div>
             <Link
-              href={`${basePath}/financial?status=PENDING&due=7d`}
+              href={`${basePath}/financial?status=pending`}
               className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/80 whitespace-nowrap"
             >
               Ver faturas

@@ -566,6 +566,19 @@ export interface FinancialOverview {
   overdue_count: number;
   due_soon_amount: string;
   due_soon_count: number;
+
+  // Current month. The totals above are lifetime figures and never say whether
+  // the month is on track.
+  month_expected_amount: string;
+  month_expected_count: number;
+  month_received_amount: string;
+  month_received_count: number;
+  month_open_amount: string;
+  month_open_count: number;
+  month_overdue_amount: string;
+  month_overdue_count: number;
+  next_month_expected_amount: string;
+  next_month_expected_count: number;
 }
 
 export interface RevenueChart {
@@ -665,7 +678,8 @@ export interface EconomicIndexResponse {
   index_type: IndexType;
   state_code: string | null;
   reference_month: string;
-  value: number;
+  // Decimal no backend -> chega como string no JSON. Ver toNumber em lib/format.
+  value: string | number;
   source: IndexSource;
   created_by: string | null;
   created_at: string;
