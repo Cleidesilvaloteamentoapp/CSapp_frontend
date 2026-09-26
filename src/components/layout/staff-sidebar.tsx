@@ -46,7 +46,7 @@ export function StaffSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <SidebarHeader className="flex h-16 shrink-0 items-center gap-3 overflow-hidden px-4">
+      <SidebarHeader className="h-16 shrink-0 flex-row items-center gap-3 overflow-hidden px-4 py-0 group-data-[collapsible=icon]:overflow-visible group-data-[collapsible=icon]:px-2">
         <BrandMark variant="sidebar" fallbackTagline="Loteamentos" />
         <div className="ml-auto shrink-0">
           <Tooltip>
